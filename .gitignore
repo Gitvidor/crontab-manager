@@ -1,0 +1,15 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# 运行时文件
+log/
+backups/
+
+# 配置文件（包含密码）
+config.json
+
+# 编辑器
+.vscode/
+.idea/

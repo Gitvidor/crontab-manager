@@ -1,0 +1,2052 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crontab Manager</title>
+    <style>
+        /* CSS 变量系统 */
+        :root {
+            --primary: #4A90D9;
+            --primary-hover: #357ABD;
+            --success: #4CAF50;
+            --success-hover: #45a049;
+            --warning: #FFA726;
+            --danger: #FF5F57;
+            --danger-border: #E24B41;
+            --macos-yellow: #FEBC2E;
+            --macos-yellow-border: #E1A73E;
+
+            --bg-primary: #f8fafc;
+            --bg-secondary: #ffffff;
+            --bg-tertiary: #f1f5f9;
+            --bg-hover: #e2e8f0;
+
+            --text-primary: #1e293b;
+            --text-secondary: #64748b;
+            --text-muted: #94a3b8;
+
+            --border-color: #e2e8f0;
+            --border-light: #f1f5f9;
+
+            --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
+            --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -2px rgba(0,0,0,0.1);
+            --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -4px rgba(0,0,0,0.1);
+
+            --radius-sm: 6px;
+            --radius-md: 8px;
+            --radius-lg: 12px;
+
+            --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+            --transition-normal: 250ms cubic-bezier(0.4, 0, 0.2, 1);
+            --transition-slow: 350ms cubic-bezier(0.4, 0, 0.2, 1);
+
+            --space-1: 4px;
+            --space-2: 8px;
+            --space-3: 12px;
+            --space-4: 16px;
+            --space-5: 20px;
+            --space-6: 24px;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg-primary);
+            padding: var(--space-5);
+            max-width: 1200px;
+            margin: 0 auto;
+            color: var(--text-primary);
+            line-height: 1.5;
+        }
+        h1 { color: var(--text-primary); margin-bottom: 0; font-weight: 600; font-size: 28px; }
+
+        /* 用户信息栏 */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: var(--space-4);
+        }
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: var(--space-3);
+        }
+        .user-name {
+            font-size: 14px;
+            color: var(--text-secondary);
+        }
+        .user-name strong {
+            color: var(--text-primary);
+        }
+        .logout-btn {
+            padding: var(--space-2) var(--space-4);
+            background: var(--bg-hover);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            font-size: 13px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all var(--transition-fast);
+        }
+        .logout-btn:hover {
+            background: var(--danger);
+            color: white;
+            border-color: var(--danger);
+        }
+
+        /* 日志视图 */
+        .audit-logs { display: none; }
+        .audit-logs.active { display: block; }
+        .log-list {
+            background: var(--bg-secondary);
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border-color);
+            overflow: hidden;
+        }
+        .log-item {
+            padding: var(--space-3) var(--space-4);
+            border-bottom: 1px solid var(--border-light);
+            font-size: 13px;
+            display: flex;
+            gap: var(--space-4);
+        }
+        .log-item:last-child { border-bottom: none; }
+        .log-item:hover { background: var(--bg-tertiary); }
+        .log-time {
+            color: var(--text-muted);
+            font-family: 'SF Mono', Monaco, monospace;
+            font-size: 12px;
+            min-width: 140px;
+        }
+        .log-user {
+            color: var(--primary);
+            font-weight: 500;
+            min-width: 80px;
+        }
+        .log-action {
+            font-weight: 500;
+            min-width: 120px;
+        }
+        .log-action.login { color: var(--success); }
+        .log-action.logout { color: var(--text-muted); }
+        .log-action.add, .log-action.create { color: var(--success); }
+        .log-action.delete { color: var(--danger); }
+        .log-action.update, .log-action.toggle, .log-action.save { color: var(--primary); }
+        .log-details {
+            color: var(--text-secondary);
+            flex: 1;
+            font-family: 'SF Mono', Monaco, monospace;
+            font-size: 12px;
+            word-break: break-all;
+        }
+        .log-empty {
+            text-align: center;
+            padding: var(--space-6);
+            color: var(--text-muted);
+        }
+        .tabs {
+            display: flex;
+            gap: var(--space-2);
+            margin-bottom: var(--space-5);
+        }
+        .tab {
+            padding: var(--space-3) var(--space-5);
+            border: none;
+            background: var(--bg-hover);
+            cursor: pointer;
+            border-radius: var(--radius-md);
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--text-secondary);
+            transition: all var(--transition-fast);
+        }
+        .tab.active {
+            background: var(--success);
+            color: white;
+            box-shadow: var(--shadow-sm);
+        }
+        .tab:hover:not(.active) {
+            background: var(--border-color);
+            color: var(--text-primary);
+        }
+
+        /* 任务列表视图 */
+        .task-list { display: none; }
+        .task-list.active { display: block; }
+        .task-card {
+            background: var(--bg-secondary);
+            border-radius: var(--radius-sm);
+            padding: var(--space-2) var(--space-3);
+            margin-bottom: var(--space-2);
+            box-shadow: var(--shadow-sm);
+            display: flex;
+            align-items: center;
+            gap: var(--space-3);
+            transition: all var(--transition-normal);
+            border: 1px solid var(--border-light);
+        }
+        .task-card:hover {
+            box-shadow: var(--shadow-md);
+            transform: translateY(-1px);
+        }
+        .task-card.disabled {
+            opacity: 0.5;
+            background: var(--bg-tertiary);
+        }
+        .task-card .toggle {
+            width: 36px;
+            height: 20px;
+            background: var(--text-muted);
+            border-radius: 10px;
+            position: relative;
+            cursor: pointer;
+            flex-shrink: 0;
+            transition: background var(--transition-normal);
+        }
+        .task-card .toggle.on { background: var(--success); }
+        .task-card .toggle::after {
+            content: '';
+            width: 16px;
+            height: 16px;
+            background: white;
+            border-radius: 50%;
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            transition: left var(--transition-normal);
+            box-shadow: var(--shadow-sm);
+        }
+        .task-card .toggle.on::after { left: 18px; }
+        .task-info { flex: 1; min-width: 0; }
+        .task-comment {
+            color: var(--text-secondary);
+            font-size: 12px;
+            margin-bottom: var(--space-1);
+        }
+        .task-schedule {
+            font-weight: 600;
+            font-size: 12px;
+            color: var(--text-primary);
+            font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+        }
+        .task-command {
+            font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+            font-size: 11px;
+            color: var(--text-secondary);
+            background: var(--bg-tertiary);
+            padding: var(--space-1) var(--space-2);
+            border-radius: var(--radius-sm);
+            word-break: break-all;
+            margin-top: var(--space-1);
+            border: 1px solid var(--border-light);
+        }
+
+        /* 原始编辑视图 */
+        .raw-editor { display: none; }
+        .raw-editor.active { display: block; }
+        .raw-editor textarea {
+            width: 100%;
+            height: 75vh;
+            font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+            font-size: 13px;
+            padding: var(--space-4);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            resize: vertical;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+        }
+        .raw-editor textarea:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(74, 144, 217, 0.15);
+        }
+        .save-btn {
+            margin-top: var(--space-4);
+            padding: var(--space-3) var(--space-6);
+            background: var(--success);
+            color: white;
+            border: none;
+            border-radius: var(--radius-md);
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all var(--transition-fast);
+            box-shadow: var(--shadow-sm);
+        }
+        .save-btn:hover {
+            background: var(--success-hover);
+            box-shadow: var(--shadow-md);
+            transform: translateY(-1px);
+        }
+        .save-btn:active { transform: translateY(0); }
+        .save-btn:disabled {
+            background: var(--text-muted);
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        /* 消息提示 */
+        .message {
+            position: fixed;
+            top: var(--space-5);
+            right: var(--space-5);
+            padding: var(--space-3) var(--space-5);
+            border-radius: var(--radius-md);
+            color: white;
+            display: none;
+            z-index: 1000;
+            font-weight: 500;
+            box-shadow: var(--shadow-lg);
+            animation: slideIn var(--transition-normal) ease-out;
+        }
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        .message.success { background: var(--success); display: block; }
+        .message.error { background: #ef4444; display: block; }
+
+        .header {
+            display: flex;
+            align-items: center;
+            margin-bottom: var(--space-5);
+        }
+        .header h1 { margin-bottom: 0; }
+
+        /* 内联编辑样式 */
+        .task-schedule {
+            display: flex;
+            gap: var(--space-1);
+            align-items: center;
+        }
+        .editable {
+            padding: 2px var(--space-1);
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+            font-size: 12px;
+            border: 1px solid transparent;
+            transition: all var(--transition-fast);
+        }
+        .editable:hover {
+            background: rgba(74, 144, 217, 0.1);
+            border-color: var(--primary);
+        }
+        .editable.time-field {
+            min-width: 35px;
+            text-align: center;
+        }
+        .editable.cmd-field {
+            flex: 1;
+            word-break: break-all;
+        }
+        .editable input {
+            font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+            font-size: 12px;
+            padding: 2px var(--space-1);
+            border: 1px solid var(--primary);
+            border-radius: var(--radius-sm);
+            outline: none;
+            background: var(--bg-secondary);
+            box-shadow: 0 0 0 3px rgba(74, 144, 217, 0.15);
+        }
+        .editable input.time-input {
+            width: 45px;
+            text-align: center;
+        }
+        .editable input.cmd-input {
+            width: 100%;
+            min-width: 200px;
+        }
+        .delete-btn {
+            width: 12px;
+            height: 12px;
+            background: var(--danger);
+            border: 0.5px solid var(--danger-border);
+            border-radius: 50%;
+            cursor: pointer;
+            flex-shrink: 0;
+            position: relative;
+            font-size: 0;
+            transition: transform var(--transition-fast);
+        }
+        .delete-btn:hover { transform: scale(1.2); }
+        .delete-btn::before,
+        .delete-btn::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 6px;
+            height: 1px;
+            background: transparent;
+            transition: background var(--transition-fast);
+        }
+        .delete-btn::before { transform: translate(-50%, -50%) rotate(45deg); }
+        .delete-btn::after { transform: translate(-50%, -50%) rotate(-45deg); }
+        .delete-btn:hover::before,
+        .delete-btn:hover::after { background: #4D0000; }
+
+        /* 任务分组卡片 */
+        .task-group {
+            background: var(--bg-secondary);
+            border-radius: var(--radius-lg);
+            margin-bottom: var(--space-4);
+            box-shadow: var(--shadow-md);
+            overflow: hidden;
+            transition: box-shadow var(--transition-normal);
+        }
+        .task-group:hover { box-shadow: var(--shadow-lg); }
+        .task-group .group-header {
+            background: linear-gradient(to bottom, var(--bg-tertiary), var(--bg-hover));
+            padding: var(--space-3) var(--space-4);
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+            border-bottom: 1px solid var(--border-color);
+            user-select: none;
+            transition: background var(--transition-fast);
+        }
+        .task-group .group-header:hover {
+            background: linear-gradient(to bottom, var(--bg-hover), #d1d5db);
+        }
+        .task-group .group-toggle {
+            margin-left: var(--space-2);
+            width: 14px;
+            height: 14px;
+            background: var(--macos-yellow);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0;
+            flex-shrink: 0;
+            border: 0.5px solid var(--macos-yellow-border);
+            position: relative;
+            transition: transform var(--transition-fast);
+        }
+        .task-group .group-toggle:hover { transform: scale(1.15); }
+        .task-group .group-toggle::before,
+        .task-group .group-toggle::after {
+            content: '';
+            position: absolute;
+            background: transparent;
+            transition: background var(--transition-fast);
+        }
+        .task-group .group-toggle::before {
+            width: 6px;
+            height: 1.5px;
+        }
+        .task-group .group-toggle::after {
+            width: 1.5px;
+            height: 6px;
+            display: none;
+        }
+        .task-group.collapsed .group-toggle::after {
+            display: block;
+        }
+        .task-group .group-toggle:hover::before,
+        .task-group .group-toggle:hover::after {
+            background: #985A00;
+        }
+        .group-delete-btn {
+            margin-left: var(--space-1);
+            width: 14px;
+            height: 14px;
+            background: var(--danger);
+            border: 0.5px solid var(--danger-border);
+            border-radius: 50%;
+            cursor: pointer;
+            flex-shrink: 0;
+            position: relative;
+            font-size: 0;
+            transition: transform var(--transition-fast);
+        }
+        .group-delete-btn:hover { transform: scale(1.15); }
+        .group-delete-btn::before,
+        .group-delete-btn::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 6px;
+            height: 1.5px;
+            background: transparent;
+            transition: background var(--transition-fast);
+        }
+        .group-delete-btn::before { transform: translate(-50%, -50%) rotate(45deg); }
+        .group-delete-btn::after { transform: translate(-50%, -50%) rotate(-45deg); }
+        .group-delete-btn:hover::before,
+        .group-delete-btn:hover::after { background: #4D0000; }
+        .task-group .group-title {
+            font-weight: 600;
+            font-size: 15px;
+            color: var(--text-primary);
+            flex: 1;
+            padding: 2px var(--space-1);
+            border-radius: var(--radius-sm);
+            border: 1px solid transparent;
+            transition: font-size var(--transition-normal), color var(--transition-normal);
+        }
+        .task-group.collapsed .group-title {
+            font-size: 13px;
+        }
+        .task-group.disabled .group-title {
+            color: var(--text-muted);
+        }
+        .task-group .group-title:hover {
+            background: rgba(74, 144, 217, 0.1);
+            border-color: var(--primary);
+            cursor: text;
+        }
+        .task-group .group-title input {
+            font-weight: 600;
+            font-size: 13px;
+            padding: 2px var(--space-1);
+            border: 1px solid var(--primary);
+            border-radius: var(--radius-sm);
+            outline: none;
+            background: var(--bg-secondary);
+            width: 200px;
+            box-shadow: 0 0 0 3px rgba(74, 144, 217, 0.15);
+        }
+        .task-group .group-count {
+            font-size: 11px;
+            color: var(--text-secondary);
+            background: var(--border-color);
+            padding: 2px var(--space-2);
+            border-radius: 10px;
+            font-weight: 500;
+        }
+        .task-group .group-toggle-switch {
+            width: 44px;
+            height: 24px;
+            background: var(--text-muted);
+            border-radius: 12px;
+            position: relative;
+            cursor: pointer;
+            margin-right: var(--space-3);
+            flex-shrink: 0;
+            transition: background var(--transition-normal);
+        }
+        .task-group .group-toggle-switch.on { background: var(--success); }
+        .task-group .group-toggle-switch.partial { background: var(--warning); }
+        .task-group .group-toggle-switch::after {
+            content: '';
+            width: 20px;
+            height: 20px;
+            background: white;
+            border-radius: 50%;
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            transition: left var(--transition-normal);
+            box-shadow: var(--shadow-sm);
+        }
+        .task-group .group-toggle-switch.on::after { left: 22px; }
+        .task-group .group-toggle-switch.partial::after { left: 12px; }
+        .task-group .group-tasks {
+            padding: var(--space-2);
+            max-height: 2000px;
+            overflow: hidden;
+            transition: max-height var(--transition-slow), padding var(--transition-slow), opacity var(--transition-slow);
+            opacity: 1;
+        }
+        .task-group.collapsed .group-tasks {
+            max-height: 0;
+            padding: 0 var(--space-2);
+            opacity: 0;
+        }
+        .task-group .group-header {
+            transition: border-bottom var(--transition-slow);
+        }
+        .task-group.collapsed .group-header { border-bottom: none; }
+        .task-group .task-card {
+            margin-bottom: var(--space-1);
+            box-shadow: none;
+            border: 1px solid var(--border-light);
+        }
+        .task-group .task-card:hover {
+            box-shadow: var(--shadow-sm);
+        }
+        .task-group .task-card:last-child {
+            margin-bottom: 0;
+        }
+
+        /* 折叠控制按钮 */
+        .collapse-controls {
+            display: flex;
+            gap: var(--space-2);
+            margin-bottom: var(--space-3);
+            position: sticky;
+            top: 0;
+            background: linear-gradient(to bottom, var(--bg-primary), var(--bg-primary) 90%, transparent);
+            padding: var(--space-3) 0;
+            z-index: 100;
+            backdrop-filter: blur(8px);
+        }
+        .collapse-btn {
+            padding: var(--space-2) var(--space-3);
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            color: var(--text-secondary);
+            transition: all var(--transition-fast);
+        }
+        .collapse-btn:hover {
+            background: var(--bg-hover);
+            color: var(--text-primary);
+            border-color: var(--text-muted);
+        }
+
+        /* 搜索框 */
+        .search-box {
+            flex: 1;
+            max-width: 300px;
+            padding: var(--space-2) var(--space-3);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            font-size: 13px;
+            outline: none;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            transition: all var(--transition-fast);
+        }
+        .search-box::placeholder { color: var(--text-muted); }
+        .search-box:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(74, 144, 217, 0.15);
+        }
+
+        /* 新建任务组按钮 */
+        .new-group-btn {
+            padding: var(--space-2) var(--space-3);
+            background: var(--success);
+            color: white;
+            border: none;
+            border-radius: var(--radius-sm);
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            margin-left: auto;
+            transition: all var(--transition-fast);
+            box-shadow: var(--shadow-sm);
+        }
+        .new-group-btn:hover {
+            background: var(--success-hover);
+            box-shadow: var(--shadow-md);
+            transform: translateY(-1px);
+        }
+        .new-group-btn:active { transform: translateY(0); }
+
+        /* 组内添加任务按钮 */
+        .group-add-task-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: var(--space-2);
+            margin-top: var(--space-2);
+            background: var(--bg-tertiary);
+            border: 2px dashed var(--border-color);
+            border-radius: var(--radius-sm);
+            color: var(--text-muted);
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all var(--transition-normal);
+        }
+        .group-add-task-btn:hover {
+            background: rgba(76, 175, 80, 0.1);
+            border-color: var(--success);
+            color: var(--success);
+            transform: translateY(-1px);
+        }
+
+        /* 组内添加任务表单 */
+        .group-add-form {
+            display: none;
+            padding: var(--space-3);
+            margin-top: var(--space-2);
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            animation: fadeIn var(--transition-fast) ease-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-4px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .group-add-form.active { display: block; }
+        .group-add-form .mini-cron-inputs {
+            display: flex;
+            gap: var(--space-1);
+            margin-bottom: var(--space-2);
+        }
+        .group-add-form .mini-cron-inputs input {
+            width: 42px;
+            padding: var(--space-1);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            text-align: center;
+            font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+            font-size: 11px;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            transition: all var(--transition-fast);
+        }
+        .group-add-form .mini-cron-inputs input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 2px rgba(74, 144, 217, 0.15);
+        }
+        .group-add-form .mini-command-row {
+            display: flex;
+            gap: var(--space-2);
+        }
+        .group-add-form .mini-command-row input {
+            flex: 1;
+            padding: var(--space-2);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+            font-size: 11px;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            transition: all var(--transition-fast);
+        }
+        .group-add-form .mini-command-row input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 2px rgba(74, 144, 217, 0.15);
+        }
+        .group-add-form .mini-add-btn {
+            padding: var(--space-2) var(--space-3);
+            background: var(--success);
+            color: white;
+            border: none;
+            border-radius: var(--radius-sm);
+            font-size: 11px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all var(--transition-fast);
+        }
+        .group-add-form .mini-add-btn:hover {
+            background: var(--success-hover);
+            transform: translateY(-1px);
+        }
+        .group-add-form .mini-cancel-btn {
+            padding: var(--space-2) var(--space-3);
+            background: var(--bg-secondary);
+            color: var(--text-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            font-size: 11px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all var(--transition-fast);
+        }
+        .group-add-form .mini-cancel-btn:hover {
+            background: var(--bg-hover);
+            color: var(--text-primary);
+        }
+
+        /* 新建任务组表单 */
+        .new-group-form {
+            display: none;
+            padding: var(--space-4);
+            background: var(--bg-secondary);
+            border-radius: var(--radius-lg);
+            margin-bottom: var(--space-4);
+            box-shadow: var(--shadow-md);
+            animation: fadeIn var(--transition-fast) ease-out;
+        }
+        .new-group-form.active { display: flex; gap: var(--space-2); align-items: center; }
+        .new-group-form input {
+            flex: 1;
+            padding: var(--space-3);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            font-size: 14px;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            transition: all var(--transition-fast);
+        }
+        .new-group-form input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(74, 144, 217, 0.15);
+        }
+        .new-group-form input::placeholder { color: var(--text-muted); }
+        .new-group-form button {
+            padding: var(--space-3) var(--space-4);
+            border: none;
+            border-radius: var(--radius-md);
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all var(--transition-fast);
+        }
+        .new-group-form .create-btn {
+            background: var(--success);
+            color: white;
+            box-shadow: var(--shadow-sm);
+        }
+        .new-group-form .create-btn:hover {
+            background: var(--success-hover);
+            transform: translateY(-1px);
+            box-shadow: var(--shadow-md);
+        }
+        .new-group-form .cancel-btn {
+            background: var(--bg-tertiary);
+            color: var(--text-secondary);
+            border: 1px solid var(--border-color);
+        }
+        .new-group-form .cancel-btn:hover {
+            background: var(--bg-hover);
+            color: var(--text-primary);
+        }
+
+        /* 响应式设计 */
+        @media (max-width: 768px) {
+            body { padding: var(--space-3); }
+            .collapse-controls {
+                flex-wrap: wrap;
+                gap: var(--space-2);
+            }
+            .search-box {
+                order: -1;
+                flex: 1 1 100%;
+                max-width: none;
+            }
+            .new-group-btn { flex: 1; text-align: center; }
+            .collapse-btn { flex: 1; text-align: center; }
+            .task-card { flex-wrap: wrap; }
+            .task-info { min-width: 100%; order: 1; margin-top: var(--space-2); }
+            .new-group-form { flex-wrap: wrap; }
+            .new-group-form input { flex: 1 1 100%; }
+            .new-group-form button { flex: 1; }
+            .group-add-form .mini-cron-inputs { flex-wrap: wrap; }
+            .group-add-form .mini-cron-inputs input { flex: 1; min-width: 36px; }
+            .group-add-form .mini-command-row { flex-wrap: wrap; }
+            .group-add-form .mini-command-row input { flex: 1 1 100%; margin-bottom: var(--space-2); }
+        }
+
+        @media (max-width: 480px) {
+            .tabs { flex-direction: column; }
+            .tab { text-align: center; }
+            .task-group .group-header { flex-wrap: wrap; gap: var(--space-2); }
+            .task-group .group-title { flex: 1 1 60%; }
+            .task-group .group-count { order: 10; }
+        }
+
+        /* 拖拽排序样式 */
+        .task-group.dragging,
+        .task-card.dragging {
+            opacity: 0.5;
+            transform: scale(0.98);
+        }
+        .task-group.drag-over {
+            border: 2px dashed var(--primary);
+            background: rgba(74, 144, 217, 0.05);
+        }
+        .task-card.drag-over-top::before,
+        .task-card.drag-over-bottom::after {
+            content: '';
+            display: block;
+            height: 4px;
+            background: var(--primary);
+            border-radius: 2px;
+            margin: var(--space-1) 0;
+        }
+        /* 组末尾放置区 */
+        .group-drop-end {
+            height: 0;
+            overflow: hidden;
+            transition: all var(--transition-fast);
+        }
+        .group-drop-end.visible {
+            height: 4px;
+            background: var(--primary);
+            border-radius: 2px;
+            margin: var(--space-1) 0;
+        }
+        .drag-handle {
+            cursor: -webkit-grab;
+            cursor: grab;
+            padding: var(--space-2) var(--space-1);
+            color: var(--text-muted);
+            font-size: 14px;
+            transition: color var(--transition-fast), background var(--transition-fast);
+            user-select: none;
+            border-radius: var(--radius-sm);
+        }
+        .drag-handle:hover {
+            color: var(--text-secondary);
+            background: var(--bg-hover);
+        }
+        .drag-handle:active {
+            cursor: -webkit-grabbing;
+            cursor: grabbing;
+        }
+        .task-card:not([draggable="true"]),
+        .task-group:not([draggable="true"]) {
+            cursor: default;
+        }
+        .group-drag-handle {
+            margin-right: var(--space-2);
+        }
+
+        /* Cron 时间预览 Tooltip */
+        .cron-tooltip {
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--text-primary);
+            color: white;
+            padding: var(--space-2) var(--space-3);
+            border-radius: var(--radius-sm);
+            font-size: 12px;
+            white-space: nowrap;
+            z-index: 1000;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity var(--transition-fast);
+            box-shadow: var(--shadow-lg);
+        }
+        .cron-tooltip::after {
+            content: '';
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            border: 6px solid transparent;
+            border-top-color: var(--text-primary);
+        }
+        .task-schedule-wrapper {
+            position: relative;
+            display: inline-block;
+        }
+        .task-schedule-wrapper:hover .cron-tooltip {
+            opacity: 1;
+        }
+
+        /* 搜索高亮 */
+        .search-highlight {
+            background: var(--warning);
+            color: var(--text-primary);
+            padding: 0 2px;
+            border-radius: 2px;
+        }
+
+        /* Undo 撤销提示条 */
+        .undo-toast {
+            position: fixed;
+            bottom: var(--space-5);
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background: var(--text-primary);
+            color: white;
+            padding: var(--space-3) var(--space-4);
+            border-radius: var(--radius-md);
+            display: flex;
+            align-items: center;
+            gap: var(--space-3);
+            box-shadow: var(--shadow-lg);
+            z-index: 1001;
+            opacity: 0;
+            transition: transform var(--transition-normal), opacity var(--transition-normal);
+        }
+        .undo-toast.show {
+            transform: translateX(-50%) translateY(0);
+            opacity: 1;
+        }
+        .undo-toast .undo-text { font-size: 14px; }
+        .undo-toast .undo-btn {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: var(--space-1) var(--space-3);
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            font-weight: 500;
+            font-size: 13px;
+            transition: background var(--transition-fast);
+        }
+        .undo-toast .undo-btn:hover { background: var(--primary-hover); }
+        .undo-toast .undo-timer {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-top-color: white;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        .undo-toast .undo-countdown {
+            font-size: 12px;
+            color: rgba(255,255,255,0.7);
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Crontab Manager</h1>
+        <div class="user-info">
+            <span class="user-name">当前用户: <strong>{{ username }}</strong></span>
+            <a href="/logout" class="logout-btn">退出登录</a>
+        </div>
+    </div>
+
+    <div class="tabs">
+        <button class="tab active" onclick="switchTab('list')">任务列表</button>
+        <button class="tab" onclick="switchTab('raw')">原始编辑</button>
+        <button class="tab" onclick="switchTab('logs')">操作日志</button>
+    </div>
+
+    <div class="collapse-controls">
+        <button class="collapse-btn" onclick="expandAll()">Expand All</button>
+        <button class="collapse-btn" onclick="collapseAll()">Collapse All</button>
+        <input type="text" class="search-box" id="searchBox" placeholder="Search tasks..." oninput="filterTasks()">
+        <button class="new-group-btn" onclick="showNewGroupForm()">+ New Group</button>
+    </div>
+
+    <div id="newGroupForm" class="new-group-form">
+        <input type="text" id="newGroupTitle" placeholder="Enter group name">
+        <button class="create-btn" onclick="createGroup()">Create</button>
+        <button class="cancel-btn" onclick="hideNewGroupForm()">Cancel</button>
+    </div>
+
+    <div id="taskList" class="task-list active"></div>
+
+    <div id="rawEditor" class="raw-editor">
+        <textarea id="rawContent"></textarea>
+        <button class="save-btn" onclick="saveRaw()">保存</button>
+    </div>
+
+    <div id="auditLogs" class="audit-logs">
+        <div class="log-list" id="logList">
+            <div class="log-empty">加载中...</div>
+        </div>
+    </div>
+
+    <div id="message" class="message"></div>
+
+    <!-- Undo 撤销提示条 -->
+    <div id="undoToast" class="undo-toast">
+        <span class="undo-text">Task deleted</span>
+        <button class="undo-btn" onclick="performUndo()">Undo</button>
+        <span class="undo-countdown">5s</span>
+    </div>
+
+    <script>
+        let groups = [];
+        let undoStack = [];  // 撤销栈
+        let undoTimer = null;
+        let undoCountdown = 5;
+
+        // Cron 时间解析为人类可读描述
+        function parseCronToHuman(minute, hour, day, month, weekday) {
+            const weekdays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+            const months = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+            let parts = [];
+
+            // 时间部分
+            if (minute === '*' && hour === '*') {
+                parts.push('Every minute');
+            } else if (minute === '0' && hour === '*') {
+                parts.push('Every hour');
+            } else if (minute !== '*' && hour === '*') {
+                parts.push(`At minute ${minute} of every hour`);
+            } else if (minute === '*' && hour !== '*') {
+                parts.push(`Every minute during hour ${hour}`);
+            } else if (minute === '0' && hour !== '*') {
+                parts.push(`At ${hour}:00`);
+            } else if (minute !== '*' && hour !== '*') {
+                const h = hour.padStart(2, '0');
+                const m = minute.padStart(2, '0');
+                parts.push(`At ${h}:${m}`);
+            }
+
+            // 日期部分
+            if (day !== '*' && month !== '*') {
+                const mon = months[parseInt(month)] || month;
+                parts.push(`on ${mon} ${day}`);
+            } else if (day !== '*') {
+                parts.push(`on day ${day} of month`);
+            } else if (month !== '*') {
+                const mon = months[parseInt(month)] || month;
+                parts.push(`in ${mon}`);
+            }
+
+            // 星期部分
+            if (weekday !== '*') {
+                if (weekday.includes(',')) {
+                    const days = weekday.split(',').map(d => weekdays[parseInt(d)] || d).join(', ');
+                    parts.push(`on ${days}`);
+                } else if (weekday.includes('-')) {
+                    const [start, end] = weekday.split('-');
+                    parts.push(`${weekdays[parseInt(start)]} to ${weekdays[parseInt(end)]}`);
+                } else {
+                    parts.push(`on ${weekdays[parseInt(weekday)] || weekday}`);
+                }
+            }
+
+            // 特殊情况
+            if (minute === '*' && hour === '*' && day === '*' && month === '*' && weekday === '*') {
+                return 'Every minute';
+            }
+            if (minute === '0' && hour === '0' && day === '*' && month === '*' && weekday === '*') {
+                return 'Daily at midnight';
+            }
+            if (minute === '0' && hour === '0' && day === '1' && month === '*' && weekday === '*') {
+                return 'Monthly on the 1st at midnight';
+            }
+
+            return parts.join(' ') || 'Custom schedule';
+        }
+
+        // 高亮搜索关键词
+        function highlightText(text, keyword) {
+            if (!keyword) return escapeHtml(text);
+            const escaped = escapeHtml(text);
+            const regex = new RegExp(`(${keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+            return escaped.replace(regex, '<span class="search-highlight">$1</span>');
+        }
+
+        // 显示撤销提示
+        function showUndoToast(message, undoData) {
+            undoStack.push(undoData);
+            const toast = document.getElementById('undoToast');
+            toast.querySelector('.undo-text').textContent = message;
+            toast.classList.add('show');
+
+            undoCountdown = 5;
+            updateUndoCountdown();
+
+            if (undoTimer) clearInterval(undoTimer);
+            undoTimer = setInterval(() => {
+                undoCountdown--;
+                updateUndoCountdown();
+                if (undoCountdown <= 0) {
+                    hideUndoToast();
+                    undoStack.pop(); // 超时则移除撤销数据
+                }
+            }, 1000);
+        }
+
+        function updateUndoCountdown() {
+            document.querySelector('.undo-countdown').textContent = `${undoCountdown}s`;
+        }
+
+        function hideUndoToast() {
+            document.getElementById('undoToast').classList.remove('show');
+            if (undoTimer) {
+                clearInterval(undoTimer);
+                undoTimer = null;
+            }
+        }
+
+        // 执行撤销
+        async function performUndo() {
+            if (undoStack.length === 0) return;
+
+            const undoData = undoStack.pop();
+            hideUndoToast();
+
+            if (undoData.type === 'delete_task') {
+                // 恢复删除的任务
+                const resp = await fetch(`/api/add_to_group/${undoData.groupId}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        schedule: undoData.schedule,
+                        command: undoData.command,
+                        enabled: undoData.enabled
+                    })
+                });
+                const result = await resp.json();
+                if (result.success) {
+                    showMessage('Task restored', 'success');
+                    loadTasks();
+                } else {
+                    showMessage('Restore failed: ' + result.error, 'error');
+                }
+            } else if (undoData.type === 'delete_group') {
+                // 恢复删除的任务组（需要后端支持）
+                showMessage('Group restore not yet supported', 'error');
+            }
+        }
+
+        // 切换标签页
+        function switchTab(tab) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            const tabIndex = tab === 'list' ? 1 : (tab === 'raw' ? 2 : 3);
+            document.querySelector(`.tab:nth-child(${tabIndex})`).classList.add('active');
+
+            document.getElementById('taskList').classList.toggle('active', tab === 'list');
+            document.getElementById('rawEditor').classList.toggle('active', tab === 'raw');
+            document.getElementById('auditLogs').classList.toggle('active', tab === 'logs');
+            document.querySelector('.collapse-controls').style.display = tab === 'list' ? 'flex' : 'none';
+            document.getElementById('newGroupForm').classList.remove('active');
+            document.getElementById('searchBox').value = '';
+
+            if (tab === 'list') {
+                loadTasks();
+            } else if (tab === 'raw') {
+                loadRaw();
+            } else if (tab === 'logs') {
+                loadAuditLogs();
+            }
+        }
+
+        // 加载审计日志
+        async function loadAuditLogs() {
+            const logList = document.getElementById('logList');
+            try {
+                const resp = await fetch('/api/audit_logs');
+                const logs = await resp.json();
+
+                if (logs.length === 0) {
+                    logList.innerHTML = '<div class="log-empty">暂无操作日志</div>';
+                    return;
+                }
+
+                logList.innerHTML = logs.map(log => {
+                    const actionClass = getActionClass(log.action);
+                    const actionText = getActionText(log.action);
+                    const details = formatLogDetails(log.details);
+                    return `
+                        <div class="log-item">
+                            <span class="log-time">${log.timestamp}</span>
+                            <span class="log-user">${log.user}</span>
+                            <span class="log-action ${actionClass}">${actionText}</span>
+                            <span class="log-details">${details}</span>
+                        </div>
+                    `;
+                }).join('');
+            } catch (e) {
+                logList.innerHTML = '<div class="log-empty">加载失败</div>';
+            }
+        }
+
+        function getActionClass(action) {
+            if (action.includes('login')) return 'login';
+            if (action.includes('logout')) return 'logout';
+            if (action.includes('add') || action.includes('create')) return 'add';
+            if (action.includes('delete')) return 'delete';
+            if (action.includes('update') || action.includes('toggle') || action.includes('save')) return 'update';
+            return '';
+        }
+
+        function getActionText(action) {
+            const actionMap = {
+                'login': '登录',
+                'logout': '登出',
+                'add_task': '添加任务',
+                'add_to_group': '添加到组',
+                'update_task': '更新任务',
+                'delete_task': '删除任务',
+                'toggle_task': '切换状态',
+                'toggle_group': '切换组状态',
+                'create_group': '创建分组',
+                'delete_group': '删除分组',
+                'update_group_title': '重命名组',
+                'save_raw': '保存原始内容'
+            };
+            return actionMap[action] || action;
+        }
+
+        function formatLogDetails(details) {
+            if (!details) return '-';
+            if (typeof details === 'string') return details;
+
+            const parts = [];
+            if (details.command) parts.push(`命令: ${details.command}`);
+            if (details.schedule) parts.push(`时间: ${details.schedule}`);
+            if (details.title) parts.push(`名称: ${details.title}`);
+            if (details.old_schedule && details.new_schedule) {
+                parts.push(`${details.old_schedule} → ${details.new_schedule}`);
+            }
+            if (details.action === 'enable') parts.push('启用');
+            if (details.action === 'disable') parts.push('禁用');
+            if (details.enable !== undefined) parts.push(details.enable ? '启用' : '禁用');
+            if (details.length) parts.push(`${details.length} 字符`);
+
+            return parts.length > 0 ? parts.join(' | ') : JSON.stringify(details);
+        }
+
+        // 加载任务列表
+        async function loadTasks() {
+            const resp = await fetch('/api/tasks');
+            groups = await resp.json();
+            renderTasks();
+        }
+
+        // 渲染单个任务（内联编辑模式）
+        function renderTask(task, groupId) {
+            const parts = task.schedule.split(/\s+/);
+            const [minute, hour, day, month, weekday] = parts.length >= 5 ? parts : ['*','*','*','*','*'];
+            const cronDescription = parseCronToHuman(minute, hour, day, month, weekday);
+
+            return `
+            <div class="task-card ${task.enabled ? '' : 'disabled'}" id="task-${task.id}"
+                 data-task-id="${task.id}" data-group-id="${groupId}"
+                 data-minute="${encodeURIComponent(minute)}" data-hour="${encodeURIComponent(hour)}" data-day="${encodeURIComponent(day)}"
+                 data-month="${encodeURIComponent(month)}" data-weekday="${encodeURIComponent(weekday)}" data-command="${encodeURIComponent(task.command)}"
+                 draggable="false" ondragstart="dragTaskStart(event)" ondragend="dragEnd(event)" ondragover="dragTaskOver(event)" ondragleave="dragTaskLeave(event)" ondrop="dropTask(event)">
+                <span class="drag-handle" title="Drag to reorder" onmousedown="enableDrag(this.parentElement)" onmouseup="disableDrag(this.parentElement)">⋮⋮</span>
+                <div class="toggle ${task.enabled ? 'on' : ''}" onclick="toggleTask(${task.id})"></div>
+                <div class="task-info">
+                    <div class="task-schedule-wrapper">
+                        <div class="cron-tooltip">${cronDescription}</div>
+                        <div class="task-schedule">
+                            <span class="editable time-field" ondblclick="editField(${task.id},'minute',this)" title="Minute">${minute}</span>
+                            <span class="editable time-field" ondblclick="editField(${task.id},'hour',this)" title="Hour">${hour}</span>
+                            <span class="editable time-field" ondblclick="editField(${task.id},'day',this)" title="Day">${day}</span>
+                            <span class="editable time-field" ondblclick="editField(${task.id},'month',this)" title="Month">${month}</span>
+                            <span class="editable time-field" ondblclick="editField(${task.id},'weekday',this)" title="Weekday">${weekday}</span>
+                        </div>
+                    </div>
+                    <div class="task-command">
+                        <span class="editable cmd-field" ondblclick="editField(${task.id},'command',this)">${escapeHtml(task.command)}</span>
+                    </div>
+                </div>
+                <button class="delete-btn" onclick="deleteTask(${task.id})" title="Delete">×</button>
+            </div>`;
+        }
+
+        // 渲染任务列表（按分组）
+        function renderTasks() {
+            const container = document.getElementById('taskList');
+            if (groups.length === 0) {
+                container.innerHTML = '<p style="color:#666;padding:20px;">No crontab tasks</p>';
+                return;
+            }
+
+            container.innerHTML = groups.map(group => {
+                const enabledCount = group.tasks.filter(t => t.enabled).length;
+                const allEnabled = enabledCount === group.tasks.length;
+                const allDisabled = enabledCount === 0;
+                const partial = !allEnabled && !allDisabled;
+                const switchClass = allEnabled ? 'on' : (partial ? 'partial' : '');
+                return `
+                <div class="task-group${allDisabled ? ' disabled' : ''}" id="group-${group.id}" data-group-id="${group.id}" data-title="${escapeHtml(group.title || '')}"
+                     draggable="false" ondragstart="dragGroupStart(event)" ondragend="dragEnd(event)" ondragover="dragGroupOver(event)" ondrop="dropGroup(event)">
+                    <div class="group-header">
+                        <span class="drag-handle group-drag-handle" title="Drag to reorder" onmousedown="enableDrag(this.closest('.task-group'))" onmouseup="disableDrag(this.closest('.task-group'))">⋮⋮</span>
+                        <div class="group-toggle-switch ${switchClass}" onclick="event.stopPropagation();toggleGroupSwitch(${group.id},${!allEnabled})"></div>
+                        <span class="group-title" onclick="toggleGroupCollapse(${group.id})" ondblclick="event.stopPropagation();editGroupTitle(${group.id},this)" title="Double-click to edit">${group.title ? escapeHtml(group.title) : 'Unnamed Group'}</span>
+                        <span class="group-count">${enabledCount}/${group.tasks.length}</span>
+                        <span class="group-toggle" onclick="toggleGroupCollapse(${group.id})"></span>
+                        <button class="group-delete-btn" onclick="event.stopPropagation();deleteGroup(${group.id})" title="Delete group"></button>
+                    </div>
+                    <div class="group-tasks">
+                        ${group.tasks.map(task => renderTask(task, group.id)).join('')}
+                        <div class="group-drop-end" data-group-id="${group.id}" ondragover="dragDropEndOver(event)" ondragleave="dragDropEndLeave(event)" ondrop="dropToEnd(event)"></div>
+                        <div class="group-add-task-btn" onclick="showGroupAddForm(${group.id})">+ Add Task</div>
+                        <div class="group-add-form" id="group-add-form-${group.id}">
+                            <div class="mini-cron-inputs">
+                                <input type="text" id="g${group.id}-minute" value="*" placeholder="Min" title="Minute">
+                                <input type="text" id="g${group.id}-hour" value="*" placeholder="Hr" title="Hour">
+                                <input type="text" id="g${group.id}-day" value="*" placeholder="Day" title="Day">
+                                <input type="text" id="g${group.id}-month" value="*" placeholder="Mon" title="Month">
+                                <input type="text" id="g${group.id}-weekday" value="*" placeholder="Wk" title="Weekday">
+                            </div>
+                            <div class="mini-command-row">
+                                <input type="text" id="g${group.id}-command" placeholder="Enter command">
+                                <button class="mini-add-btn" onclick="addTaskToGroup(${group.id})">Add</button>
+                                <button class="mini-cancel-btn" onclick="hideGroupAddForm(${group.id})">Cancel</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `}).join('');
+        }
+
+        // 折叠/展开单个组
+        function toggleGroupCollapse(id) {
+            document.getElementById(`group-${id}`).classList.toggle('collapsed');
+        }
+
+        // 删除任务组
+        async function deleteGroup(groupId) {
+            if (!confirm('Delete this task group? This cannot be undone!')) return;
+
+            const resp = await fetch(`/api/delete_group/${groupId}`, { method: 'POST' });
+            const result = await resp.json();
+            if (result.success) {
+                showMessage('Group deleted', 'success');
+                loadTasks();
+            } else {
+                showMessage('Delete failed: ' + result.error, 'error');
+            }
+        }
+
+        // 展开全部
+        function expandAll() {
+            document.querySelectorAll('.task-group').forEach(g => g.classList.remove('collapsed'));
+        }
+
+        // 折叠全部
+        function collapseAll() {
+            document.querySelectorAll('.task-group').forEach(g => g.classList.add('collapsed'));
+        }
+
+        // 搜索过滤任务（带高亮）
+        function filterTasks() {
+            const keyword = document.getElementById('searchBox').value.trim().toLowerCase();
+
+            document.querySelectorAll('.task-group').forEach(groupEl => {
+                const groupTitleEl = groupEl.querySelector('.group-title');
+                const originalGroupTitle = groupEl.dataset.title || 'Unnamed Group';
+                const groupTitleLower = originalGroupTitle.toLowerCase();
+                const tasks = groupEl.querySelectorAll('.task-card');
+                let groupMatch = groupTitleLower.includes(keyword);
+                let visibleTaskCount = 0;
+
+                // 高亮组名
+                if (keyword && groupMatch) {
+                    groupTitleEl.innerHTML = highlightText(originalGroupTitle, keyword);
+                } else {
+                    groupTitleEl.textContent = originalGroupTitle || 'Unnamed Group';
+                }
+
+                tasks.forEach(taskEl => {
+                    const scheduleEl = taskEl.querySelector('.task-schedule');
+                    const commandEl = taskEl.querySelector('.task-command .cmd-field');
+
+                    // 获取原始值
+                    const minute = decodeURIComponent(taskEl.dataset.minute);
+                    const hour = decodeURIComponent(taskEl.dataset.hour);
+                    const day = decodeURIComponent(taskEl.dataset.day);
+                    const month = decodeURIComponent(taskEl.dataset.month);
+                    const weekday = decodeURIComponent(taskEl.dataset.weekday);
+                    const command = decodeURIComponent(taskEl.dataset.command);
+
+                    const scheduleText = `${minute} ${hour} ${day} ${month} ${weekday}`;
+                    const taskMatch = scheduleText.toLowerCase().includes(keyword) || command.toLowerCase().includes(keyword);
+
+                    if (keyword === '' || taskMatch || groupMatch) {
+                        taskEl.style.display = 'flex';
+                        visibleTaskCount++;
+
+                        // 高亮命令
+                        if (keyword && command.toLowerCase().includes(keyword)) {
+                            commandEl.innerHTML = highlightText(command, keyword);
+                        } else {
+                            commandEl.textContent = command;
+                        }
+                    } else {
+                        taskEl.style.display = 'none';
+                    }
+                });
+
+                // 如果组名匹配或有匹配的任务，显示该组
+                if (keyword === '' || groupMatch || visibleTaskCount > 0) {
+                    groupEl.style.display = 'block';
+                    // 搜索时自动展开有匹配结果的组
+                    if (keyword !== '') {
+                        groupEl.classList.remove('collapsed');
+                    }
+                } else {
+                    groupEl.style.display = 'none';
+                }
+            });
+        }
+
+        // 显示新建任务组表单
+        function showNewGroupForm() {
+            document.getElementById('newGroupForm').classList.add('active');
+            document.getElementById('newGroupTitle').focus();
+        }
+
+        // 隐藏新建任务组表单
+        function hideNewGroupForm() {
+            document.getElementById('newGroupForm').classList.remove('active');
+            document.getElementById('newGroupTitle').value = '';
+        }
+
+        // 创建新任务组
+        async function createGroup() {
+            const title = document.getElementById('newGroupTitle').value.trim();
+            if (!title) {
+                showMessage('Please enter group name', 'error');
+                return;
+            }
+
+            const resp = await fetch('/api/create_group', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ title })
+            });
+            const result = await resp.json();
+            if (result.success) {
+                showMessage('Group created', 'success');
+                hideNewGroupForm();
+                loadTasks();
+            } else {
+                showMessage('Create failed: ' + result.error, 'error');
+            }
+        }
+
+        // 显示组内添加任务表单
+        function showGroupAddForm(groupId) {
+            document.getElementById(`group-add-form-${groupId}`).classList.add('active');
+            document.getElementById(`g${groupId}-command`).focus();
+        }
+
+        // 隐藏组内添加任务表单
+        function hideGroupAddForm(groupId) {
+            document.getElementById(`group-add-form-${groupId}`).classList.remove('active');
+            // 重置表单
+            document.getElementById(`g${groupId}-minute`).value = '*';
+            document.getElementById(`g${groupId}-hour`).value = '*';
+            document.getElementById(`g${groupId}-day`).value = '*';
+            document.getElementById(`g${groupId}-month`).value = '*';
+            document.getElementById(`g${groupId}-weekday`).value = '*';
+            document.getElementById(`g${groupId}-command`).value = '';
+        }
+
+        // 向组内添加任务
+        async function addTaskToGroup(groupId) {
+            const minute = document.getElementById(`g${groupId}-minute`).value.trim() || '*';
+            const hour = document.getElementById(`g${groupId}-hour`).value.trim() || '*';
+            const day = document.getElementById(`g${groupId}-day`).value.trim() || '*';
+            const month = document.getElementById(`g${groupId}-month`).value.trim() || '*';
+            const weekday = document.getElementById(`g${groupId}-weekday`).value.trim() || '*';
+            const command = document.getElementById(`g${groupId}-command`).value.trim();
+
+            if (!command) {
+                showMessage('Please enter command', 'error');
+                return;
+            }
+
+            const schedule = `${minute} ${hour} ${day} ${month} ${weekday}`;
+            const resp = await fetch(`/api/add_to_group/${groupId}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ schedule, command })
+            });
+            const result = await resp.json();
+            if (result.success) {
+                showMessage('Task added', 'success');
+                hideGroupAddForm(groupId);
+                loadTasks();
+            } else {
+                showMessage('Add failed: ' + result.error, 'error');
+            }
+        }
+
+        // 双击编辑组名称
+        function editGroupTitle(groupId, element) {
+            const groupEl = document.getElementById(`group-${groupId}`);
+            const currentTitle = groupEl.dataset.title || '';
+            const originalText = element.textContent;
+
+            // 创建输入框
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.value = currentTitle;
+            input.placeholder = 'Enter group name';
+
+            element.textContent = '';
+            element.appendChild(input);
+            input.focus();
+            input.select();
+
+            // 保存函数
+            const save = async () => {
+                const newTitle = input.value.trim();
+                if (!newTitle) {
+                    element.textContent = originalText;
+                    return;
+                }
+
+                const resp = await fetch(`/api/update_group_title/${groupId}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ title: newTitle })
+                });
+                const result = await resp.json();
+                if (result.success) {
+                    showMessage('Group renamed', 'success');
+                    loadTasks();
+                } else {
+                    showMessage('Rename failed: ' + result.error, 'error');
+                    element.textContent = originalText;
+                }
+            };
+
+            // 取消函数
+            const cancel = () => {
+                element.textContent = originalText;
+            };
+
+            // 事件处理
+            input.onblur = save;
+            input.onkeydown = (e) => {
+                if (e.key === 'Enter') { input.blur(); }
+                if (e.key === 'Escape') { input.onblur = cancel; input.blur(); }
+            };
+        }
+
+        // 启用/禁用整个组
+        async function toggleGroupSwitch(groupId, enable) {
+            // 先更新 UI
+            const groupEl = document.getElementById(`group-${groupId}`);
+            const switchEl = groupEl.querySelector('.group-toggle-switch');
+            const prevClass = switchEl.className;
+            switchEl.classList.remove('on', 'partial');
+            if (enable) switchEl.classList.add('on');
+            groupEl.classList.toggle('disabled', !enable);
+
+            // 更新组内所有任务的 UI
+            groupEl.querySelectorAll('.task-card').forEach(card => {
+                const toggle = card.querySelector('.toggle');
+                if (enable) {
+                    toggle.classList.add('on');
+                    card.classList.remove('disabled');
+                } else {
+                    toggle.classList.remove('on');
+                    card.classList.add('disabled');
+                }
+            });
+
+            const resp = await fetch(`/api/toggle_group/${groupId}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ enable })
+            });
+            const result = await resp.json();
+            if (result.success) {
+                showMessage(enable ? 'Group enabled' : 'Group disabled', 'success');
+                setTimeout(() => loadTasks(), 300);
+            } else {
+                // Restore state
+                switchEl.className = prevClass;
+                showMessage('Operation failed: ' + result.error, 'error');
+                loadTasks();
+            }
+        }
+
+        // 双击进入内联编辑
+        function editField(taskId, field, element) {
+            const card = document.getElementById(`task-${taskId}`);
+            const currentValue = decodeURIComponent(card.dataset[field]);
+            const isCmd = field === 'command';
+
+            // 创建输入框
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.className = isCmd ? 'cmd-input' : 'time-input';
+            input.value = currentValue;
+
+            // 保存原始内容
+            const originalText = element.textContent;
+            element.textContent = '';
+            element.appendChild(input);
+            input.focus();
+            input.select();
+
+            // 保存函数
+            const save = async () => {
+                const newValue = input.value.trim() || (isCmd ? '' : '*');
+                if (isCmd && !newValue) {
+                    showMessage('Command cannot be empty', 'error');
+                    element.textContent = originalText;
+                    return;
+                }
+
+                // 更新data属性
+                card.dataset[field] = encodeURIComponent(newValue);
+                element.textContent = newValue;
+
+                // 获取所有字段值并保存
+                const schedule = `${decodeURIComponent(card.dataset.minute)} ${decodeURIComponent(card.dataset.hour)} ${decodeURIComponent(card.dataset.day)} ${decodeURIComponent(card.dataset.month)} ${decodeURIComponent(card.dataset.weekday)}`;
+                const command = decodeURIComponent(card.dataset.command);
+
+                const resp = await fetch(`/api/update/${taskId}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ schedule, command })
+                });
+                const result = await resp.json();
+                if (result.success) {
+                    showMessage('Saved', 'success');
+                } else {
+                    showMessage('Save failed: ' + result.error, 'error');
+                    element.textContent = originalText;
+                    card.dataset[field] = encodeURIComponent(currentValue);
+                }
+            };
+
+            // 取消函数
+            const cancel = () => {
+                element.textContent = originalText;
+            };
+
+            // 事件处理
+            input.onblur = save;
+            input.onkeydown = (e) => {
+                if (e.key === 'Enter') { input.blur(); }
+                if (e.key === 'Escape') { input.onblur = cancel; input.blur(); }
+            };
+        }
+
+        // Delete task（带撤销功能）
+        async function deleteTask(id) {
+            // 获取任务信息用于撤销
+            const card = document.getElementById(`task-${id}`);
+            const groupId = card.dataset.groupId;
+            const minute = decodeURIComponent(card.dataset.minute);
+            const hour = decodeURIComponent(card.dataset.hour);
+            const day = decodeURIComponent(card.dataset.day);
+            const month = decodeURIComponent(card.dataset.month);
+            const weekday = decodeURIComponent(card.dataset.weekday);
+            const command = decodeURIComponent(card.dataset.command);
+            const enabled = card.querySelector('.toggle').classList.contains('on');
+            const schedule = `${minute} ${hour} ${day} ${month} ${weekday}`;
+
+            const resp = await fetch(`/api/delete/${id}`, { method: 'POST' });
+            const result = await resp.json();
+            if (result.success) {
+                // 显示撤销提示
+                showUndoToast('Task deleted', {
+                    type: 'delete_task',
+                    groupId: parseInt(groupId),
+                    schedule: schedule,
+                    command: command,
+                    enabled: enabled
+                });
+                loadTasks();
+            } else {
+                showMessage('Delete failed: ' + result.error, 'error');
+            }
+        }
+
+        // 切换任务状态
+        async function toggleTask(id) {
+            // 先更新 UI
+            const card = document.getElementById(`task-${id}`);
+            const toggle = card.querySelector('.toggle');
+            const isOn = toggle.classList.contains('on');
+            toggle.classList.toggle('on');
+            card.classList.toggle('disabled');
+
+            // 更新所属任务组的开关状态
+            const groupEl = card.closest('.task-group');
+            if (groupEl) {
+                updateGroupSwitchState(groupEl);
+            }
+
+            const resp = await fetch(`/api/toggle/${id}`, { method: 'POST' });
+            const result = await resp.json();
+            if (result.success) {
+                showMessage('Status updated', 'success');
+                // Delay refresh for transition effect
+                setTimeout(() => loadTasks(), 300);
+            } else {
+                // Restore state
+                toggle.classList.toggle('on');
+                card.classList.toggle('disabled');
+                if (groupEl) updateGroupSwitchState(groupEl);
+                showMessage('Operation failed: ' + result.error, 'error');
+            }
+        }
+
+        // 更新任务组开关状态
+        function updateGroupSwitchState(groupEl) {
+            const tasks = groupEl.querySelectorAll('.task-card');
+            const toggles = groupEl.querySelectorAll('.task-card .toggle');
+            let enabledCount = 0;
+            toggles.forEach(t => { if (t.classList.contains('on')) enabledCount++; });
+
+            const switchEl = groupEl.querySelector('.group-toggle-switch');
+            const allEnabled = enabledCount === tasks.length;
+            const allDisabled = enabledCount === 0;
+            const partial = !allEnabled && !allDisabled;
+
+            switchEl.classList.remove('on', 'partial');
+            if (allEnabled) switchEl.classList.add('on');
+            else if (partial) switchEl.classList.add('partial');
+
+            groupEl.classList.toggle('disabled', allDisabled);
+
+            // 更新计数显示
+            const countEl = groupEl.querySelector('.group-count');
+            if (countEl) countEl.textContent = `${enabledCount}/${tasks.length}`;
+        }
+
+        // 加载原始内容
+        async function loadRaw() {
+            const resp = await fetch('/api/raw');
+            const data = await resp.json();
+            document.getElementById('rawContent').value = data.content;
+        }
+
+        // 保存原始内容
+        async function saveRaw() {
+            const content = document.getElementById('rawContent').value;
+            const resp = await fetch('/api/save', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ content })
+            });
+            const result = await resp.json();
+            if (result.success) {
+                showMessage('Saved successfully', 'success');
+            } else {
+                showMessage('Save failed: ' + result.error, 'error');
+            }
+        }
+
+        // 显示消息
+        function showMessage(text, type) {
+            const msg = document.getElementById('message');
+            msg.textContent = text;
+            msg.className = 'message ' + type;
+            setTimeout(() => { msg.className = 'message'; }, 3000);
+        }
+
+        // HTML转义
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // ========== 拖拽排序功能 ==========
+        let draggedElement = null;
+        let dragType = null; // 'group' or 'task'
+
+        // 启用拖拽（仅在拖拽手柄上按下时）
+        function enableDrag(element) {
+            element.setAttribute('draggable', 'true');
+        }
+
+        // 禁用拖拽
+        function disableDrag(element) {
+            element.setAttribute('draggable', 'false');
+        }
+
+        // 组拖拽开始
+        function dragGroupStart(e) {
+            if (!e.target.classList.contains('task-group')) return;
+            draggedElement = e.target;
+            dragType = 'group';
+            e.target.classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', e.target.dataset.groupId);
+        }
+
+        // 任务拖拽开始
+        function dragTaskStart(e) {
+            if (!e.target.classList.contains('task-card')) return;
+            draggedElement = e.target;
+            dragType = 'task';
+            e.target.classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', e.target.dataset.taskId);
+        }
+
+        // 拖拽结束
+        function dragEnd(e) {
+            if (draggedElement) {
+                draggedElement.classList.remove('dragging');
+                draggedElement.setAttribute('draggable', 'false');
+            }
+            // 清除所有拖拽指示器
+            document.querySelectorAll('.drag-over, .drag-over-top, .drag-over-bottom').forEach(el => {
+                el.classList.remove('drag-over', 'drag-over-top', 'drag-over-bottom');
+            });
+            // 隐藏所有末尾放置区
+            document.querySelectorAll('.group-drop-end').forEach(el => el.classList.remove('visible'));
+            draggedElement = null;
+            dragType = null;
+        }
+
+        // 组拖拽悬停
+        function dragGroupOver(e) {
+            e.preventDefault();
+            if (dragType !== 'group') return;
+            const target = e.target.closest('.task-group');
+            if (target && target !== draggedElement) {
+                document.querySelectorAll('.task-group.drag-over').forEach(el => el.classList.remove('drag-over'));
+                target.classList.add('drag-over');
+            }
+        }
+
+        // 任务拖拽悬停（检测鼠标位置，显示上/下方指示器）
+        function dragTaskOver(e) {
+            e.preventDefault();
+            if (dragType !== 'task') return;
+            const target = e.target.closest('.task-card');
+            if (target && target !== draggedElement) {
+                // 清除其他卡片的指示器
+                document.querySelectorAll('.task-card.drag-over-top, .task-card.drag-over-bottom').forEach(el => {
+                    if (el !== target) {
+                        el.classList.remove('drag-over-top', 'drag-over-bottom');
+                    }
+                });
+                // 清除末尾放置区
+                document.querySelectorAll('.group-drop-end.visible').forEach(el => {
+                    el.classList.remove('visible');
+                });
+
+                // 计算鼠标相对于卡片的位置
+                const rect = target.getBoundingClientRect();
+                const midY = rect.top + rect.height / 2;
+                const isTopHalf = e.clientY < midY;
+
+                // 根据位置显示上方或下方指示器
+                target.classList.remove('drag-over-top', 'drag-over-bottom');
+                if (isTopHalf) {
+                    target.classList.add('drag-over-top');
+                } else {
+                    target.classList.add('drag-over-bottom');
+                }
+            }
+        }
+
+        // 任务拖拽离开
+        function dragTaskLeave(e) {
+            const target = e.target.closest('.task-card');
+            if (target) {
+                // 检查是否真正离开了卡片（而不是进入了子元素）
+                const rect = target.getBoundingClientRect();
+                if (e.clientX < rect.left || e.clientX > rect.right ||
+                    e.clientY < rect.top || e.clientY > rect.bottom) {
+                    target.classList.remove('drag-over-top', 'drag-over-bottom');
+                }
+            }
+        }
+
+        // 组放置
+        async function dropGroup(e) {
+            e.preventDefault();
+            if (dragType !== 'group' || !draggedElement) return;
+
+            const target = e.target.closest('.task-group');
+            if (!target || target === draggedElement) return;
+
+            const fromId = parseInt(draggedElement.dataset.groupId);
+            const toId = parseInt(target.dataset.groupId);
+
+            // 调用后端 API 重新排序
+            const resp = await fetch('/api/reorder_groups', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ from_id: fromId, to_id: toId })
+            });
+            const result = await resp.json();
+            if (result.success) {
+                showMessage('Groups reordered', 'success');
+                loadTasks();
+            } else {
+                showMessage('Reorder failed: ' + result.error, 'error');
+            }
+        }
+
+        // 任务放置
+        async function dropTask(e) {
+            e.preventDefault();
+            if (dragType !== 'task' || !draggedElement) return;
+
+            const target = e.target.closest('.task-card');
+            if (!target || target === draggedElement) return;
+
+            const fromTaskId = parseInt(draggedElement.dataset.taskId);
+            const fromGroupId = parseInt(draggedElement.dataset.groupId);
+            const toTaskId = parseInt(target.dataset.taskId);
+            const toGroupId = parseInt(target.dataset.groupId);
+
+            // 检测是插入到目标之前还是之后
+            const insertBefore = target.classList.contains('drag-over-top');
+
+            // 调用后端 API 重新排序
+            const resp = await fetch('/api/reorder_tasks', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    from_task_id: fromTaskId,
+                    from_group_id: fromGroupId,
+                    to_task_id: toTaskId,
+                    to_group_id: toGroupId,
+                    insert_before: insertBefore
+                })
+            });
+            const result = await resp.json();
+            if (result.success) {
+                showMessage('Tasks reordered', 'success');
+                loadTasks();
+            } else {
+                showMessage('Reorder failed: ' + result.error, 'error');
+            }
+        }
+
+        // 末尾放置区悬停
+        function dragDropEndOver(e) {
+            e.preventDefault();
+            if (dragType !== 'task') return;
+            // 清除其他位置的指示器
+            document.querySelectorAll('.task-card.drag-over-top, .task-card.drag-over-bottom').forEach(el => {
+                el.classList.remove('drag-over-top', 'drag-over-bottom');
+            });
+            // 显示当前末尾放置区
+            e.target.classList.add('visible');
+        }
+
+        // 末尾放置区离开
+        function dragDropEndLeave(e) {
+            e.target.classList.remove('visible');
+        }
+
+        // 放置到组末尾
+        async function dropToEnd(e) {
+            e.preventDefault();
+            if (dragType !== 'task' || !draggedElement) return;
+
+            const dropZone = e.target.closest('.group-drop-end');
+            if (!dropZone) return;
+
+            const fromTaskId = parseInt(draggedElement.dataset.taskId);
+            const fromGroupId = parseInt(draggedElement.dataset.groupId);
+            const toGroupId = parseInt(dropZone.dataset.groupId);
+
+            // 调用后端 API 移动到末尾
+            const resp = await fetch('/api/move_task_to_end', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    task_id: fromTaskId,
+                    from_group_id: fromGroupId,
+                    to_group_id: toGroupId
+                })
+            });
+            const result = await resp.json();
+            if (result.success) {
+                showMessage('Task moved', 'success');
+                loadTasks();
+            } else {
+                showMessage('Move failed: ' + result.error, 'error');
+            }
+        }
+
+        // 初始化
+        loadTasks();
+    </script>
+</body>
+</html>

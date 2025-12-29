@@ -1,0 +1,734 @@
+# app.py - Crontab Web Management Tool
+# Features: View, edit, enable/disable crontab tasks via web interface
+# Auth: Flask-Login multi-user authentication with audit logging
+# Start: python app.py, visit http://localhost:5000
+
+from flask import Flask, render_template, request, jsonify, redirect, url_for
+from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
+import subprocess
+import re
+import os
+import json
+from datetime import datetime
+
+app = Flask(__name__)
+
+# 加载配置文件
+CONFIG_FILE = os.path.join(os.path.dirname(__file__), 'config.json')
+if os.path.exists(CONFIG_FILE):
+    with open(CONFIG_FILE, 'r', encoding='utf-8') as f:
+        config = json.load(f)
+else:
+    config = {"secret_key": "change-me", "users": {"admin": "admin123"}}
+
+app.secret_key = os.environ.get('SECRET_KEY', config.get('secret_key', 'change-me'))
+USERS = json.loads(os.environ.get('CRONTAB_USERS', 'null')) or config.get('users', {})
+
+# Flask-Login 初始化
+login_manager = LoginManager()
+login_manager.init_app(app)
+login_manager.login_view = 'login'
+
+
+class User(UserMixin):
+    """用户类"""
+    def __init__(self, username):
+        self.id = username
+
+
+@login_manager.user_loader
+def load_user(user_id):
+    if user_id in USERS:
+        return User(user_id)
+    return None
+
+
+# 目录配置
+BACKUP_DIR = os.path.join(os.path.dirname(__file__), 'backups')
+LOG_DIR = os.path.join(os.path.dirname(__file__), 'log')
+AUDIT_LOG = os.path.join(LOG_DIR, 'audit.log')
+os.makedirs(BACKUP_DIR, exist_ok=True)
+os.makedirs(LOG_DIR, exist_ok=True)
+
+
+def log_action(action, details=None):
+    """记录操作日志"""
+    log_entry = {
+        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "user": current_user.id if current_user.is_authenticated else "anonymous",
+        "action": action,
+        "details": details
+    }
+    with open(AUDIT_LOG, "a", encoding="utf-8") as f:
+        f.write(json.dumps(log_entry, ensure_ascii=False) + "\n")
+
+
+def parse_crontab():
+    """解析crontab，返回按空行分组的任务列表"""
+    result = subprocess.run(['crontab', '-l'], capture_output=True, text=True)
+    if result.returncode != 0:
+        return []
+
+    groups = []
+    lines = result.stdout.split('\n')
+    current_group = {'id': 0, 'title': '', 'title_line': -1, 'tasks': []}
+    task_id = 0
+
+    for i, line in enumerate(lines):
+        line = line.rstrip()
+
+        # 空行：结束当前组，开始新组
+        if not line:
+            if current_group['tasks']:
+                groups.append(current_group)
+                current_group = {'id': len(groups), 'title': '', 'title_line': -1, 'tasks': []}
+            continue
+
+        # 注释行
+        if line.startswith('#'):
+            # 检查是否是被禁用的任务（以#后跟数字或*开头）
+            disabled_match = re.match(r'^#([\d*,/-]+\s+[\d*,/-]+\s+[\d*,/-]+\s+[\d*,/-]+\s+[\d*,/-]+)\s+(.+)$', line)
+            if disabled_match:
+                # 被禁用的cron任务
+                current_group['tasks'].append({
+                    'id': task_id,
+                    'line': i,
+                    'raw': line,
+                    'enabled': False,
+                    'schedule': disabled_match.group(1),
+                    'command': disabled_match.group(2)
+                })
+                task_id += 1
+            else:
+                # 普通注释作为组标题（如果组内还没有任务）
+                if not current_group['tasks']:
+                    current_group['title'] = line.lstrip('#').strip()
+                    current_group['title_line'] = i
+            continue
+
+        # 解析cron表达式
+        cron_match = re.match(r'^([\d*,/-]+\s+[\d*,/-]+\s+[\d*,/-]+\s+[\d*,/-]+\s+[\d*,/-]+)\s+(.+)$', line)
+        if cron_match:
+            current_group['tasks'].append({
+                'id': task_id,
+                'line': i,
+                'raw': line,
+                'enabled': True,
+                'schedule': cron_match.group(1),
+                'command': cron_match.group(2)
+            })
+            task_id += 1
+
+    # 添加最后一个组
+    if current_group['tasks']:
+        groups.append(current_group)
+
+    return groups
+
+
+def get_all_tasks():
+    """获取所有任务的扁平列表（用于ID查找）"""
+    groups = parse_crontab()
+    tasks = []
+    for group in groups:
+        tasks.extend(group['tasks'])
+    return tasks
+
+
+def get_crontab_raw():
+    """获取原始crontab内容"""
+    result = subprocess.run(['crontab', '-l'], capture_output=True, text=True)
+    return result.stdout if result.returncode == 0 else ""
+
+
+def backup_crontab():
+    """备份当前crontab"""
+    current = get_crontab_raw()
+    if current:
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        backup_file = os.path.join(BACKUP_DIR, f'crontab_{timestamp}.bak')
+        with open(backup_file, 'w') as f:
+            f.write(current)
+        # 只保留最近20个备份
+        backups = sorted(os.listdir(BACKUP_DIR), reverse=True)
+        for old in backups[20:]:
+            os.remove(os.path.join(BACKUP_DIR, old))
+        return backup_file
+    return None
+
+
+def save_crontab(content):
+    """保存crontab内容（自动备份）"""
+    backup_crontab()  # 保存前备份
+    process = subprocess.Popen(
+        ['crontab', '-'],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True
+    )
+    stdout, stderr = process.communicate(content)
+    return process.returncode == 0, stderr
+
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    """登录页面"""
+    if current_user.is_authenticated:
+        return redirect('/')
+
+    error = None
+    if request.method == 'POST':
+        username = request.form.get('username', '')
+        password = request.form.get('password', '')
+        if username in USERS and USERS[username] == password:
+            login_user(User(username))
+            log_action('login')
+            next_page = request.args.get('next')
+            return redirect(next_page or '/')
+        error = '用户名或密码错误'
+    return render_template('login.html', error=error)
+
+
+@app.route('/logout')
+@login_required
+def logout():
+    """登出"""
+    log_action('logout')
+    logout_user()
+    return redirect('/login')
+
+
+@app.route('/')
+@login_required
+def index():
+    return render_template('index.html', username=current_user.id)
+
+
+@app.route('/api/current_user')
+@login_required
+def get_current_user():
+    """获取当前用户信息"""
+    return jsonify({'username': current_user.id})
+
+
+@app.route('/api/audit_logs')
+@login_required
+def get_audit_logs():
+    """获取审计日志"""
+    logs = []
+    if os.path.exists(AUDIT_LOG):
+        with open(AUDIT_LOG, "r", encoding="utf-8") as f:
+            lines = f.readlines()[-100:]  # 最近 100 条
+            for line in reversed(lines):
+                try:
+                    logs.append(json.loads(line.strip()))
+                except json.JSONDecodeError:
+                    continue
+    return jsonify(logs)
+
+
+@app.route('/api/tasks')
+@login_required
+def get_tasks():
+    """获取所有任务"""
+    tasks = parse_crontab()
+    return jsonify(tasks)
+
+
+@app.route('/api/raw')
+@login_required
+def get_raw():
+    """获取原始crontab"""
+    return jsonify({'content': get_crontab_raw()})
+
+
+@app.route('/api/save', methods=['POST'])
+@login_required
+def save():
+    """保存原始crontab"""
+    content = request.json.get('content', '')
+    success, error = save_crontab(content)
+    if success:
+        log_action('save_raw', {'length': len(content)})
+    return jsonify({'success': success, 'error': error})
+
+
+@app.route('/api/toggle/<int:task_id>', methods=['POST'])
+@login_required
+def toggle_task(task_id):
+    """启用/禁用任务"""
+    raw = get_crontab_raw()
+    lines = raw.split('\n')
+    tasks = get_all_tasks()
+    action_detail = None
+
+    for task in tasks:
+        if task['id'] == task_id:
+            line_num = task['line']
+            if task['enabled']:
+                lines[line_num] = '#' + lines[line_num]
+                action_detail = {'task_id': task_id, 'action': 'disable', 'command': task['command'][:50]}
+            else:
+                lines[line_num] = lines[line_num].lstrip('#')
+                action_detail = {'task_id': task_id, 'action': 'enable', 'command': task['command'][:50]}
+            break
+
+    new_content = '\n'.join(lines)
+    success, error = save_crontab(new_content)
+    if success and action_detail:
+        log_action('toggle_task', action_detail)
+    return jsonify({'success': success, 'error': error})
+
+
+@app.route('/api/add', methods=['POST'])
+@login_required
+def add_task():
+    """添加新任务"""
+    schedule = request.json.get('schedule', '')
+    command = request.json.get('command', '')
+
+    if not schedule or not command:
+        return jsonify({'success': False, 'error': 'Schedule and command cannot be empty'})
+
+    if not re.match(r'^[\d*,/-]+\s+[\d*,/-]+\s+[\d*,/-]+\s+[\d*,/-]+\s+[\d*,/-]+$', schedule):
+        return jsonify({'success': False, 'error': 'Invalid cron expression'})
+
+    raw = get_crontab_raw()
+    new_line = f"{schedule} {command}"
+
+    if raw and not raw.endswith('\n'):
+        raw += '\n'
+    raw += new_line + '\n'
+
+    success, error = save_crontab(raw)
+    if success:
+        log_action('add_task', {'schedule': schedule, 'command': command[:50]})
+    return jsonify({'success': success, 'error': error})
+
+
+@app.route('/api/update/<int:task_id>', methods=['POST'])
+@login_required
+def update_task(task_id):
+    """更新任务"""
+    schedule = request.json.get('schedule', '')
+    command = request.json.get('command', '')
+
+    if not schedule or not command:
+        return jsonify({'success': False, 'error': 'Schedule and command cannot be empty'})
+
+    if not re.match(r'^[\d*,/-]+\s+[\d*,/-]+\s+[\d*,/-]+\s+[\d*,/-]+\s+[\d*,/-]+$', schedule):
+        return jsonify({'success': False, 'error': 'Invalid cron expression'})
+
+    raw = get_crontab_raw()
+    lines = raw.split('\n')
+    tasks = get_all_tasks()
+    old_task = None
+
+    for task in tasks:
+        if task['id'] == task_id:
+            old_task = task
+            line_num = task['line']
+            new_line = f"{schedule} {command}"
+            if not task['enabled']:
+                new_line = '#' + new_line
+            lines[line_num] = new_line
+            break
+
+    new_content = '\n'.join(lines)
+    success, error = save_crontab(new_content)
+    if success and old_task:
+        log_action('update_task', {
+            'task_id': task_id,
+            'old_schedule': old_task['schedule'],
+            'new_schedule': schedule,
+            'command': command[:50]
+        })
+    return jsonify({'success': success, 'error': error})
+
+
+@app.route('/api/delete/<int:task_id>', methods=['POST'])
+@login_required
+def delete_task(task_id):
+    """删除任务"""
+    raw = get_crontab_raw()
+    lines = raw.split('\n')
+    tasks = get_all_tasks()
+    deleted_task = None
+
+    for task in tasks:
+        if task['id'] == task_id:
+            deleted_task = task
+            line_num = task['line']
+            lines[line_num] = None
+            break
+
+    new_lines = [l for l in lines if l is not None]
+    new_content = '\n'.join(new_lines)
+    success, error = save_crontab(new_content)
+    if success and deleted_task:
+        log_action('delete_task', {'task_id': task_id, 'command': deleted_task['command'][:50]})
+    return jsonify({'success': success, 'error': error})
+
+
+@app.route('/api/toggle_group/<int:group_id>', methods=['POST'])
+@login_required
+def toggle_group(group_id):
+    """启用/禁用整个任务组"""
+    enable = request.json.get('enable', True)
+    raw = get_crontab_raw()
+    lines = raw.split('\n')
+    groups = parse_crontab()
+    group_title = None
+
+    for group in groups:
+        if group['id'] == group_id:
+            group_title = group['title']
+            for task in group['tasks']:
+                line_num = task['line']
+                if enable and not task['enabled']:
+                    lines[line_num] = lines[line_num].lstrip('#')
+                elif not enable and task['enabled']:
+                    lines[line_num] = '#' + lines[line_num]
+            break
+
+    new_content = '\n'.join(lines)
+    success, error = save_crontab(new_content)
+    if success:
+        log_action('toggle_group', {'group_id': group_id, 'title': group_title, 'enable': enable})
+    return jsonify({'success': success, 'error': error})
+
+
+@app.route('/api/update_group_title/<int:group_id>', methods=['POST'])
+@login_required
+def update_group_title(group_id):
+    """更新任务组名称"""
+    new_title = request.json.get('title', '').strip()
+    if not new_title:
+        return jsonify({'success': False, 'error': 'Group name cannot be empty'})
+
+    raw = get_crontab_raw()
+    lines = raw.split('\n')
+    groups = parse_crontab()
+    old_title = None
+
+    for group in groups:
+        if group['id'] == group_id:
+            old_title = group['title']
+            if group['title_line'] >= 0:
+                lines[group['title_line']] = f"# {new_title}"
+            else:
+                if group['tasks']:
+                    first_task_line = group['tasks'][0]['line']
+                    lines.insert(first_task_line, f"# {new_title}")
+            break
+    else:
+        return jsonify({'success': False, 'error': 'Task group not found'})
+
+    new_content = '\n'.join(lines)
+    success, error = save_crontab(new_content)
+    if success:
+        log_action('update_group_title', {'group_id': group_id, 'old_title': old_title, 'new_title': new_title})
+    return jsonify({'success': success, 'error': error})
+
+
+@app.route('/api/add_to_group/<int:group_id>', methods=['POST'])
+@login_required
+def add_task_to_group(group_id):
+    """在指定组内添加新任务"""
+    schedule = request.json.get('schedule', '')
+    command = request.json.get('command', '')
+    enabled = request.json.get('enabled', True)
+
+    if not schedule or not command:
+        return jsonify({'success': False, 'error': 'Schedule and command cannot be empty'})
+
+    if not re.match(r'^[\d*,/-]+\s+[\d*,/-]+\s+[\d*,/-]+\s+[\d*,/-]+\s+[\d*,/-]+$', schedule):
+        return jsonify({'success': False, 'error': 'Invalid cron expression'})
+
+    raw = get_crontab_raw()
+    lines = raw.split('\n')
+    groups = parse_crontab()
+    group_title = None
+
+    for group in groups:
+        if group['id'] == group_id:
+            group_title = group['title']
+            if group['tasks']:
+                last_task_line = group['tasks'][-1]['line']
+                new_line = f"{schedule} {command}"
+                if not enabled:
+                    new_line = '#' + new_line
+                lines.insert(last_task_line + 1, new_line)
+            break
+    else:
+        return jsonify({'success': False, 'error': 'Task group not found'})
+
+    new_content = '\n'.join(lines)
+    success, error = save_crontab(new_content)
+    if success:
+        log_action('add_to_group', {'group_id': group_id, 'group_title': group_title, 'schedule': schedule, 'command': command[:50]})
+    return jsonify({'success': success, 'error': error})
+
+
+@app.route('/api/create_group', methods=['POST'])
+@login_required
+def create_group():
+    """创建新的任务组（仅包含组名称）"""
+    title = request.json.get('title', '').strip()
+    if not title:
+        return jsonify({'success': False, 'error': 'Group name cannot be empty'})
+
+    raw = get_crontab_raw()
+
+    if raw and not raw.endswith('\n'):
+        raw += '\n'
+    if raw.strip():
+        raw += '\n'
+    raw += f"# {title}\n"
+    raw += "#* * * * * echo 'placeholder - please edit'\n"
+
+    success, error = save_crontab(raw)
+    if success:
+        log_action('create_group', {'title': title})
+    return jsonify({'success': success, 'error': error})
+
+
+@app.route('/api/delete_group/<int:group_id>', methods=['POST'])
+@login_required
+def delete_group(group_id):
+    """删除整个任务组"""
+    raw = get_crontab_raw()
+    lines = raw.split('\n')
+    groups = parse_crontab()
+    deleted_title = None
+
+    for group in groups:
+        if group['id'] == group_id:
+            deleted_title = group['title']
+            lines_to_delete = set()
+            if group['title_line'] >= 0:
+                lines_to_delete.add(group['title_line'])
+            for task in group['tasks']:
+                lines_to_delete.add(task['line'])
+            for i in lines_to_delete:
+                lines[i] = None
+            break
+    else:
+        return jsonify({'success': False, 'error': 'Task group not found'})
+
+    new_lines = [l for l in lines if l is not None]
+    new_content = '\n'.join(new_lines)
+    success, error = save_crontab(new_content)
+    if success:
+        log_action('delete_group', {'group_id': group_id, 'title': deleted_title})
+    return jsonify({'success': success, 'error': error})
+
+
+@app.route('/api/reorder_groups', methods=['POST'])
+@login_required
+def reorder_groups():
+    """重新排序任务组"""
+    from_id = request.json.get('from_id')
+    to_id = request.json.get('to_id')
+
+    if from_id is None or to_id is None:
+        return jsonify({'success': False, 'error': 'Invalid parameters'})
+
+    raw = get_crontab_raw()
+    lines = raw.split('\n')
+    groups = parse_crontab()
+
+    # 找到两个组
+    from_group = None
+    to_group = None
+    for g in groups:
+        if g['id'] == from_id:
+            from_group = g
+        if g['id'] == to_id:
+            to_group = g
+
+    if not from_group or not to_group:
+        return jsonify({'success': False, 'error': 'Group not found'})
+
+    # 收集 from_group 的所有行（包括标题和任务）
+    from_lines = []
+    if from_group['title_line'] >= 0:
+        from_lines.append((from_group['title_line'], lines[from_group['title_line']]))
+    for task in from_group['tasks']:
+        from_lines.append((task['line'], lines[task['line']]))
+    from_lines.sort(key=lambda x: x[0])
+
+    # 标记要移动的行为 None
+    for line_num, _ in from_lines:
+        lines[line_num] = None
+
+    # 找到 to_group 的插入位置（在 to_group 之前插入）
+    if to_group['title_line'] >= 0:
+        insert_pos = to_group['title_line']
+    elif to_group['tasks']:
+        insert_pos = to_group['tasks'][0]['line']
+    else:
+        insert_pos = 0
+
+    # 调整插入位置（因为移除了一些行）
+    removed_before = sum(1 for ln, _ in from_lines if ln < insert_pos)
+    insert_pos -= removed_before
+
+    # 过滤掉标记为 None 的行
+    new_lines = [l for l in lines if l is not None]
+
+    # 在目标位置插入 from_group 的行
+    for i, (_, content) in enumerate(from_lines):
+        new_lines.insert(insert_pos + i, content)
+
+    # 确保组之间有空行分隔
+    new_content = '\n'.join(new_lines)
+    success, error = save_crontab(new_content)
+    return jsonify({'success': success, 'error': error})
+
+
+@app.route('/api/move_task_to_end', methods=['POST'])
+@login_required
+def move_task_to_end():
+    """将任务移动到指定组的末尾"""
+    task_id = request.json.get('task_id')
+    from_group_id = request.json.get('from_group_id')
+    to_group_id = request.json.get('to_group_id')
+
+    if None in [task_id, from_group_id, to_group_id]:
+        return jsonify({'success': False, 'error': 'Invalid parameters'})
+
+    raw = get_crontab_raw()
+    lines = raw.split('\n')
+    tasks = get_all_tasks()
+    groups = parse_crontab()
+
+    # 找到要移动的任务
+    from_task = None
+    for t in tasks:
+        if t['id'] == task_id:
+            from_task = t
+            break
+
+    if not from_task:
+        return jsonify({'success': False, 'error': 'Task not found'})
+
+    # 找到目标组
+    to_group = None
+    for g in groups:
+        if g['id'] == to_group_id:
+            to_group = g
+            break
+
+    if not to_group:
+        return jsonify({'success': False, 'error': 'Target group not found'})
+
+    # 获取要移动的行内容
+    from_line = from_task['line']
+    content = lines[from_line]
+
+    # 移除原位置的行
+    lines[from_line] = None
+
+    # 过滤掉标记为 None 的行
+    new_lines = [l for l in lines if l is not None]
+
+    # 计算目标组的末尾位置
+    # 需要重新解析，因为行号可能已经变化
+    if to_group['tasks']:
+        # 找到目标组最后一个任务的原始行号
+        last_task_line = to_group['tasks'][-1]['line']
+        # 计算移除后的新位置
+        if from_line < last_task_line:
+            insert_pos = last_task_line  # 移除了前面的行，位置减1后再+1等于原位置
+        else:
+            insert_pos = last_task_line + 1
+        insert_pos = min(insert_pos, len(new_lines))
+    else:
+        # 目标组没有任务，插入到标题行后面
+        if to_group['title_line'] >= 0:
+            insert_pos = to_group['title_line']
+            if from_line < to_group['title_line']:
+                insert_pos -= 1
+            insert_pos += 1
+        else:
+            insert_pos = len(new_lines)
+
+    # 在目标位置插入
+    new_lines.insert(insert_pos, content)
+
+    new_content = '\n'.join(new_lines)
+    success, error = save_crontab(new_content)
+    return jsonify({'success': success, 'error': error})
+
+
+@app.route('/api/reorder_tasks', methods=['POST'])
+@login_required
+def reorder_tasks():
+    """重新排序任务（组内或跨组）"""
+    from_task_id = request.json.get('from_task_id')
+    from_group_id = request.json.get('from_group_id')
+    to_task_id = request.json.get('to_task_id')
+    to_group_id = request.json.get('to_group_id')
+    insert_before = request.json.get('insert_before', True)  # 默认插入到目标之前
+
+    if None in [from_task_id, from_group_id, to_task_id, to_group_id]:
+        return jsonify({'success': False, 'error': 'Invalid parameters'})
+
+    raw = get_crontab_raw()
+    lines = raw.split('\n')
+    tasks = get_all_tasks()
+
+    # 找到两个任务
+    from_task = None
+    to_task = None
+    for t in tasks:
+        if t['id'] == from_task_id:
+            from_task = t
+        if t['id'] == to_task_id:
+            to_task = t
+
+    if not from_task or not to_task:
+        return jsonify({'success': False, 'error': 'Task not found'})
+
+    # 获取要移动的行内容
+    from_line = from_task['line']
+    to_line = to_task['line']
+    content = lines[from_line]
+
+    # 移除原位置的行
+    lines[from_line] = None
+
+    # 计算目标位置
+    if insert_before:
+        # 插入到目标之前
+        if from_line < to_line:
+            insert_pos = to_line - 1
+        else:
+            insert_pos = to_line
+    else:
+        # 插入到目标之后
+        if from_line < to_line:
+            insert_pos = to_line
+        else:
+            insert_pos = to_line + 1
+
+    # 过滤掉标记为 None 的行
+    new_lines = [l for l in lines if l is not None]
+
+    # 调整插入位置确保不越界
+    insert_pos = max(0, min(insert_pos, len(new_lines)))
+
+    # 在目标位置插入
+    new_lines.insert(insert_pos, content)
+
+    new_content = '\n'.join(new_lines)
+    success, error = save_crontab(new_content)
+    return jsonify({'success': success, 'error': error})
+
+
+if __name__ == '__main__':
+    import os
+    debug = os.environ.get('FLASK_DEBUG', '0') == '1'
+    app.run(host='0.0.0.0', port=5000, debug=debug)
