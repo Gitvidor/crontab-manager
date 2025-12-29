@@ -7,7 +7,7 @@ APP_DIR="$(dirname "$SCRIPT_DIR")"
 LOG_DIR="${APP_DIR}/log"
 mkdir -p "$LOG_DIR"
 LOG_FILE="${LOG_DIR}/app.log"
-PORT=5000
+PORT=5100
 
 # 先停止旧进程
 "${SCRIPT_DIR}/stop.sh"

@@ -1,7 +1,7 @@
 # app.py - Crontab Web Management Tool
 # Features: View, edit, enable/disable crontab tasks via web interface
 # Auth: Flask-Login multi-user authentication with audit logging
-# Start: python app.py, visit http://localhost:5000
+# Start: python app.py, visit http://localhost:5100
 
 from flask import Flask, render_template, request, jsonify, redirect, url_for
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
@@ -186,7 +186,7 @@ def login():
             log_action('login')
             next_page = request.args.get('next')
             return redirect(next_page or '/')
-        error = '用户名或密码错误'
+        error = 'Invalid username or password'
     return render_template('login.html', error=error)
 
 
@@ -226,6 +226,51 @@ def get_audit_logs():
                 except json.JSONDecodeError:
                     continue
     return jsonify(logs)
+
+
+@app.route('/api/cron_logs')
+@login_required
+def get_cron_logs():
+    """获取系统cron执行日志"""
+    logs = []
+    cron_log_paths = [
+        '/var/log/cron',           # RHEL/CentOS
+        '/var/log/cron.log',       # Some systems
+        '/var/log/syslog',         # Debian/Ubuntu (需过滤CRON)
+    ]
+
+    log_file = None
+    for path in cron_log_paths:
+        if os.path.exists(path):
+            log_file = path
+            break
+
+    if not log_file:
+        return jsonify({'logs': [], 'source': 'none', 'error': 'No cron log file found'})
+
+    try:
+        # 读取最近500行
+        result = subprocess.run(
+            ['tail', '-n', '500', log_file],
+            capture_output=True, text=True, timeout=10
+        )
+        if result.returncode != 0:
+            return jsonify({'logs': [], 'source': log_file, 'error': result.stderr})
+
+        lines = result.stdout.strip().split('\n')
+
+        # 如果是syslog，过滤CRON相关行
+        if 'syslog' in log_file:
+            lines = [l for l in lines if 'CRON' in l or 'cron' in l.lower()]
+
+        # 取最近200条并倒序
+        logs = list(reversed(lines[-200:])) if lines else []
+
+        return jsonify({'logs': logs, 'source': log_file, 'error': None})
+    except subprocess.TimeoutExpired:
+        return jsonify({'logs': [], 'source': log_file, 'error': 'Timeout reading log file'})
+    except Exception as e:
+        return jsonify({'logs': [], 'source': log_file, 'error': str(e)})
 
 
 @app.route('/api/tasks')
@@ -347,27 +392,69 @@ def update_task(task_id):
     return jsonify({'success': success, 'error': error})
 
 
-@app.route('/api/delete/<int:task_id>', methods=['POST'])
+@app.route('/api/run/<int:task_id>', methods=['POST'])
 @login_required
-def delete_task(task_id):
-    """删除任务"""
-    raw = get_crontab_raw()
-    lines = raw.split('\n')
+def run_task(task_id):
+    """手动运行任务"""
     tasks = get_all_tasks()
-    deleted_task = None
+    target_task = None
 
     for task in tasks:
         if task['id'] == task_id:
-            deleted_task = task
-            line_num = task['line']
-            lines[line_num] = None
+            target_task = task
+            break
+
+    if not target_task:
+        return jsonify({'success': False, 'error': 'Task not found'})
+
+    command = target_task['command']
+    try:
+        # 后台运行命令，不等待结果
+        result = subprocess.Popen(
+            command,
+            shell=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            start_new_session=True
+        )
+        log_action('run_task', {'task_id': task_id, 'command': command[:50], 'pid': result.pid})
+        return jsonify({'success': True, 'pid': result.pid, 'command': command[:50]})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+
+@app.route('/api/delete/<int:task_id>', methods=['POST'])
+@login_required
+def delete_task(task_id):
+    """删除任务，如果是组内最后一个任务则同时删除组标题"""
+    raw = get_crontab_raw()
+    lines = raw.split('\n')
+    groups = parse_crontab()
+    deleted_task = None
+    deleted_group_title = None
+
+    # 找到任务所在的组，并删除任务
+    for group in groups:
+        for task in group['tasks']:
+            if task['id'] == task_id:
+                deleted_task = task
+                lines[task['line']] = None
+                # 如果是组内最后一个任务，同时删除组标题
+                if len(group['tasks']) == 1 and group['title_line'] >= 0:
+                    lines[group['title_line']] = None
+                    deleted_group_title = group['title']
+                break
+        if deleted_task:
             break
 
     new_lines = [l for l in lines if l is not None]
     new_content = '\n'.join(new_lines)
     success, error = save_crontab(new_content)
     if success and deleted_task:
-        log_action('delete_task', {'task_id': task_id, 'command': deleted_task['command'][:50]})
+        details = {'task_id': task_id, 'command': deleted_task['command'][:50]}
+        if deleted_group_title:
+            details['group_deleted'] = deleted_group_title
+        log_action('delete_task', details)
     return jsonify({'success': success, 'error': error})
 
 
@@ -731,4 +818,4 @@ def reorder_tasks():
 if __name__ == '__main__':
     import os
     debug = os.environ.get('FLASK_DEBUG', '0') == '1'
-    app.run(host='0.0.0.0', port=5000, debug=debug)
+    app.run(host='0.0.0.0', port=5100, debug=debug)

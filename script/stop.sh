@@ -1,8 +1,8 @@
 #!/bin/bash
 # stop.sh - 停止Crontab Web服务
-# 通过端口5000查找并终止进程
+# 通过端口5100查找并终止进程
 
-PORT=5000
+PORT=5100
 
 # 通过端口查找进程
 PID=$(lsof -ti :$PORT 2>/dev/null)

@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="zh">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>登录 - Crontab Manager</title>
+    <title>Login - Crontab Manager</title>
     <style>
         :root {
             --primary: #4A90D9;
@@ -132,7 +132,7 @@
     <div class="login-container">
         <div class="login-header">
             <h1>Crontab Manager</h1>
-            <p>请登录以管理定时任务</p>
+            <p>Please login to manage cron tasks</p>
         </div>
 
         {% if error %}
@@ -141,18 +141,18 @@
 
         <form method="POST">
             <div class="form-group">
-                <label for="username">用户名</label>
-                <input type="text" id="username" name="username" required autofocus placeholder="请输入用户名">
+                <label for="username">Username</label>
+                <input type="text" id="username" name="username" required autofocus placeholder="Enter username">
             </div>
             <div class="form-group">
-                <label for="password">密码</label>
-                <input type="password" id="password" name="password" required placeholder="请输入密码">
+                <label for="password">Password</label>
+                <input type="password" id="password" name="password" required placeholder="Enter password">
             </div>
-            <button type="submit" class="login-btn">登 录</button>
+            <button type="submit" class="login-btn">Login</button>
         </form>
 
         <div class="login-footer">
-            定时任务管理系统
+            Cron Task Management System
         </div>
     </div>
 </body>

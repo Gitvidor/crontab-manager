@@ -99,6 +99,85 @@
         /* 日志视图 */
         .audit-logs { display: none; }
         .audit-logs.active { display: block; }
+
+        /* Cron执行日志视图 */
+        .cron-logs { display: none; }
+        .cron-logs.active { display: block; }
+        .cron-log-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: var(--space-3);
+            padding: var(--space-2) var(--space-3);
+            background: var(--bg-tertiary);
+            border-radius: var(--radius-md);
+        }
+        .cron-log-source {
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+        .cron-log-source code {
+            background: var(--bg-hover);
+            padding: 2px var(--space-2);
+            border-radius: var(--radius-sm);
+            font-family: 'SF Mono', Monaco, monospace;
+            font-size: 12px;
+        }
+        .refresh-btn {
+            width: 32px;
+            height: 32px;
+            padding: 0;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all var(--transition-fast);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .refresh-btn:hover {
+            background: var(--primary-hover);
+            transform: scale(1.1);
+        }
+        .refresh-btn:active {
+            transform: scale(0.95);
+        }
+        .refresh-btn.spinning {
+            animation: spin-refresh 0.6s ease-in-out;
+        }
+        @keyframes spin-refresh {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        .cron-log-list {
+            background: var(--bg-secondary);
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border-color);
+            max-height: 75vh;
+            overflow-y: auto;
+        }
+        .cron-log-line {
+            padding: var(--space-2) var(--space-3);
+            border-bottom: 1px solid var(--border-light);
+            font-family: 'SF Mono', Monaco, monospace;
+            font-size: 12px;
+            color: var(--text-secondary);
+            word-break: break-all;
+            line-height: 1.5;
+        }
+        .cron-log-line:last-child { border-bottom: none; }
+        .cron-log-line:hover { background: var(--bg-tertiary); }
+        .cron-log-line:nth-child(odd) { background: var(--bg-primary); }
+        .cron-log-line:nth-child(odd):hover { background: var(--bg-tertiary); }
+        .cron-log-error {
+            text-align: center;
+            padding: var(--space-6);
+            color: var(--danger);
+        }
         .log-list {
             background: var(--bg-secondary);
             border-radius: var(--radius-md);
@@ -248,7 +327,7 @@
         .raw-editor.active { display: block; }
         .raw-editor textarea {
             width: 100%;
-            height: 75vh;
+            height: 80vh;
             font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
             font-size: 13px;
             padding: var(--space-4);
@@ -363,6 +442,26 @@
         .editable input.cmd-input {
             width: 100%;
             min-width: 200px;
+        }
+        .run-btn {
+            width: 14px;
+            height: 14px;
+            background: var(--success);
+            border: 0.5px solid var(--success-hover);
+            border-radius: 50%;
+            cursor: pointer;
+            flex-shrink: 0;
+            font-size: 7px;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding-left: 1px;
+            transition: transform var(--transition-fast);
+        }
+        .run-btn:hover {
+            transform: scale(1.2);
+            background: var(--success-hover);
         }
         .delete-btn {
             width: 12px;
@@ -611,7 +710,6 @@
         /* 搜索框 */
         .search-box {
             flex: 1;
-            max-width: 300px;
             padding: var(--space-2) var(--space-3);
             border: 1px solid var(--border-color);
             border-radius: var(--radius-md);
@@ -629,24 +727,28 @@
 
         /* 新建任务组按钮 */
         .new-group-btn {
-            padding: var(--space-2) var(--space-3);
+            width: 32px;
+            height: 32px;
+            padding: 0;
             background: var(--success);
             color: white;
             border: none;
-            border-radius: var(--radius-sm);
-            font-size: 12px;
-            font-weight: 500;
+            border-radius: 50%;
+            font-size: 22px;
+            font-weight: 300;
+            line-height: 1;
             cursor: pointer;
-            margin-left: auto;
             transition: all var(--transition-fast);
-            box-shadow: var(--shadow-sm);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
         }
         .new-group-btn:hover {
             background: var(--success-hover);
-            box-shadow: var(--shadow-md);
-            transform: translateY(-1px);
+            transform: scale(1.1);
         }
-        .new-group-btn:active { transform: translateY(0); }
+        .new-group-btn:active { transform: scale(0.95); }
 
         /* 组内添加任务按钮 */
         .group-add-task-btn {
@@ -1004,22 +1106,23 @@
     <div class="header">
         <h1>Crontab Manager</h1>
         <div class="user-info">
-            <span class="user-name">当前用户: <strong>{{ username }}</strong></span>
-            <a href="/logout" class="logout-btn">退出登录</a>
+            <span class="user-name">User: <strong>{{ username }}</strong></span>
+            <a href="/logout" class="logout-btn">Logout</a>
         </div>
     </div>
 
     <div class="tabs">
-        <button class="tab active" onclick="switchTab('list')">任务列表</button>
-        <button class="tab" onclick="switchTab('raw')">原始编辑</button>
-        <button class="tab" onclick="switchTab('logs')">操作日志</button>
+        <button class="tab active" onclick="switchTab('list')">Task List</button>
+        <button class="tab" onclick="switchTab('raw')">Raw Edit</button>
+        <button class="tab" onclick="switchTab('cron')">Cron Logs</button>
+        <button class="tab" onclick="switchTab('logs')">Audit Logs</button>
     </div>
 
     <div class="collapse-controls">
         <button class="collapse-btn" onclick="expandAll()">Expand All</button>
         <button class="collapse-btn" onclick="collapseAll()">Collapse All</button>
         <input type="text" class="search-box" id="searchBox" placeholder="Search tasks..." oninput="filterTasks()">
-        <button class="new-group-btn" onclick="showNewGroupForm()">+ New Group</button>
+        <button class="new-group-btn" onclick="showNewGroupForm()" title="New Group">+</button>
     </div>
 
     <div id="newGroupForm" class="new-group-form">
@@ -1032,12 +1135,22 @@
 
     <div id="rawEditor" class="raw-editor">
         <textarea id="rawContent"></textarea>
-        <button class="save-btn" onclick="saveRaw()">保存</button>
+        <button class="save-btn" onclick="saveRaw()">Save</button>
+    </div>
+
+    <div id="cronLogs" class="cron-logs">
+        <div class="cron-log-header">
+            <span class="cron-log-source">Source: <code id="cronLogSource">-</code></span>
+            <button class="refresh-btn" onclick="loadCronLogs()" title="Refresh">⟳</button>
+        </div>
+        <div class="cron-log-list" id="cronLogList">
+            <div class="log-empty">Loading...</div>
+        </div>
     </div>
 
     <div id="auditLogs" class="audit-logs">
         <div class="log-list" id="logList">
-            <div class="log-empty">加载中...</div>
+            <div class="log-empty">Loading...</div>
         </div>
     </div>
 
@@ -1193,11 +1306,12 @@
         // 切换标签页
         function switchTab(tab) {
             document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-            const tabIndex = tab === 'list' ? 1 : (tab === 'raw' ? 2 : 3);
-            document.querySelector(`.tab:nth-child(${tabIndex})`).classList.add('active');
+            const tabMap = { 'list': 1, 'raw': 2, 'cron': 3, 'logs': 4 };
+            document.querySelector(`.tab:nth-child(${tabMap[tab]})`).classList.add('active');
 
             document.getElementById('taskList').classList.toggle('active', tab === 'list');
             document.getElementById('rawEditor').classList.toggle('active', tab === 'raw');
+            document.getElementById('cronLogs').classList.toggle('active', tab === 'cron');
             document.getElementById('auditLogs').classList.toggle('active', tab === 'logs');
             document.querySelector('.collapse-controls').style.display = tab === 'list' ? 'flex' : 'none';
             document.getElementById('newGroupForm').classList.remove('active');
@@ -1207,6 +1321,8 @@
                 loadTasks();
             } else if (tab === 'raw') {
                 loadRaw();
+            } else if (tab === 'cron') {
+                loadCronLogs();
             } else if (tab === 'logs') {
                 loadAuditLogs();
             }
@@ -1220,7 +1336,7 @@
                 const logs = await resp.json();
 
                 if (logs.length === 0) {
-                    logList.innerHTML = '<div class="log-empty">暂无操作日志</div>';
+                    logList.innerHTML = '<div class="log-empty">No audit logs</div>';
                     return;
                 }
 
@@ -1238,7 +1354,7 @@
                     `;
                 }).join('');
             } catch (e) {
-                logList.innerHTML = '<div class="log-empty">加载失败</div>';
+                logList.innerHTML = '<div class="log-empty">Failed to load</div>';
             }
         }
 
@@ -1253,18 +1369,18 @@
 
         function getActionText(action) {
             const actionMap = {
-                'login': '登录',
-                'logout': '登出',
-                'add_task': '添加任务',
-                'add_to_group': '添加到组',
-                'update_task': '更新任务',
-                'delete_task': '删除任务',
-                'toggle_task': '切换状态',
-                'toggle_group': '切换组状态',
-                'create_group': '创建分组',
-                'delete_group': '删除分组',
-                'update_group_title': '重命名组',
-                'save_raw': '保存原始内容'
+                'login': 'Login',
+                'logout': 'Logout',
+                'add_task': 'Add Task',
+                'add_to_group': 'Add to Group',
+                'update_task': 'Update Task',
+                'delete_task': 'Delete Task',
+                'toggle_task': 'Toggle Task',
+                'toggle_group': 'Toggle Group',
+                'create_group': 'Create Group',
+                'delete_group': 'Delete Group',
+                'update_group_title': 'Rename Group',
+                'save_raw': 'Save Raw'
             };
             return actionMap[action] || action;
         }
@@ -1274,18 +1390,55 @@
             if (typeof details === 'string') return details;
 
             const parts = [];
-            if (details.command) parts.push(`命令: ${details.command}`);
-            if (details.schedule) parts.push(`时间: ${details.schedule}`);
-            if (details.title) parts.push(`名称: ${details.title}`);
+            if (details.command) parts.push(`cmd: ${details.command}`);
+            if (details.schedule) parts.push(`schedule: ${details.schedule}`);
+            if (details.title) parts.push(`name: ${details.title}`);
             if (details.old_schedule && details.new_schedule) {
                 parts.push(`${details.old_schedule} → ${details.new_schedule}`);
             }
-            if (details.action === 'enable') parts.push('启用');
-            if (details.action === 'disable') parts.push('禁用');
-            if (details.enable !== undefined) parts.push(details.enable ? '启用' : '禁用');
-            if (details.length) parts.push(`${details.length} 字符`);
+            if (details.action === 'enable') parts.push('enabled');
+            if (details.action === 'disable') parts.push('disabled');
+            if (details.enable !== undefined) parts.push(details.enable ? 'enabled' : 'disabled');
+            if (details.length) parts.push(`${details.length} chars`);
 
             return parts.length > 0 ? parts.join(' | ') : JSON.stringify(details);
+        }
+
+        // 加载Cron执行日志
+        async function loadCronLogs() {
+            const logList = document.getElementById('cronLogList');
+            const sourceEl = document.getElementById('cronLogSource');
+            const refreshBtn = document.querySelector('.refresh-btn');
+
+            // 添加旋转动画
+            if (refreshBtn) {
+                refreshBtn.classList.add('spinning');
+                setTimeout(() => refreshBtn.classList.remove('spinning'), 600);
+            }
+
+            try {
+                const resp = await fetch('/api/cron_logs');
+                const data = await resp.json();
+
+                sourceEl.textContent = data.source || '-';
+
+                if (data.error) {
+                    logList.innerHTML = `<div class="cron-log-error">${escapeHtml(data.error)}</div>`;
+                    return;
+                }
+
+                if (!data.logs || data.logs.length === 0) {
+                    logList.innerHTML = '<div class="log-empty">No cron execution logs found</div>';
+                    return;
+                }
+
+                logList.innerHTML = data.logs.map(line =>
+                    `<div class="cron-log-line">${escapeHtml(line)}</div>`
+                ).join('');
+            } catch (e) {
+                logList.innerHTML = '<div class="cron-log-error">Failed to load cron logs</div>';
+                sourceEl.textContent = '-';
+            }
         }
 
         // 加载任务列表
@@ -1324,6 +1477,7 @@
                         <span class="editable cmd-field" ondblclick="editField(${task.id},'command',this)">${escapeHtml(task.command)}</span>
                     </div>
                 </div>
+                <button class="run-btn" onclick="runTask(${task.id})" title="Run Now">▶</button>
                 <button class="delete-btn" onclick="deleteTask(${task.id})" title="Delete">×</button>
             </div>`;
         }
@@ -1704,6 +1858,25 @@
                 if (e.key === 'Enter') { input.blur(); }
                 if (e.key === 'Escape') { input.onblur = cancel; input.blur(); }
             };
+        }
+
+        // Run task manually（手动运行任务）
+        async function runTask(id) {
+            const card = document.getElementById(`task-${id}`);
+            const command = decodeURIComponent(card.dataset.command);
+
+            // 显示确认对话框
+            if (!confirm(`Run this task now?\n\nCommand: ${command}`)) {
+                return;
+            }
+
+            const resp = await fetch(`/api/run/${id}`, { method: 'POST' });
+            const result = await resp.json();
+            if (result.success) {
+                showMessage(`Task started (PID: ${result.pid})`, 'success');
+            } else {
+                showMessage('Run failed: ' + result.error, 'error');
+            }
         }
 
         // Delete task（带撤销功能）

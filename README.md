@@ -28,7 +28,7 @@ python app.py
 ./script/start.sh
 ```
 
-访问 http://localhost:5000
+访问 http://localhost:5100
 
 ### 默认账号
 
