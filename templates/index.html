@@ -318,6 +318,7 @@
             color: var(--primary);
             margin-bottom: var(--space-1);
             cursor: pointer;
+            width: fit-content;
         }
         .task-name:hover {
             text-decoration: underline;
@@ -1547,7 +1548,7 @@
             const cronDescription = parseCronToHuman(minute, hour, day, month, weekday);
             const taskName = task.name
                 ? `<span class="task-name editable" ondblclick="editTaskName(${task.id},this)" title="Double-click to edit">${escapeHtml(task.name)}</span>`
-                : `<span class="task-name task-name-empty editable" ondblclick="editTaskName(${task.id},this)" title="Double-click to add name">+ Add name</span>`;
+                : `<span class="task-name task-name-empty editable" onclick="editTaskName(${task.id},this)" title="Click to add name">+ Add name</span>`;
 
             return `
             <div class="task-card ${task.enabled ? '' : 'disabled'}" id="task-${task.id}"
