@@ -321,7 +321,7 @@
             width: fit-content;
         }
         .task-name:hover {
-            text-decoration: underline;
+            opacity: 0.8;
         }
         .task-name-empty {
             color: var(--text-muted);
@@ -722,26 +722,24 @@
 
         /* 新建任务组按钮 */
         .new-group-btn {
-            width: 32px;
             height: 32px;
-            padding: 0;
+            padding: 0 var(--space-3);
             background: var(--success);
             color: white;
             border: none;
-            border-radius: 50%;
-            font-size: 22px;
-            font-weight: 300;
-            line-height: 1;
+            border-radius: var(--radius-md);
+            font-size: 13px;
+            font-weight: 500;
             cursor: pointer;
             transition: all var(--transition-fast);
             display: flex;
             align-items: center;
             justify-content: center;
+            gap: var(--space-1);
             flex-shrink: 0;
         }
         .new-group-btn:hover {
             background: var(--success-hover);
-            transform: scale(1.1);
         }
         .new-group-btn:active { transform: scale(0.95); }
 
@@ -1167,7 +1165,7 @@
             <svg class="collapse-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 14l5-5 5 5"/><path d="M7 19l5-5 5 5"/></svg>
         </button>
         <input type="text" class="search-box" id="searchBox" placeholder="Search tasks..." oninput="filterTasks()">
-        <button class="new-group-btn" onclick="showNewGroupForm()" title="New Group">+</button>
+        <button class="new-group-btn" onclick="showNewGroupForm()">+ New Group</button>
     </div>
 
     <div id="newGroupForm" class="new-group-form">
@@ -1548,7 +1546,7 @@
             const cronDescription = parseCronToHuman(minute, hour, day, month, weekday);
             const taskName = task.name
                 ? `<span class="task-name editable" ondblclick="editTaskName(${task.id},this)" title="Double-click to edit">${escapeHtml(task.name)}</span>`
-                : `<span class="task-name task-name-empty editable" onclick="editTaskName(${task.id},this)" title="Click to add name">+ Add name</span>`;
+                : `<span class="task-name task-name-empty editable" onclick="editTaskName(${task.id},this)" title="Click to add name">+ Task name</span>`;
 
             return `
             <div class="task-card ${task.enabled ? '' : 'disabled'}" id="task-${task.id}"
@@ -2045,7 +2043,7 @@
                         element.textContent = newName;
                         element.classList.remove('task-name-empty');
                     } else {
-                        element.textContent = '+ Add name';
+                        element.textContent = '+ Task name';
                         element.classList.add('task-name-empty');
                     }
                 } else {
