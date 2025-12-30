@@ -505,6 +505,8 @@
         .task-group .group-header {
             background: linear-gradient(to bottom, var(--bg-tertiary), var(--bg-hover));
             padding: var(--space-3) var(--space-4);
+            min-height: 60px;
+            box-sizing: border-box;
             display: flex;
             align-items: center;
             cursor: pointer;
@@ -1023,10 +1025,14 @@
         }
         .group-drag-handle {
             margin-right: var(--space-2);
+            overflow: hidden;
+            transition: width 0.2s ease, opacity 0.2s ease, margin 0.2s ease;
         }
         /* 展开状态隐藏拖拽图标 */
         .task-group:not(.collapsed) .group-drag-handle {
-            display: none;
+            width: 0;
+            margin-right: 0;
+            opacity: 0;
         }
 
         /* Cron 时间预览 Tooltip */
@@ -1280,7 +1286,7 @@
             const result = await resp.json();
             if (result.success) {
                 if (options.successMsg) showMessage(options.successMsg, 'success');
-                if (options.reload !== false) loadTasks();
+                if (options.reload !== false) loadTasksKeepState();
             } else {
                 showMessage((options.errorPrefix || 'Error') + ': ' + result.error, 'error');
             }
@@ -1343,7 +1349,7 @@
                 const result = await resp.json();
                 if (result.success) {
                     showMessage('Task restored', 'success');
-                    loadTasks();
+                    loadTasksKeepState();
                 } else {
                     showMessage('Restore failed: ' + result.error, 'error');
                 }
@@ -1369,7 +1375,7 @@
             document.getElementById('searchBox').value = '';
 
             if (tab === 'list') {
-                loadTasks();
+                loadTasksKeepState();
             } else if (tab === 'raw') {
                 loadRaw();
             } else if (tab === 'cron') {
@@ -1722,7 +1728,7 @@
             if (result.success) {
                 showMessage('Group created', 'success');
                 hideNewGroupForm();
-                loadTasks();
+                loadTasksKeepState();
             } else {
                 showMessage('Create failed: ' + result.error, 'error');
             }
@@ -1770,7 +1776,7 @@
             if (result.success) {
                 showMessage('Task added', 'success');
                 hideGroupAddForm(groupId);
-                loadTasks();
+                loadTasksKeepState();
             } else {
                 showMessage('Add failed: ' + result.error, 'error');
             }
@@ -1809,7 +1815,7 @@
                 const result = await resp.json();
                 if (result.success) {
                     showMessage('Group renamed', 'success');
-                    loadTasks();
+                    loadTasksKeepState();
                 } else {
                     showMessage('Rename failed: ' + result.error, 'error');
                     element.textContent = originalText;
@@ -1859,12 +1865,12 @@
             const result = await resp.json();
             if (result.success) {
                 showMessage(enable ? 'Group enabled' : 'Group disabled', 'success');
-                setTimeout(() => loadTasks(), 300);
+                setTimeout(() => loadTasksKeepState(), 300);
             } else {
                 // Restore state
                 switchEl.className = prevClass;
                 showMessage('Operation failed: ' + result.error, 'error');
-                loadTasks();
+                loadTasksKeepState();
             }
         }
 
@@ -1977,7 +1983,7 @@
                     command: command,
                     enabled: enabled
                 });
-                loadTasks();
+                loadTasksKeepState();
             } else {
                 showMessage('Delete failed: ' + result.error, 'error');
             }
@@ -2003,7 +2009,7 @@
             if (result.success) {
                 showMessage('Status updated', 'success');
                 // Delay refresh for transition effect
-                setTimeout(() => loadTasks(), 300);
+                setTimeout(() => loadTasksKeepState(), 300);
             } else {
                 // Restore state
                 toggle.classList.toggle('on');
@@ -2471,10 +2477,10 @@
                     elementToMove.dataset.groupId = toGroupId;
                 }
                 // 延迟加载以确保数据同步
-                setTimeout(loadTasks, 300);
+                setTimeout(loadTasksKeepState, 300);
             } else {
                 showMessage('Move failed: ' + result.error, 'error');
-                loadTasks();
+                loadTasksKeepState();
             }
         }
 
