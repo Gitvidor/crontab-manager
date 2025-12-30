@@ -927,19 +927,23 @@
         }
 
         /* 响应式设计 */
+        /* 平板适配 */
         @media (max-width: 768px) {
             body { padding: var(--space-3); }
+            h1 { font-size: 22px; }
+            .header { flex-wrap: wrap; gap: var(--space-2); }
             .collapse-controls {
                 flex-wrap: wrap;
                 gap: var(--space-2);
             }
+            .collapse-toggle-btn { flex: 1; justify-content: center; }
             .search-box {
                 order: -1;
                 flex: 1 1 100%;
                 max-width: none;
             }
-            .new-group-btn { flex: 1; text-align: center; }
-            .task-card { flex-wrap: wrap; }
+            .new-group-btn { flex: 1; justify-content: center; }
+            .task-card { flex-wrap: wrap; padding: var(--space-3); }
             .task-info { min-width: 100%; order: 1; margin-top: var(--space-2); }
             .new-group-form { flex-wrap: wrap; }
             .new-group-form input { flex: 1 1 100%; }
@@ -948,13 +952,81 @@
             .group-add-form .mini-cron-inputs input { flex: 1; min-width: 36px; }
             .group-add-form .mini-command-row { flex-wrap: wrap; }
             .group-add-form .mini-command-row input { flex: 1 1 100%; margin-bottom: var(--space-2); }
+            .task-group .group-header { padding: var(--space-3); min-height: 50px; }
         }
 
+        /* 手机适配 */
         @media (max-width: 480px) {
-            .tabs { flex-direction: column; }
-            .tab { text-align: center; }
-            .task-group .group-header { flex-wrap: wrap; gap: var(--space-2); }
-            .task-group .group-count { order: 10; }
+            body { padding: var(--space-2); }
+            h1 { font-size: 20px; }
+            .header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: var(--space-2);
+            }
+            .user-info { width: 100%; justify-content: space-between; }
+            .tabs { flex-wrap: wrap; gap: var(--space-1); }
+            .tab { flex: 1; text-align: center; padding: var(--space-2) var(--space-1); font-size: 12px; min-width: 0; }
+            .collapse-controls { gap: var(--space-1); }
+            .collapse-toggle-btn { padding: var(--space-2) var(--space-3); font-size: 12px; }
+            .search-box { padding: var(--space-3); font-size: 14px; }
+            .new-group-btn { padding: var(--space-2) var(--space-3); font-size: 12px; }
+            .task-group { margin-bottom: var(--space-3); border-radius: var(--radius-md); }
+            .task-group .group-header {
+                gap: var(--space-2);
+                padding: var(--space-2) var(--space-3);
+                min-height: 44px;
+            }
+            .task-group .group-title { font-size: 14px; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+            .task-group .group-count { font-size: 10px; flex-shrink: 0; }
+            .task-card {
+                padding: var(--space-2);
+                gap: var(--space-2);
+                border-radius: var(--radius-sm);
+            }
+            .task-name { font-size: 13px; }
+            .task-schedule { gap: var(--space-1); }
+            .editable.time-field { min-width: 28px; font-size: 11px; padding: 4px 2px; }
+            .task-command { font-size: 10px; padding: var(--space-1); }
+            .message {
+                left: var(--space-2);
+                right: var(--space-2);
+                top: auto;
+                bottom: var(--space-5);
+                text-align: center;
+            }
+            .log-entry {
+                flex-wrap: wrap;
+                gap: var(--space-1);
+                padding: var(--space-2);
+            }
+            .log-time, .log-user, .log-action {
+                min-width: auto;
+                font-size: 11px;
+            }
+            .log-details {
+                flex: 1 1 100%;
+                font-size: 11px;
+                margin-top: var(--space-1);
+            }
+            .group-add-form { padding: var(--space-2) !important; }
+            .group-add-form .mini-cron-inputs input {
+                min-width: 30px;
+                padding: var(--space-2);
+                font-size: 12px;
+            }
+            .group-add-task-btn { padding: var(--space-2) var(--space-3); font-size: 12px; }
+            .cron-tooltip { font-size: 11px; padding: var(--space-1) var(--space-2); }
+            /* 拖拽手柄增大触摸区域 */
+            .drag-handle {
+                padding: var(--space-3) var(--space-2);
+                font-size: 16px;
+                min-width: 32px;
+                min-height: 32px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
         }
 
         /* 拖拽排序样式 - 拖影生成时的临时样式 */
@@ -1555,7 +1627,7 @@
                  data-month="${encodeURIComponent(month)}" data-weekday="${encodeURIComponent(weekday)}" data-command="${encodeURIComponent(task.command)}"
                  data-name="${encodeURIComponent(task.name || '')}"
                  draggable="false" ondragstart="dragTaskStart(event)" ondragend="dragEnd(event)" ondragover="dragTaskOver(event)" ondragleave="dragTaskLeave(event)" ondrop="dropTask(event)">
-                <span class="drag-handle" title="Drag to reorder" onmousedown="enableDrag(this.parentElement)" onmouseup="disableDrag(this.parentElement)">⋮⋮</span>
+                <span class="drag-handle" title="Drag to reorder" onmousedown="enableDrag(this.parentElement)" onmouseup="disableDrag(this.parentElement)" ontouchstart="enableDrag(this.parentElement)" ontouchend="disableDrag(this.parentElement)">⋮⋮</span>
                 <div class="toggle ${task.enabled ? 'on' : ''}" onclick="toggleTask(${task.id})"></div>
                 <div class="task-info">
                     ${taskName}
@@ -1596,7 +1668,7 @@
                 <div class="task-group${allDisabled ? ' disabled' : ''}" id="group-${group.id}" data-group-id="${group.id}" data-title="${escapeHtml(group.title || '')}"
                      draggable="false" ondragstart="dragGroupStart(event)" ondragend="dragEnd(event)" ondragover="dragGroupOver(event)" ondrop="dropGroup(event)">
                     <div class="group-header" onclick="toggleGroupCollapse(${group.id})">
-                        <span class="drag-handle group-drag-handle" title="Drag to reorder" onclick="event.stopPropagation()" onmousedown="enableDrag(this.closest('.task-group'))" onmouseup="disableDrag(this.closest('.task-group'))">⋮⋮</span>
+                        <span class="drag-handle group-drag-handle" title="Drag to reorder" onclick="event.stopPropagation()" onmousedown="enableDrag(this.closest('.task-group'))" onmouseup="disableDrag(this.closest('.task-group'))" ontouchstart="enableDrag(this.closest('.task-group'))" ontouchend="disableDrag(this.closest('.task-group'))">⋮⋮</span>
                         <div class="group-toggle-switch ${switchClass}" onclick="event.stopPropagation();toggleGroupSwitch(${group.id},${!allEnabled})"></div>
                         <span class="group-title" onclick="event.stopPropagation()" ondblclick="event.stopPropagation();editGroupTitle(${group.id},this)" title="Double-click to edit">${group.title ? escapeHtml(group.title) : 'Unnamed Group'}</span>
                         <span class="group-count">${enabledCount}/${group.tasks.length}</span>
