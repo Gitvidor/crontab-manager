@@ -187,9 +187,9 @@ def backup_crontab():
         backup_file = os.path.join(BACKUP_DIR, f'crontab_{timestamp}.bak')
         with open(backup_file, 'w') as f:
             f.write(current)
-        # 只保留最近20个备份
+        # 只保留最近500个备份
         backups = sorted(os.listdir(BACKUP_DIR), reverse=True)
-        for old in backups[20:]:
+        for old in backups[500:]:
             os.remove(os.path.join(BACKUP_DIR, old))
         return backup_file
     return None
@@ -389,7 +389,8 @@ def add_task():
         return jsonify({'success': False, 'error': 'Invalid cron expression'})
 
     raw = get_crontab_raw()
-    new_line = f"{schedule} {command}"
+    # 新任务默认禁用
+    new_line = f"#{schedule} {command}"
 
     if raw and not raw.endswith('\n'):
         raw += '\n'
@@ -397,7 +398,7 @@ def add_task():
 
     success, error = save_crontab(raw)
     if success:
-        log_action('add_task', {'schedule': schedule, 'command': command[:50]})
+        log_action('add_task', {'schedule': schedule, 'command': command[:50], 'enabled': False})
     return jsonify({'success': success, 'error': error})
 
 
@@ -482,10 +483,14 @@ def delete_task(task_id):
             if task['id'] == task_id:
                 deleted_task = task
                 lines[task['line']] = None
+                # 同时删除任务名行（如果有）
+                if 'name_line' in task:
+                    lines[task['name_line']] = None
                 # 如果是组内最后一个任务，同时删除组标题
-                if len(group['tasks']) == 1 and group['title_line'] >= 0:
-                    lines[group['title_line']] = None
-                    deleted_group_title = group['title']
+                if len(group['tasks']) == 1:
+                    deleted_group_title = group['title'] or f'Group {group["id"]}'
+                    if group['title_line'] >= 0:
+                        lines[group['title_line']] = None
                 break
         if deleted_task:
             break
@@ -571,7 +576,8 @@ def add_task_to_group(group_id):
     """在指定组内添加新任务"""
     schedule = request.json.get('schedule', '')
     command = request.json.get('command', '')
-    enabled = request.json.get('enabled', True)
+    name = request.json.get('name', '').strip()  # 可选的任务名
+    enabled = request.json.get('enabled', False)  # 新任务默认禁用
 
     if not schedule or not command:
         return jsonify({'success': False, 'error': 'Schedule and command cannot be empty'})
@@ -589,10 +595,17 @@ def add_task_to_group(group_id):
             group_title = group['title']
             if group['tasks']:
                 last_task_line = group['tasks'][-1]['line']
-                new_line = f"{schedule} {command}"
+                # 构建新行（任务名行 + 任务行）
+                new_lines_to_insert = []
+                if name:
+                    new_lines_to_insert.append(f"##{name}")
+                task_line = f"{schedule} {command}"
                 if not enabled:
-                    new_line = '#' + new_line
-                lines.insert(last_task_line + 1, new_line)
+                    task_line = '#' + task_line
+                new_lines_to_insert.append(task_line)
+                # 逆序插入以保持顺序
+                for i, line in enumerate(new_lines_to_insert):
+                    lines.insert(last_task_line + 1 + i, line)
             break
     else:
         return jsonify({'success': False, 'error': 'Task group not found'})
@@ -600,7 +613,10 @@ def add_task_to_group(group_id):
     new_content = '\n'.join(lines)
     success, error = save_crontab(new_content)
     if success:
-        log_action('add_to_group', {'group_id': group_id, 'group_title': group_title, 'schedule': schedule, 'command': command[:50]})
+        details = {'group_id': group_id, 'group_title': group_title, 'schedule': schedule, 'command': command[:50]}
+        if name:
+            details['name'] = name
+        log_action('add_to_group', details)
     return jsonify({'success': success, 'error': error})
 
 
@@ -746,6 +762,12 @@ def reorder_groups():
 
     new_content = '\n'.join(new_lines)
     success, error = save_crontab(new_content)
+    if success:
+        log_action('reorder_group', {
+            'group_id': from_id,
+            'title': from_group.get('title', ''),
+            'to_group_id': to_id
+        })
     return jsonify({'success': success, 'error': error})
 
 
@@ -821,6 +843,13 @@ def move_task_to_end():
 
     new_content = '\n'.join(new_lines)
     success, error = save_crontab(new_content)
+    if success:
+        log_action('move_task_to_end', {
+            'task_id': task_id,
+            'from_group': from_group_id,
+            'to_group': to_group_id,
+            'command': from_task['command'][:50]
+        })
     return jsonify({'success': success, 'error': error})
 
 
@@ -898,6 +927,13 @@ def reorder_tasks():
 
     new_content = '\n'.join(new_lines)
     success, error = save_crontab(new_content)
+    if success:
+        log_action('reorder_task', {
+            'task_id': from_task_id,
+            'from_group': from_group_id,
+            'to_group': to_group_id,
+            'command': from_task['command'][:50]
+        })
     return jsonify({'success': success, 'error': error})
 
 

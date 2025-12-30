@@ -665,17 +665,24 @@
             align-items: center;
             justify-content: center;
             padding: var(--space-2);
-            background: var(--bg-secondary);
-            border: 1px solid var(--border-color);
+            background: var(--primary);
+            border: 1px solid var(--primary);
             border-radius: var(--radius-sm);
             cursor: pointer;
-            color: var(--text-secondary);
+            color: white;
             transition: all var(--transition-fast);
         }
         .collapse-toggle-btn:hover {
-            background: var(--bg-hover);
-            color: var(--text-primary);
-            border-color: var(--text-muted);
+            background: #3A7BC8;
+            border-color: #3A7BC8;
+        }
+        .collapse-toggle-btn.all-collapsed {
+            background: var(--success);
+            border-color: var(--success);
+        }
+        .collapse-toggle-btn.all-collapsed:hover {
+            background: #16a34a;
+            border-color: #16a34a;
         }
         .collapse-toggle-btn .expand-icon { display: none; }
         .collapse-toggle-btn .collapse-icon { display: block; }
@@ -763,6 +770,22 @@
             to { opacity: 1; transform: translateY(0); }
         }
         .group-add-form.active { display: block; }
+        .group-add-form .mini-name-input {
+            width: 100%;
+            padding: var(--space-2);
+            margin-bottom: var(--space-2);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            font-size: 12px;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            transition: all var(--transition-fast);
+        }
+        .group-add-form .mini-name-input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 2px rgba(74, 144, 217, 0.15);
+        }
         .group-add-form .mini-cron-inputs {
             display: flex;
             gap: var(--space-1);
@@ -1424,6 +1447,7 @@
             if (details.command) parts.push(`cmd: ${details.command}`);
             if (details.schedule) parts.push(`schedule: ${details.schedule}`);
             if (details.title) parts.push(`name: ${details.title}`);
+            if (details.group_deleted) parts.push(`group deleted: ${details.group_deleted}`);
             if (details.old_schedule && details.new_schedule) {
                 parts.push(`${details.old_schedule} → ${details.new_schedule}`);
             }
@@ -1431,6 +1455,9 @@
             if (details.action === 'disable') parts.push('disabled');
             if (details.enable !== undefined) parts.push(details.enable ? 'enabled' : 'disabled');
             if (details.length) parts.push(`${details.length} chars`);
+            if (details.from_group !== undefined && details.to_group !== undefined) {
+                parts.push(`group: ${details.from_group} → ${details.to_group}`);
+            }
 
             return parts.length > 0 ? parts.join(' | ') : JSON.stringify(details);
         }
@@ -1545,6 +1572,7 @@
                         <div class="group-drop-end" data-group-id="${group.id}" ondragover="dragDropEndOver(event)" ondragleave="dragDropEndLeave(event)" ondrop="dropToEnd(event)"></div>
                         <div class="group-add-task-btn" onclick="showGroupAddForm(${group.id})">+ Add Task</div>
                         <div class="group-add-form" id="group-add-form-${group.id}">
+                            <input type="text" id="g${group.id}-name" class="mini-name-input" placeholder="Task name (optional)">
                             <div class="mini-cron-inputs">
                                 <input type="text" id="g${group.id}-minute" value="*" placeholder="Min" title="Minute">
                                 <input type="text" id="g${group.id}-hour" value="*" placeholder="Hr" title="Hour">
@@ -1743,6 +1771,7 @@
         function hideGroupAddForm(groupId) {
             document.getElementById(`group-add-form-${groupId}`).classList.remove('active');
             // 重置表单
+            document.getElementById(`g${groupId}-name`).value = '';
             document.getElementById(`g${groupId}-minute`).value = '*';
             document.getElementById(`g${groupId}-hour`).value = '*';
             document.getElementById(`g${groupId}-day`).value = '*';
@@ -1753,6 +1782,7 @@
 
         // 向组内添加任务
         async function addTaskToGroup(groupId) {
+            const name = document.getElementById(`g${groupId}-name`).value.trim();
             const minute = document.getElementById(`g${groupId}-minute`).value.trim() || '*';
             const hour = document.getElementById(`g${groupId}-hour`).value.trim() || '*';
             const day = document.getElementById(`g${groupId}-day`).value.trim() || '*';
@@ -1766,10 +1796,12 @@
             }
 
             const schedule = `${minute} ${hour} ${day} ${month} ${weekday}`;
+            const body = { schedule, command };
+            if (name) body.name = name;
             const resp = await fetch(`/api/add_to_group/${groupId}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ schedule, command })
+                body: JSON.stringify(body)
             });
             const result = await resp.json();
             if (result.success) {
