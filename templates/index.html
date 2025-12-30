@@ -976,6 +976,16 @@
             transition: height 0.15s ease-out;
             overflow: hidden;
         }
+        /* 组拖拽占位符 */
+        .drag-placeholder-group {
+            border: 2px dashed var(--primary);
+            border-radius: var(--radius-md);
+            background: rgba(74, 144, 217, 0.06);
+            margin-bottom: var(--space-3);
+            box-sizing: border-box;
+            transition: height 0.15s ease-out;
+            overflow: hidden;
+        }
         /* 组末尾放置区 - 与任务卡片等大 */
         .group-drop-end {
             height: 0;
@@ -1013,6 +1023,10 @@
         }
         .group-drag-handle {
             margin-right: var(--space-2);
+        }
+        /* 展开状态隐藏拖拽图标 */
+        .task-group:not(.collapsed) .group-drag-handle {
+            display: none;
         }
 
         /* Cron 时间预览 Tooltip */
@@ -1591,6 +1605,31 @@
             document.querySelectorAll('.task-group').forEach(g => g.classList.add('collapsed'));
         }
 
+        // 保存折叠状态（返回已折叠的组 ID 数组）
+        function saveCollapsedState() {
+            const collapsed = [];
+            document.querySelectorAll('.task-group.collapsed').forEach(g => {
+                collapsed.push(g.dataset.groupId);
+            });
+            return collapsed;
+        }
+
+        // 恢复折叠状态
+        function restoreCollapsedState(collapsedIds) {
+            document.querySelectorAll('.task-group').forEach(g => {
+                if (collapsedIds.includes(g.dataset.groupId)) {
+                    g.classList.add('collapsed');
+                }
+            });
+        }
+
+        // 加载任务并保持折叠状态
+        async function loadTasksKeepState() {
+            const collapsedIds = saveCollapsedState();
+            await loadTasks();
+            restoreCollapsedState(collapsedIds);
+        }
+
         // ========== 搜索过滤 ==========
 
         function filterTasks() {
@@ -2079,18 +2118,38 @@
             setTimeout(cleanupDragState, 100);
         });
 
-        // 组拖拽开始
+        // 组拖拽开始（仅折叠状态允许拖拽）
         function dragGroupStart(e) {
             if (!e.target.classList.contains('task-group')) return;
+            // 仅折叠状态允许拖拽
+            if (!e.target.classList.contains('collapsed')) {
+                e.preventDefault();
+                return;
+            }
             isDragging = true;
             draggedElement = e.target;
             dragType = 'group';
             e.target.classList.add('dragging');
             e.dataTransfer.effectAllowed = 'move';
             e.dataTransfer.setData('text/plain', e.target.dataset.groupId);
-            // 延迟折叠原位置（等拖影生成后）
+
+            // 延迟创建占位符（等拖影生成后）
             setTimeout(() => {
-                if (draggedElement) draggedElement.classList.add('dragging-collapsed');
+                if (!draggedElement) return;
+                // 获取元素高度
+                const rect = draggedElement.getBoundingClientRect();
+                // 创建占位符在原位置
+                dragPlaceholder = document.createElement('div');
+                dragPlaceholder.className = 'drag-placeholder-group';
+                dragPlaceholder.style.height = rect.height + 'px'; // 直接设置高度
+                dragPlaceholder.addEventListener('dragover', (ev) => ev.preventDefault());
+                dragPlaceholder.addEventListener('drop', dropGroup);
+                // 插入到被拖拽元素之后
+                draggedElement.parentNode.insertBefore(dragPlaceholder, draggedElement.nextSibling);
+                // 记录原位置信息
+                dragPlaceholder.dataset.targetGroupId = draggedElement.dataset.groupId;
+                // 隐藏原元素
+                draggedElement.classList.add('dragging-collapsed');
             }, 0);
         }
 
@@ -2109,11 +2168,10 @@
                 if (!draggedElement) return;
                 // 获取元素高度
                 const rect = draggedElement.getBoundingClientRect();
-                const targetHeight = rect.height;
                 // 创建占位符在原位置
                 dragPlaceholder = document.createElement('div');
                 dragPlaceholder.className = 'drag-placeholder';
-                dragPlaceholder.style.height = '0px'; // 从0开始
+                dragPlaceholder.style.height = rect.height + 'px'; // 直接设置高度
                 dragPlaceholder.addEventListener('dragover', (ev) => ev.preventDefault());
                 dragPlaceholder.addEventListener('drop', dropTask);
                 // 插入到被拖拽元素之后
@@ -2124,10 +2182,6 @@
                 dragPlaceholder.dataset.insertBefore = 'false';
                 // 隐藏原元素
                 draggedElement.classList.add('dragging-collapsed');
-                // 下一帧展开高度（平滑动画）
-                requestAnimationFrame(() => {
-                    if (dragPlaceholder) dragPlaceholder.style.height = targetHeight + 'px';
-                });
             }, 0);
         }
 
@@ -2140,15 +2194,45 @@
         function dragGroupOver(e) {
             e.preventDefault();
             if (dragType !== 'group') return;
+
             const target = e.target.closest('.task-group');
-            if (target && target !== draggedElement && target !== lastDragOverTarget) {
+            if (!target || target === draggedElement) return;
+
+            // 使用 RAF 节流
+            if (dragRafId) return;
+
+            const clientY = e.clientY;
+            dragRafId = requestAnimationFrame(() => {
+                dragRafId = null;
+                if (!isDragging || !target || !dragPlaceholder) return;
+
+                // 计算鼠标相对于组的位置（添加死区）
+                const rect = target.getBoundingClientRect();
+                const deadZone = rect.height * 0.2;
+                const midY = rect.top + rect.height / 2;
+
+                // 死区检查
+                if (lastDragOverTarget === target && Math.abs(clientY - midY) < deadZone) {
+                    return;
+                }
+
+                const isTopHalf = clientY < midY;
+                const targetParent = target.parentNode;
+                const insertRef = isTopHalf ? target : target.nextSibling;
+                const targetHeight = rect.height;
+
+                // 位置变化时移动占位符
+                if (dragPlaceholder.nextSibling !== insertRef || dragPlaceholder.parentNode !== targetParent) {
+                    targetParent.insertBefore(dragPlaceholder, insertRef);
+                    dragPlaceholder.style.height = targetHeight + 'px';
+                }
+
+                // 记录目标位置
+                dragPlaceholder.dataset.targetGroupId = target.dataset.groupId;
+                dragPlaceholder.dataset.insertBefore = isTopHalf ? 'true' : 'false';
+
                 lastDragOverTarget = target;
-                // 只清除其他组的指示器，避免频繁的全局查询
-                document.querySelectorAll('.task-group.drag-over').forEach(el => {
-                    if (el !== target) el.classList.remove('drag-over');
-                });
-                target.classList.add('drag-over');
-            }
+            });
         }
 
         // 任务拖拽悬停（检测鼠标位置，插入占位符）- 使用 RAF 节流
@@ -2220,34 +2304,49 @@
             e.preventDefault();
             if (dragType !== 'group' || !draggedElement) return;
 
-            const target = e.target.closest('.task-group');
-            if (!target || target === draggedElement) return;
+            // 支持放置在占位符或组上
+            const target = e.target.closest('.task-group') || (dragPlaceholder ? dragPlaceholder : null);
+            if (!target) return;
+            if (target.classList && target.classList.contains('task-group') && target === draggedElement) return;
 
-            // 保存引用，因为 cleanupDragState 会清空 draggedElement
+            // 保存引用
             const elementToMove = draggedElement;
             const fromId = parseInt(elementToMove.dataset.groupId);
-            const toId = parseInt(target.dataset.groupId);
 
-            // 先清理拖拽状态，防止卡住
+            // 从占位符获取目标信息
+            let toId, insertBefore;
+            if (dragPlaceholder && dragPlaceholder.dataset.targetGroupId) {
+                toId = parseInt(dragPlaceholder.dataset.targetGroupId);
+                insertBefore = dragPlaceholder.dataset.insertBefore === 'true';
+            } else if (target.classList && target.classList.contains('task-group')) {
+                toId = parseInt(target.dataset.groupId);
+                const rect = target.getBoundingClientRect();
+                insertBefore = e.clientY < rect.top + rect.height / 2;
+            } else {
+                return;
+            }
+
+            // 先用 DOM 操作将元素移动到占位符位置
+            if (dragPlaceholder && dragPlaceholder.parentNode) {
+                dragPlaceholder.parentNode.insertBefore(elementToMove, dragPlaceholder);
+            }
+
+            // 清理拖拽状态
             cleanupDragState();
 
             // 调用后端 API 重新排序
             const resp = await fetch('/api/reorder_groups', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ from_id: fromId, to_id: toId })
+                body: JSON.stringify({ from_id: fromId, to_id: toId, insert_before: insertBefore })
             });
             const result = await resp.json();
             if (result.success) {
                 showMessage('Groups reordered', 'success');
-                // 使用 DOM 操作移动节点（即时视觉反馈）
-                const container = document.getElementById('taskList');
-                container.insertBefore(elementToMove, target);
-                // 延迟加载以确保数据同步，同时避免拖拽动画被中断
-                setTimeout(loadTasks, 300);
+                setTimeout(loadTasksKeepState, 300);
             } else {
                 showMessage('Reorder failed: ' + result.error, 'error');
-                loadTasks(); // 失败时重新加载以恢复原状
+                loadTasksKeepState();
             }
         }
 
@@ -2310,10 +2409,10 @@
             if (result.success) {
                 showMessage('Tasks reordered', 'success');
                 // 延迟加载以确保数据同步
-                setTimeout(loadTasks, 300);
+                setTimeout(loadTasksKeepState, 300);
             } else {
                 showMessage('Reorder failed: ' + result.error, 'error');
-                loadTasks(); // 失败时重新加载以恢复原状
+                loadTasksKeepState(); // 失败时重新加载以恢复原状
             }
         }
 
@@ -2380,7 +2479,10 @@
         }
 
         // ========== 初始化 ==========
-        loadTasks();
+        // 首次加载并折叠所有组
+        loadTasks().then(() => {
+            collapseAll();
+        });
     </script>
 </body>
 </html>

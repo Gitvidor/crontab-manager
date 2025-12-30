@@ -643,6 +643,7 @@ def reorder_groups():
     """重新排序任务组"""
     from_id = request.json.get('from_id')
     to_id = request.json.get('to_id')
+    insert_before = request.json.get('insert_before', True)  # 默认插入到目标之前
 
     if from_id is None or to_id is None:
         return jsonify({'success': False, 'error': 'Invalid parameters'})
@@ -675,13 +676,23 @@ def reorder_groups():
     for line_num, _ in from_lines:
         lines[line_num] = None
 
-    # 找到 to_group 的插入位置（在 to_group 之前插入）
-    if to_group['title_line'] >= 0:
-        insert_pos = to_group['title_line']
-    elif to_group['tasks']:
-        insert_pos = to_group['tasks'][0]['line']
+    # 找到 to_group 的插入位置
+    if insert_before:
+        # 插入到 to_group 之前
+        if to_group['title_line'] >= 0:
+            insert_pos = to_group['title_line']
+        elif to_group['tasks']:
+            insert_pos = to_group['tasks'][0]['line']
+        else:
+            insert_pos = 0
     else:
-        insert_pos = 0
+        # 插入到 to_group 之后
+        if to_group['tasks']:
+            insert_pos = to_group['tasks'][-1]['line'] + 1
+        elif to_group['title_line'] >= 0:
+            insert_pos = to_group['title_line'] + 1
+        else:
+            insert_pos = len(lines)
 
     # 调整插入位置（因为移除了一些行）
     removed_before = sum(1 for ln, _ in from_lines if ln < insert_pos)
@@ -690,11 +701,25 @@ def reorder_groups():
     # 过滤掉标记为 None 的行
     new_lines = [l for l in lines if l is not None]
 
+    # 确保插入位置不超出范围
+    insert_pos = min(insert_pos, len(new_lines))
+
     # 在目标位置插入 from_group 的行
     for i, (_, content) in enumerate(from_lines):
         new_lines.insert(insert_pos + i, content)
 
     # 确保组之间有空行分隔
+    # 在插入的组前后添加空行（如果需要）
+    insert_end = insert_pos + len(from_lines)
+
+    # 在组后添加空行（如果后面有内容且不是空行）
+    if insert_end < len(new_lines) and new_lines[insert_end].strip():
+        new_lines.insert(insert_end, '')
+
+    # 在组前添加空行（如果前面有内容且不是空行）
+    if insert_pos > 0 and new_lines[insert_pos - 1].strip():
+        new_lines.insert(insert_pos, '')
+
     new_content = '\n'.join(new_lines)
     success, error = save_crontab(new_content)
     return jsonify({'success': success, 'error': error})
