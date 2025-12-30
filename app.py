@@ -442,6 +442,52 @@ def update_task(task_id):
     return jsonify({'success': success, 'error': error})
 
 
+@app.route('/api/update_task_name/<int:task_id>', methods=['POST'])
+@login_required
+def update_task_name(task_id):
+    """更新任务名称"""
+    new_name = request.json.get('name', '').strip()
+
+    raw = get_crontab_raw()
+    lines = raw.split('\n')
+    tasks = get_all_tasks()
+    target_task = find_task_by_id(task_id, tasks)
+
+    if not target_task:
+        return jsonify({'success': False, 'error': 'Task not found'})
+
+    old_name = target_task.get('name', '')
+    task_line = target_task['line']
+
+    # 如果任务已有名称行
+    if 'name_line' in target_task:
+        name_line = target_task['name_line']
+        if new_name:
+            # 更新名称行
+            lines[name_line] = f'##{new_name}'
+        else:
+            # 删除名称行
+            lines[name_line] = None
+    else:
+        # 任务没有名称行
+        if new_name:
+            # 在任务行前插入名称行
+            lines.insert(task_line, f'##{new_name}')
+
+    # 过滤掉 None
+    new_lines = [l for l in lines if l is not None]
+    new_content = '\n'.join(new_lines)
+    success, error = save_crontab(new_content)
+
+    if success:
+        log_action('update_task_name', {
+            'task_id': task_id,
+            'old_name': old_name,
+            'new_name': new_name
+        })
+    return jsonify({'success': success, 'error': error})
+
+
 @app.route('/api/run/<int:task_id>', methods=['POST'])
 @login_required
 def run_task(task_id):

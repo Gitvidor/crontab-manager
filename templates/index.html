@@ -300,7 +300,7 @@
             box-shadow: var(--shadow-sm);
         }
         .task-card .toggle.on::after { left: 18px; }
-        .task-info { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+        .task-info { flex: 1; min-width: 0; display: flex; flex-direction: column; overflow: visible; }
         .task-comment {
             color: var(--text-secondary);
             font-size: 12px;
@@ -317,6 +317,18 @@
             font-weight: 500;
             color: var(--primary);
             margin-bottom: var(--space-1);
+            cursor: pointer;
+        }
+        .task-name:hover {
+            text-decoration: underline;
+        }
+        .task-name-empty {
+            color: var(--text-muted);
+            font-style: italic;
+            font-weight: 400;
+        }
+        .task-name-empty:hover {
+            color: var(--primary);
         }
         .task-command {
             font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
@@ -409,7 +421,7 @@
         /* 内联编辑样式 */
         .task-schedule {
             display: flex;
-            gap: var(--space-1);
+            gap: var(--space-2);
             align-items: center;
         }
         .editable {
@@ -1032,16 +1044,15 @@
         /* Cron 时间预览 Tooltip */
         .cron-tooltip {
             position: absolute;
-            bottom: 100%;
-            left: 50%;
-            transform: translateX(-50%);
+            bottom: calc(100% + 8px);
+            left: 0;
             background: var(--text-primary);
             color: white;
             padding: var(--space-2) var(--space-3);
             border-radius: var(--radius-sm);
             font-size: 12px;
             white-space: nowrap;
-            z-index: 1000;
+            z-index: 9999;
             pointer-events: none;
             opacity: 0;
             transition: opacity var(--transition-fast);
@@ -1051,8 +1062,7 @@
             content: '';
             position: absolute;
             top: 100%;
-            left: 50%;
-            transform: translateX(-50%);
+            left: 16px;
             border: 6px solid transparent;
             border-top-color: var(--text-primary);
         }
@@ -1062,6 +1072,16 @@
         }
         .task-schedule-wrapper:hover .cron-tooltip {
             opacity: 1;
+        }
+        .task-card:has(.task-schedule-wrapper:hover) {
+            overflow: visible;
+            z-index: 100;
+        }
+        .task-group:has(.task-schedule-wrapper:hover) {
+            overflow: visible;
+        }
+        .group-tasks:has(.task-schedule-wrapper:hover) {
+            overflow: visible;
         }
 
         /* 搜索高亮 */
@@ -1204,64 +1224,77 @@
         // ========== 工具函数 ==========
         // Cron 时间解析为人类可读描述
         function parseCronToHuman(minute, hour, day, month, weekday) {
-            const weekdays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-            const months = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            const weekdayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+            const monthNames = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+            // 解析单个字段
+            function parseField(val, names = null) {
+                if (val === '*') return null;
+                if (val.startsWith('*/')) {
+                    return `every ${val.slice(2)}`;
+                }
+                if (val.includes(',')) {
+                    const vals = val.split(',').map(v => names ? (names[parseInt(v)] || v) : v);
+                    return vals.join(', ');
+                }
+                if (val.includes('-')) {
+                    const [start, end] = val.split('-');
+                    if (names) return `${names[parseInt(start)] || start}-${names[parseInt(end)] || end}`;
+                    return `${start}-${end}`;
+                }
+                return names ? (names[parseInt(val)] || val) : val;
+            }
+
+            // 格式化时间
+            function formatTime(m, h) {
+                if (m === '*' && h === '*') return 'every minute';
+                if (m.startsWith('*/') && h === '*') return `every ${m.slice(2)} minutes`;
+                if (m === '0' && h === '*') return 'every hour at :00';
+                if (m === '30' && h === '*') return 'every hour at :30';
+                if (m === '*' && h.startsWith('*/')) return `every minute, every ${h.slice(2)} hours`;
+                if (m === '0' && h.startsWith('*/')) return `every ${h.slice(2)} hours`;
+
+                const minPart = parseField(m);
+                const hourPart = parseField(h);
+
+                if (minPart === null && hourPart === null) return 'every minute';
+                if (minPart !== null && hourPart === null) return `at minute ${minPart}`;
+                if (minPart === null && hourPart !== null) return `every minute at hour ${hourPart}`;
+
+                // 具体时间
+                if (!m.includes('/') && !m.includes(',') && !m.includes('-') &&
+                    !h.includes('/') && !h.includes(',') && !h.includes('-')) {
+                    const hh = h.padStart(2, '0');
+                    const mm = m.padStart(2, '0');
+                    return `at ${hh}:${mm}`;
+                }
+
+                return `hour ${hourPart}, minute ${minPart}`;
+            }
 
             let parts = [];
 
             // 时间部分
-            if (minute === '*' && hour === '*') {
-                parts.push('Every minute');
-            } else if (minute === '0' && hour === '*') {
-                parts.push('Every hour');
-            } else if (minute !== '*' && hour === '*') {
-                parts.push(`At minute ${minute} of every hour`);
-            } else if (minute === '*' && hour !== '*') {
-                parts.push(`Every minute during hour ${hour}`);
-            } else if (minute === '0' && hour !== '*') {
-                parts.push(`At ${hour}:00`);
-            } else if (minute !== '*' && hour !== '*') {
-                const h = hour.padStart(2, '0');
-                const m = minute.padStart(2, '0');
-                parts.push(`At ${h}:${m}`);
-            }
+            parts.push(formatTime(minute, hour));
 
             // 日期部分
-            if (day !== '*' && month !== '*') {
-                const mon = months[parseInt(month)] || month;
-                parts.push(`on ${mon} ${day}`);
-            } else if (day !== '*') {
-                parts.push(`on day ${day} of month`);
-            } else if (month !== '*') {
-                const mon = months[parseInt(month)] || month;
-                parts.push(`in ${mon}`);
+            const dayPart = parseField(day);
+            const monthPart = parseField(month, monthNames);
+            if (dayPart !== null && monthPart !== null) {
+                parts.push(`on ${monthPart} ${dayPart}`);
+            } else if (dayPart !== null) {
+                parts.push(`on day ${dayPart}`);
+            } else if (monthPart !== null) {
+                parts.push(`in ${monthPart}`);
             }
 
             // 星期部分
-            if (weekday !== '*') {
-                if (weekday.includes(',')) {
-                    const days = weekday.split(',').map(d => weekdays[parseInt(d)] || d).join(', ');
-                    parts.push(`on ${days}`);
-                } else if (weekday.includes('-')) {
-                    const [start, end] = weekday.split('-');
-                    parts.push(`${weekdays[parseInt(start)]} to ${weekdays[parseInt(end)]}`);
-                } else {
-                    parts.push(`on ${weekdays[parseInt(weekday)] || weekday}`);
-                }
+            const weekdayPart = parseField(weekday, weekdayNames);
+            if (weekdayPart !== null) {
+                parts.push(`on ${weekdayPart}`);
             }
 
-            // 特殊情况
-            if (minute === '*' && hour === '*' && day === '*' && month === '*' && weekday === '*') {
-                return 'Every minute';
-            }
-            if (minute === '0' && hour === '0' && day === '*' && month === '*' && weekday === '*') {
-                return 'Daily at midnight';
-            }
-            if (minute === '0' && hour === '0' && day === '1' && month === '*' && weekday === '*') {
-                return 'Monthly on the 1st at midnight';
-            }
-
-            return parts.join(' ') || 'Custom schedule';
+            return parts.join(', ').replace(/^./, c => c.toUpperCase());
         }
 
         // 高亮搜索关键词
@@ -1512,13 +1545,16 @@
             const parts = task.schedule.split(/\s+/);
             const [minute, hour, day, month, weekday] = parts.length >= 5 ? parts : ['*','*','*','*','*'];
             const cronDescription = parseCronToHuman(minute, hour, day, month, weekday);
-            const taskName = task.name ? `<span class="task-name">${escapeHtml(task.name)}</span>` : '';
+            const taskName = task.name
+                ? `<span class="task-name editable" ondblclick="editTaskName(${task.id},this)" title="Double-click to edit">${escapeHtml(task.name)}</span>`
+                : `<span class="task-name task-name-empty editable" ondblclick="editTaskName(${task.id},this)" title="Double-click to add name">+ Add name</span>`;
 
             return `
             <div class="task-card ${task.enabled ? '' : 'disabled'}" id="task-${task.id}"
                  data-task-id="${task.id}" data-group-id="${groupId}"
                  data-minute="${encodeURIComponent(minute)}" data-hour="${encodeURIComponent(hour)}" data-day="${encodeURIComponent(day)}"
                  data-month="${encodeURIComponent(month)}" data-weekday="${encodeURIComponent(weekday)}" data-command="${encodeURIComponent(task.command)}"
+                 data-name="${encodeURIComponent(task.name || '')}"
                  draggable="false" ondragstart="dragTaskStart(event)" ondragend="dragEnd(event)" ondragover="dragTaskOver(event)" ondragleave="dragTaskLeave(event)" ondrop="dropTask(event)">
                 <span class="drag-handle" title="Drag to reorder" onmousedown="enableDrag(this.parentElement)" onmouseup="disableDrag(this.parentElement)">⋮⋮</span>
                 <div class="toggle ${task.enabled ? 'on' : ''}" onclick="toggleTask(${task.id})"></div>
@@ -1954,6 +1990,66 @@
                     showMessage('Save failed: ' + result.error, 'error');
                     element.textContent = originalText;
                     card.dataset[field] = encodeURIComponent(currentValue);
+                }
+            };
+
+            // 取消函数
+            const cancel = () => {
+                element.textContent = originalText;
+            };
+
+            // 事件处理
+            input.onblur = save;
+            input.onkeydown = (e) => {
+                if (e.key === 'Enter') { input.blur(); }
+                if (e.key === 'Escape') { input.onblur = cancel; input.blur(); }
+            };
+        }
+
+        // 编辑任务名
+        async function editTaskName(taskId, element) {
+            const card = document.getElementById(`task-${taskId}`);
+            const currentName = decodeURIComponent(card.dataset.name || '');
+            const isEmpty = element.classList.contains('task-name-empty');
+
+            // 创建输入框
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.className = 'name-input';
+            input.value = currentName;
+            input.placeholder = 'Task name';
+            input.style.cssText = 'width: 200px; padding: 2px 6px; font-size: 12px; border: 1px solid var(--primary); border-radius: 4px;';
+
+            // 保存原始内容
+            const originalText = element.textContent;
+            element.textContent = '';
+            element.appendChild(input);
+            input.focus();
+            input.select();
+
+            // 保存函数
+            const save = async () => {
+                const newName = input.value.trim();
+
+                const resp = await fetch(`/api/update_task_name/${taskId}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: newName })
+                });
+                const result = await resp.json();
+
+                if (result.success) {
+                    card.dataset.name = encodeURIComponent(newName);
+                    if (newName) {
+                        element.textContent = newName;
+                        element.classList.remove('task-name-empty');
+                    } else {
+                        element.textContent = '+ Add name';
+                        element.classList.add('task-name-empty');
+                    }
+                } else {
+                    showMessage('Save failed: ' + result.error, 'error');
+                    element.textContent = originalText;
                 }
             };
 
