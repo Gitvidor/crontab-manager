@@ -81,11 +81,13 @@
             color: var(--text-primary);
         }
         .logout-btn {
-            padding: var(--space-2) var(--space-4);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: var(--space-2);
             background: var(--bg-hover);
             border: 1px solid var(--border-color);
             border-radius: var(--radius-md);
-            font-size: 13px;
             color: var(--text-secondary);
             cursor: pointer;
             transition: all var(--transition-fast);
@@ -464,8 +466,8 @@
             background: var(--success-hover);
         }
         .delete-btn {
-            width: 12px;
-            height: 12px;
+            width: 14px;
+            height: 14px;
             background: var(--danger);
             border: 0.5px solid var(--danger-border);
             border-radius: 50%;
@@ -482,8 +484,8 @@
             position: absolute;
             top: 50%;
             left: 50%;
-            width: 6px;
-            height: 1px;
+            width: 7px;
+            height: 1.5px;
             background: transparent;
             transition: background var(--transition-fast);
         }
@@ -517,47 +519,8 @@
         .task-group .group-header:hover {
             background: linear-gradient(to bottom, var(--bg-hover), #d1d5db);
         }
-        .task-group .group-toggle {
-            margin-left: var(--space-2);
-            width: 14px;
-            height: 14px;
-            background: var(--macos-yellow);
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 0;
-            flex-shrink: 0;
-            border: 0.5px solid var(--macos-yellow-border);
-            position: relative;
-            transition: transform var(--transition-fast);
-        }
-        .task-group .group-toggle:hover { transform: scale(1.15); }
-        .task-group .group-toggle::before,
-        .task-group .group-toggle::after {
-            content: '';
-            position: absolute;
-            background: transparent;
-            transition: background var(--transition-fast);
-        }
-        .task-group .group-toggle::before {
-            width: 6px;
-            height: 1.5px;
-        }
-        .task-group .group-toggle::after {
-            width: 1.5px;
-            height: 6px;
-            display: none;
-        }
-        .task-group.collapsed .group-toggle::after {
-            display: block;
-        }
-        .task-group .group-toggle:hover::before,
-        .task-group .group-toggle:hover::after {
-            background: #985A00;
-        }
         .group-delete-btn {
-            margin-left: var(--space-1);
+            margin-left: auto;
             width: 14px;
             height: 14px;
             background: var(--danger);
@@ -589,7 +552,6 @@
             font-weight: 600;
             font-size: 15px;
             color: var(--text-primary);
-            flex: 1;
             padding: 2px var(--space-1);
             border-radius: var(--radius-sm);
             border: 1px solid transparent;
@@ -692,22 +654,27 @@
             z-index: 100;
             backdrop-filter: blur(8px);
         }
-        .collapse-btn {
-            padding: var(--space-2) var(--space-3);
+        .collapse-toggle-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: var(--space-2);
             background: var(--bg-secondary);
             border: 1px solid var(--border-color);
             border-radius: var(--radius-sm);
-            font-size: 12px;
-            font-weight: 500;
             cursor: pointer;
             color: var(--text-secondary);
             transition: all var(--transition-fast);
         }
-        .collapse-btn:hover {
+        .collapse-toggle-btn:hover {
             background: var(--bg-hover);
             color: var(--text-primary);
             border-color: var(--text-muted);
         }
+        .collapse-toggle-btn .expand-icon { display: none; }
+        .collapse-toggle-btn .collapse-icon { display: block; }
+        .collapse-toggle-btn.all-collapsed .expand-icon { display: block; }
+        .collapse-toggle-btn.all-collapsed .collapse-icon { display: none; }
 
         /* 搜索框 */
         .search-box {
@@ -932,7 +899,6 @@
                 max-width: none;
             }
             .new-group-btn { flex: 1; text-align: center; }
-            .collapse-btn { flex: 1; text-align: center; }
             .task-card { flex-wrap: wrap; }
             .task-info { min-width: 100%; order: 1; margin-top: var(--space-2); }
             .new-group-form { flex-wrap: wrap; }
@@ -948,7 +914,6 @@
             .tabs { flex-direction: column; }
             .tab { text-align: center; }
             .task-group .group-header { flex-wrap: wrap; gap: var(--space-2); }
-            .task-group .group-title { flex: 1 1 60%; }
             .task-group .group-count { order: 10; }
         }
 
@@ -1135,7 +1100,7 @@
         <h1>Crontab Manager</h1>
         <div class="user-info">
             <span class="user-name">User: <strong>{{ username }}</strong></span>
-            <a href="/logout" class="logout-btn">Logout</a>
+            <a href="/logout" class="logout-btn" title="Logout"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg></a>
         </div>
     </div>
 
@@ -1147,8 +1112,10 @@
     </div>
 
     <div class="collapse-controls">
-        <button class="collapse-btn" onclick="expandAll()">Expand All</button>
-        <button class="collapse-btn" onclick="collapseAll()">Collapse All</button>
+        <button class="collapse-toggle-btn" id="collapseToggleBtn" onclick="toggleAllGroups()" title="Expand All">
+            <svg class="expand-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 10l5 5 5-5"/><path d="M7 5l5 5 5-5"/></svg>
+            <svg class="collapse-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 14l5-5 5 5"/><path d="M7 19l5-5 5 5"/></svg>
+        </button>
         <input type="text" class="search-box" id="searchBox" placeholder="Search tasks..." oninput="filterTasks()">
         <button class="new-group-btn" onclick="showNewGroupForm()" title="New Group">+</button>
     </div>
@@ -1558,12 +1525,11 @@
                 return `
                 <div class="task-group${allDisabled ? ' disabled' : ''}" id="group-${group.id}" data-group-id="${group.id}" data-title="${escapeHtml(group.title || '')}"
                      draggable="false" ondragstart="dragGroupStart(event)" ondragend="dragEnd(event)" ondragover="dragGroupOver(event)" ondrop="dropGroup(event)">
-                    <div class="group-header">
-                        <span class="drag-handle group-drag-handle" title="Drag to reorder" onmousedown="enableDrag(this.closest('.task-group'))" onmouseup="disableDrag(this.closest('.task-group'))">⋮⋮</span>
+                    <div class="group-header" onclick="toggleGroupCollapse(${group.id})">
+                        <span class="drag-handle group-drag-handle" title="Drag to reorder" onclick="event.stopPropagation()" onmousedown="enableDrag(this.closest('.task-group'))" onmouseup="disableDrag(this.closest('.task-group'))">⋮⋮</span>
                         <div class="group-toggle-switch ${switchClass}" onclick="event.stopPropagation();toggleGroupSwitch(${group.id},${!allEnabled})"></div>
-                        <span class="group-title" onclick="toggleGroupCollapse(${group.id})" ondblclick="event.stopPropagation();editGroupTitle(${group.id},this)" title="Double-click to edit">${group.title ? escapeHtml(group.title) : 'Unnamed Group'}</span>
+                        <span class="group-title" onclick="event.stopPropagation()" ondblclick="event.stopPropagation();editGroupTitle(${group.id},this)" title="Double-click to edit">${group.title ? escapeHtml(group.title) : 'Unnamed Group'}</span>
                         <span class="group-count">${enabledCount}/${group.tasks.length}</span>
-                        <span class="group-toggle" onclick="toggleGroupCollapse(${group.id})"></span>
                         <button class="group-delete-btn" onclick="event.stopPropagation();deleteGroup(${group.id})" title="Delete group"></button>
                     </div>
                     <div class="group-tasks">
@@ -1593,6 +1559,7 @@
 
         function toggleGroupCollapse(id) {
             document.getElementById(`group-${id}`).classList.toggle('collapsed');
+            updateCollapseToggleBtn();
         }
 
         // 删除任务组
@@ -1604,11 +1571,34 @@
         // 展开全部
         function expandAll() {
             document.querySelectorAll('.task-group').forEach(g => g.classList.remove('collapsed'));
+            updateCollapseToggleBtn();
         }
 
         // 折叠全部
         function collapseAll() {
             document.querySelectorAll('.task-group').forEach(g => g.classList.add('collapsed'));
+            updateCollapseToggleBtn();
+        }
+
+        // 切换全部折叠/展开
+        function toggleAllGroups() {
+            const groups = document.querySelectorAll('.task-group');
+            const allCollapsed = Array.from(groups).every(g => g.classList.contains('collapsed'));
+            if (allCollapsed) {
+                expandAll();
+            } else {
+                collapseAll();
+            }
+        }
+
+        // 更新折叠切换按钮状态
+        function updateCollapseToggleBtn() {
+            const btn = document.getElementById('collapseToggleBtn');
+            if (!btn) return;
+            const groups = document.querySelectorAll('.task-group');
+            const allCollapsed = Array.from(groups).every(g => g.classList.contains('collapsed'));
+            btn.classList.toggle('all-collapsed', allCollapsed);
+            btn.title = allCollapsed ? 'Expand All' : 'Collapse All';
         }
 
         // 保存折叠状态（返回已折叠的组 ID 数组）
@@ -1634,6 +1624,7 @@
             const collapsedIds = saveCollapsedState();
             await loadTasks();
             restoreCollapsedState(collapsedIds);
+            updateCollapseToggleBtn();
         }
 
         // ========== 搜索过滤 ==========
