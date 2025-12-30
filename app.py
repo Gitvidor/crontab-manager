@@ -1,7 +1,9 @@
-# app.py - Crontab Web Management Tool
-# Features: View, edit, enable/disable crontab tasks via web interface
-# Auth: Flask-Login multi-user authentication with audit logging
-# Start: python app.py, visit http://localhost:5100
+# app.py - Crontab Web 管理工具
+# 功能: 通过 Web 界面查看、编辑、启用/禁用 crontab 任务
+# 认证: Flask-Login 多用户认证 + 审计日志
+# 启动: python app.py, 访问 http://localhost:5100
+
+# ===== 配置和初始化 =====
 
 from flask import Flask, render_template, request, jsonify, redirect, url_for
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
@@ -24,7 +26,7 @@ else:
 app.secret_key = os.environ.get('SECRET_KEY', config.get('secret_key', 'change-me'))
 USERS = json.loads(os.environ.get('CRONTAB_USERS', 'null')) or config.get('users', {})
 
-# Flask-Login 初始化
+# ===== 用户认证 =====
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
@@ -50,6 +52,8 @@ AUDIT_LOG = os.path.join(LOG_DIR, 'audit.log')
 os.makedirs(BACKUP_DIR, exist_ok=True)
 os.makedirs(LOG_DIR, exist_ok=True)
 
+# ===== 工具函数 =====
+
 
 def log_action(action, details=None):
     """记录操作日志"""
@@ -61,6 +65,18 @@ def log_action(action, details=None):
     }
     with open(AUDIT_LOG, "a", encoding="utf-8") as f:
         f.write(json.dumps(log_entry, ensure_ascii=False) + "\n")
+
+
+def validate_cron_schedule(schedule):
+    """验证 cron 表达式格式"""
+    return bool(re.match(r'^[\d*,/-]+\s+[\d*,/-]+\s+[\d*,/-]+\s+[\d*,/-]+\s+[\d*,/-]+$', schedule))
+
+
+def find_task_by_id(task_id, tasks=None):
+    """根据 ID 查找任务"""
+    if tasks is None:
+        tasks = get_all_tasks()
+    return next((t for t in tasks if t['id'] == task_id), None)
 
 
 def parse_crontab():
@@ -171,6 +187,9 @@ def save_crontab(content):
     return process.returncode == 0, stderr
 
 
+# ===== 认证路由 =====
+
+
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     """登录页面"""
@@ -203,6 +222,9 @@ def logout():
 @login_required
 def index():
     return render_template('index.html', username=current_user.id)
+
+
+# ===== 查询 API =====
 
 
 @app.route('/api/current_user')
@@ -299,6 +321,9 @@ def save():
     return jsonify({'success': success, 'error': error})
 
 
+# ===== 任务操作 API =====
+
+
 @app.route('/api/toggle/<int:task_id>', methods=['POST'])
 @login_required
 def toggle_task(task_id):
@@ -336,7 +361,7 @@ def add_task():
     if not schedule or not command:
         return jsonify({'success': False, 'error': 'Schedule and command cannot be empty'})
 
-    if not re.match(r'^[\d*,/-]+\s+[\d*,/-]+\s+[\d*,/-]+\s+[\d*,/-]+\s+[\d*,/-]+$', schedule):
+    if not validate_cron_schedule(schedule):
         return jsonify({'success': False, 'error': 'Invalid cron expression'})
 
     raw = get_crontab_raw()
@@ -362,7 +387,7 @@ def update_task(task_id):
     if not schedule or not command:
         return jsonify({'success': False, 'error': 'Schedule and command cannot be empty'})
 
-    if not re.match(r'^[\d*,/-]+\s+[\d*,/-]+\s+[\d*,/-]+\s+[\d*,/-]+\s+[\d*,/-]+$', schedule):
+    if not validate_cron_schedule(schedule):
         return jsonify({'success': False, 'error': 'Invalid cron expression'})
 
     raw = get_crontab_raw()
@@ -397,13 +422,7 @@ def update_task(task_id):
 def run_task(task_id):
     """手动运行任务"""
     tasks = get_all_tasks()
-    target_task = None
-
-    for task in tasks:
-        if task['id'] == task_id:
-            target_task = task
-            break
-
+    target_task = find_task_by_id(task_id, tasks)
     if not target_task:
         return jsonify({'success': False, 'error': 'Task not found'})
 
@@ -456,6 +475,9 @@ def delete_task(task_id):
             details['group_deleted'] = deleted_group_title
         log_action('delete_task', details)
     return jsonify({'success': success, 'error': error})
+
+
+# ===== 任务组操作 API =====
 
 
 @app.route('/api/toggle_group/<int:group_id>', methods=['POST'])
@@ -530,7 +552,7 @@ def add_task_to_group(group_id):
     if not schedule or not command:
         return jsonify({'success': False, 'error': 'Schedule and command cannot be empty'})
 
-    if not re.match(r'^[\d*,/-]+\s+[\d*,/-]+\s+[\d*,/-]+\s+[\d*,/-]+\s+[\d*,/-]+$', schedule):
+    if not validate_cron_schedule(schedule):
         return jsonify({'success': False, 'error': 'Invalid cron expression'})
 
     raw = get_crontab_raw()
@@ -610,6 +632,9 @@ def delete_group(group_id):
     if success:
         log_action('delete_group', {'group_id': group_id, 'title': deleted_title})
     return jsonify({'success': success, 'error': error})
+
+
+# ===== 排序 API =====
 
 
 @app.route('/api/reorder_groups', methods=['POST'])
