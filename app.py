@@ -89,6 +89,8 @@ def parse_crontab():
     lines = result.stdout.split('\n')
     current_group = {'id': 0, 'title': '', 'title_line': -1, 'tasks': []}
     task_id = 0
+    pending_task_name = None  # 待分配的任务名（来自##注释）
+    pending_task_name_line = -1
 
     for i, line in enumerate(lines):
         line = line.rstrip()
@@ -98,42 +100,62 @@ def parse_crontab():
             if current_group['tasks']:
                 groups.append(current_group)
                 current_group = {'id': len(groups), 'title': '', 'title_line': -1, 'tasks': []}
+            pending_task_name = None  # 清除待分配的任务名
             continue
 
         # 注释行
         if line.startswith('#'):
+            # 检查是否是任务名注释（以##开头）
+            if line.startswith('##'):
+                pending_task_name = line[2:].strip()
+                pending_task_name_line = i
+                continue
+
             # 检查是否是被禁用的任务（以#后跟数字或*开头）
             disabled_match = re.match(r'^#([\d*,/-]+\s+[\d*,/-]+\s+[\d*,/-]+\s+[\d*,/-]+\s+[\d*,/-]+)\s+(.+)$', line)
             if disabled_match:
                 # 被禁用的cron任务
-                current_group['tasks'].append({
+                task = {
                     'id': task_id,
                     'line': i,
                     'raw': line,
                     'enabled': False,
                     'schedule': disabled_match.group(1),
                     'command': disabled_match.group(2)
-                })
+                }
+                # 检查前一行是否有任务名
+                if pending_task_name is not None and pending_task_name_line == i - 1:
+                    task['name'] = pending_task_name
+                    task['name_line'] = pending_task_name_line
+                current_group['tasks'].append(task)
                 task_id += 1
+                pending_task_name = None
             else:
-                # 普通注释作为组标题（如果组内还没有任务）
-                if not current_group['tasks']:
+                # 普通注释作为组标题（仅取第一行注释，组内还没有任务且还没有标题）
+                if not current_group['tasks'] and not current_group['title']:
                     current_group['title'] = line.lstrip('#').strip()
                     current_group['title_line'] = i
+                pending_task_name = None  # 非##注释，清除待分配的任务名
             continue
 
         # 解析cron表达式
         cron_match = re.match(r'^([\d*,/-]+\s+[\d*,/-]+\s+[\d*,/-]+\s+[\d*,/-]+\s+[\d*,/-]+)\s+(.+)$', line)
         if cron_match:
-            current_group['tasks'].append({
+            task = {
                 'id': task_id,
                 'line': i,
                 'raw': line,
                 'enabled': True,
                 'schedule': cron_match.group(1),
                 'command': cron_match.group(2)
-            })
+            }
+            # 检查前一行是否有任务名
+            if pending_task_name is not None and pending_task_name_line == i - 1:
+                task['name'] = pending_task_name
+                task['name_line'] = pending_task_name_line
+            current_group['tasks'].append(task)
             task_id += 1
+            pending_task_name = None
 
     # 添加最后一个组
     if current_group['tasks']:
@@ -176,6 +198,8 @@ def backup_crontab():
 def save_crontab(content):
     """保存crontab内容（自动备份）"""
     backup_crontab()  # 保存前备份
+    # 清理连续空行，保留单个空行
+    content = re.sub(r'\n{3,}', '\n\n', content)
     process = subprocess.Popen(
         ['crontab', '-'],
         stdin=subprocess.PIPE,
@@ -829,27 +853,38 @@ def reorder_tasks():
     if not from_task or not to_task:
         return jsonify({'success': False, 'error': 'Task not found'})
 
-    # 获取要移动的行内容
+    # 获取要移动的行内容（包括任务名行）
     from_line = from_task['line']
     to_line = to_task['line']
-    content = lines[from_line]
+    task_content = lines[from_line]
 
-    # 移除原位置的行
-    lines[from_line] = None
+    # 检查是否有任务名行需要一起移动
+    lines_to_move = []
+    lines_to_remove = [from_line]
+    if 'name_line' in from_task:
+        name_line = from_task['name_line']
+        lines_to_move.append(lines[name_line])
+        lines_to_remove.append(name_line)
+    lines_to_move.append(task_content)
+
+    # 移除原位置的行（标记为 None）
+    for ln in lines_to_remove:
+        lines[ln] = None
+
+    # 确定目标参考行（如果目标任务有任务名行且是插入到之前，需要用任务名行作为参考）
+    if insert_before and 'name_line' in to_task:
+        target_line = to_task['name_line']
+    else:
+        target_line = to_line
+
+    # 计算需要移除的行数（用于调整目标位置）
+    removed_before_target = sum(1 for ln in lines_to_remove if ln < target_line)
 
     # 计算目标位置
     if insert_before:
-        # 插入到目标之前
-        if from_line < to_line:
-            insert_pos = to_line - 1
-        else:
-            insert_pos = to_line
+        insert_pos = target_line - removed_before_target
     else:
-        # 插入到目标之后
-        if from_line < to_line:
-            insert_pos = to_line
-        else:
-            insert_pos = to_line + 1
+        insert_pos = target_line - removed_before_target + 1
 
     # 过滤掉标记为 None 的行
     new_lines = [l for l in lines if l is not None]
@@ -857,8 +892,9 @@ def reorder_tasks():
     # 调整插入位置确保不越界
     insert_pos = max(0, min(insert_pos, len(new_lines)))
 
-    # 在目标位置插入
-    new_lines.insert(insert_pos, content)
+    # 在目标位置插入所有要移动的行
+    for i, content in enumerate(lines_to_move):
+        new_lines.insert(insert_pos + i, content)
 
     new_content = '\n'.join(new_lines)
     success, error = save_crontab(new_content)

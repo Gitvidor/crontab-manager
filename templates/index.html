@@ -300,7 +300,7 @@
             box-shadow: var(--shadow-sm);
         }
         .task-card .toggle.on::after { left: 18px; }
-        .task-info { flex: 1; min-width: 0; }
+        .task-info { flex: 1; min-width: 0; display: flex; flex-direction: column; }
         .task-comment {
             color: var(--text-secondary);
             font-size: 12px;
@@ -311,6 +311,12 @@
             font-size: 12px;
             color: var(--text-primary);
             font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+        }
+        .task-name {
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--primary);
+            margin-bottom: var(--space-1);
         }
         .task-command {
             font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
@@ -1479,6 +1485,7 @@
             const parts = task.schedule.split(/\s+/);
             const [minute, hour, day, month, weekday] = parts.length >= 5 ? parts : ['*','*','*','*','*'];
             const cronDescription = parseCronToHuman(minute, hour, day, month, weekday);
+            const taskName = task.name ? `<span class="task-name">${escapeHtml(task.name)}</span>` : '';
 
             return `
             <div class="task-card ${task.enabled ? '' : 'disabled'}" id="task-${task.id}"
@@ -1489,6 +1496,7 @@
                 <span class="drag-handle" title="Drag to reorder" onmousedown="enableDrag(this.parentElement)" onmouseup="disableDrag(this.parentElement)">⋮⋮</span>
                 <div class="toggle ${task.enabled ? 'on' : ''}" onclick="toggleTask(${task.id})"></div>
                 <div class="task-info">
+                    ${taskName}
                     <div class="task-schedule-wrapper">
                         <div class="cron-tooltip">${cronDescription}</div>
                         <div class="task-schedule">
