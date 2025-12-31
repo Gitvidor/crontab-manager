@@ -247,12 +247,14 @@ def cleanup_duplicate_backups():
             prev_content = content
 
 
-def backup_crontab():
-    """备份当前crontab"""
+def backup_crontab(username=None):
+    """备份当前crontab，记录操作用户"""
     current = get_crontab_raw()
     if current:
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        backup_file = os.path.join(BACKUP_DIR, f'crontab_{timestamp}.bak')
+        # 清理用户名：只保留字母数字下划线
+        safe_user = re.sub(r'[^a-zA-Z0-9_]', '', username or 'unknown')
+        backup_file = os.path.join(BACKUP_DIR, f'crontab_{timestamp}_{safe_user}.bak')
         with open(backup_file, 'w') as f:
             f.write(current)
         # 清理连续相同的备份
@@ -265,9 +267,9 @@ def backup_crontab():
     return None
 
 
-def save_crontab(content):
+def save_crontab(content, username=None):
     """保存crontab内容（自动备份）"""
-    backup_crontab()  # 保存前备份
+    backup_crontab(username)  # 保存前备份
     # 清理连续空行，保留单个空行
     content = re.sub(r'\n{3,}', '\n\n', content)
     process = subprocess.Popen(
@@ -409,10 +411,49 @@ def get_raw():
 def save():
     """保存原始crontab"""
     content = request.json.get('content', '')
-    success, error = save_crontab(content)
+    success, error = save_crontab(content, current_user.id)
     if success:
         log_action('save_raw', {'length': len(content)})
     return jsonify({'success': success, 'error': error})
+
+
+@app.route('/api/backups')
+@login_required
+def get_backups():
+    """获取所有备份列表，按时间倒序"""
+    backups = sorted(
+        [f for f in os.listdir(BACKUP_DIR) if f.endswith('.bak')],
+        reverse=True
+    )
+    result = []
+    for bak in backups:
+        # 从文件名提取时间和用户：crontab_20251231_151544_username.bak
+        name = bak.replace('crontab_', '').replace('.bak', '')
+        parts = name.split('_')
+        if len(parts) >= 3:
+            # 新格式：时间_时间_用户名
+            timestamp = f'{parts[0]}_{parts[1]}'
+            username = '_'.join(parts[2:])  # 用户名可能包含下划线
+        else:
+            # 旧格式：时间_时间（无用户名）
+            timestamp = name
+            username = ''
+        result.append({'filename': bak, 'timestamp': timestamp, 'username': username})
+    return jsonify({'backups': result})
+
+
+@app.route('/api/backup/<filename>')
+@login_required
+def get_backup_content(filename):
+    """获取指定备份的内容"""
+    # 安全检查：只允许 .bak 文件且不含路径分隔符
+    if not filename.endswith('.bak') or '/' in filename or '\\' in filename:
+        return jsonify({'error': 'Invalid filename'}), 400
+    filepath = os.path.join(BACKUP_DIR, filename)
+    if os.path.exists(filepath):
+        with open(filepath, 'r') as f:
+            return jsonify({'content': f.read()})
+    return jsonify({'error': 'Not found'}), 404
 
 
 # ===== 任务操作 API =====
@@ -439,7 +480,7 @@ def toggle_task(task_id):
             break
 
     new_content = '\n'.join(lines)
-    success, error = save_crontab(new_content)
+    success, error = save_crontab(new_content, current_user.id)
     if success and action_detail:
         log_action('toggle_task', action_detail)
     return jsonify({'success': success, 'error': error})
@@ -466,7 +507,7 @@ def add_task():
         raw += '\n'
     raw += new_line + '\n'
 
-    success, error = save_crontab(raw)
+    success, error = save_crontab(raw, current_user.id)
     if success:
         log_action('add_task', {'schedule': schedule, 'command': command[:50], 'enabled': False})
     return jsonify({'success': success, 'error': error})
@@ -501,7 +542,7 @@ def update_task(task_id):
             break
 
     new_content = '\n'.join(lines)
-    success, error = save_crontab(new_content)
+    success, error = save_crontab(new_content, current_user.id)
     if success and old_task:
         log_action('update_task', {
             'task_id': task_id,
@@ -547,7 +588,7 @@ def update_task_name(task_id):
     # 过滤掉 None
     new_lines = [l for l in lines if l is not None]
     new_content = '\n'.join(new_lines)
-    success, error = save_crontab(new_content)
+    success, error = save_crontab(new_content, current_user.id)
 
     if success:
         log_action('update_task_name', {
@@ -613,7 +654,7 @@ def delete_task(task_id):
 
     new_lines = [l for l in lines if l is not None]
     new_content = '\n'.join(new_lines)
-    success, error = save_crontab(new_content)
+    success, error = save_crontab(new_content, current_user.id)
     if success and deleted_task:
         details = {'task_id': task_id, 'command': deleted_task['command'][:50]}
         if deleted_group_title:
@@ -647,7 +688,7 @@ def toggle_group(group_id):
             break
 
     new_content = '\n'.join(lines)
-    success, error = save_crontab(new_content)
+    success, error = save_crontab(new_content, current_user.id)
     if success:
         log_action('toggle_group', {'group_id': group_id, 'title': group_title, 'enable': enable})
     return jsonify({'success': success, 'error': error})
@@ -680,7 +721,7 @@ def update_group_title(group_id):
         return jsonify({'success': False, 'error': 'Task group not found'})
 
     new_content = '\n'.join(lines)
-    success, error = save_crontab(new_content)
+    success, error = save_crontab(new_content, current_user.id)
     if success:
         log_action('update_group_title', {'group_id': group_id, 'old_title': old_title, 'new_title': new_title})
     return jsonify({'success': success, 'error': error})
@@ -727,7 +768,7 @@ def add_task_to_group(group_id):
         return jsonify({'success': False, 'error': 'Task group not found'})
 
     new_content = '\n'.join(lines)
-    success, error = save_crontab(new_content)
+    success, error = save_crontab(new_content, current_user.id)
     if success:
         details = {'group_id': group_id, 'group_title': group_title, 'schedule': schedule, 'command': command[:50]}
         if name:
@@ -753,7 +794,7 @@ def create_group():
     raw += f"# {title}\n"
     raw += "#* * * * * echo 'placeholder - please edit'\n"
 
-    success, error = save_crontab(raw)
+    success, error = save_crontab(raw, current_user.id)
     if success:
         log_action('create_group', {'title': title})
     return jsonify({'success': success, 'error': error})
@@ -784,7 +825,7 @@ def delete_group(group_id):
 
     new_lines = [l for l in lines if l is not None]
     new_content = '\n'.join(new_lines)
-    success, error = save_crontab(new_content)
+    success, error = save_crontab(new_content, current_user.id)
     if success:
         log_action('delete_group', {'group_id': group_id, 'title': deleted_title})
     return jsonify({'success': success, 'error': error})
@@ -877,7 +918,7 @@ def reorder_groups():
         new_lines.insert(insert_pos, '')
 
     new_content = '\n'.join(new_lines)
-    success, error = save_crontab(new_content)
+    success, error = save_crontab(new_content, current_user.id)
     if success:
         log_action('reorder_group', {
             'group_id': from_id,
@@ -958,7 +999,7 @@ def move_task_to_end():
     new_lines.insert(insert_pos, content)
 
     new_content = '\n'.join(new_lines)
-    success, error = save_crontab(new_content)
+    success, error = save_crontab(new_content, current_user.id)
     if success:
         log_action('move_task_to_end', {
             'task_id': task_id,
@@ -1042,7 +1083,7 @@ def reorder_tasks():
         new_lines.insert(insert_pos + i, content)
 
     new_content = '\n'.join(new_lines)
-    success, error = save_crontab(new_content)
+    success, error = save_crontab(new_content, current_user.id)
     if success:
         log_action('reorder_task', {
             'task_id': from_task_id,

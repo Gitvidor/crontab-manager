@@ -391,6 +391,78 @@
             box-shadow: none;
         }
 
+        /* 历史版本视图 */
+        .history-view { display: none; }
+        .history-view.active { display: block; }
+        .history-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: var(--space-4);
+            font-weight: 500;
+            color: var(--text-primary);
+        }
+        .history-list {
+            display: flex;
+            flex-direction: column;
+            gap: var(--space-2);
+        }
+        .history-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: var(--space-3) var(--space-4);
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            cursor: pointer;
+            transition: all var(--transition-fast);
+        }
+        .history-item:hover {
+            background: var(--bg-hover);
+            border-color: var(--primary);
+        }
+        .history-item.expanded {
+            flex-direction: column;
+            align-items: stretch;
+        }
+        .history-item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+        }
+        .history-time {
+            font-family: 'SF Mono', Monaco, monospace;
+            font-size: 13px;
+            color: var(--text-primary);
+        }
+        .history-user {
+            margin-left: var(--space-3);
+            padding: 2px 8px;
+            background: var(--bg-tertiary);
+            border-radius: var(--radius-sm);
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+        .view-icon {
+            color: var(--text-muted);
+            font-size: 14px;
+        }
+        .history-content {
+            margin-top: var(--space-3);
+            font-family: 'SF Mono', Monaco, monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+            background: var(--bg-tertiary);
+            padding: var(--space-3);
+            border-radius: var(--radius-sm);
+            max-height: 400px;
+            overflow: auto;
+            color: var(--text-secondary);
+            line-height: 1.5;
+        }
+
         /* 消息提示 */
         .message {
             position: fixed;
@@ -1227,6 +1299,7 @@
     <div class="tabs">
         <button class="tab active" onclick="switchTab('list')">Task List</button>
         <button class="tab" onclick="switchTab('raw')">Raw Edit</button>
+        <button class="tab" onclick="switchTab('history')">History</button>
         <button class="tab" onclick="switchTab('cron')">Cron Logs</button>
         <button class="tab" onclick="switchTab('logs')">Audit Logs</button>
     </div>
@@ -1251,6 +1324,16 @@
     <div id="rawEditor" class="raw-editor">
         <textarea id="rawContent"></textarea>
         <button class="save-btn" onclick="saveRaw()">Save</button>
+    </div>
+
+    <div id="historyView" class="history-view">
+        <div class="history-header">
+            <span>Backup History</span>
+            <button class="refresh-btn" onclick="loadHistory()" title="Refresh">⟳</button>
+        </div>
+        <div class="history-list" id="historyList">
+            <div class="log-empty">Loading...</div>
+        </div>
     </div>
 
     <div id="cronLogs" class="cron-logs">
@@ -1463,11 +1546,12 @@
 
         function switchTab(tab) {
             document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-            const tabMap = { 'list': 1, 'raw': 2, 'cron': 3, 'logs': 4 };
+            const tabMap = { 'list': 1, 'raw': 2, 'history': 3, 'cron': 4, 'logs': 5 };
             document.querySelector(`.tab:nth-child(${tabMap[tab]})`).classList.add('active');
 
             document.getElementById('taskList').classList.toggle('active', tab === 'list');
             document.getElementById('rawEditor').classList.toggle('active', tab === 'raw');
+            document.getElementById('historyView').classList.toggle('active', tab === 'history');
             document.getElementById('cronLogs').classList.toggle('active', tab === 'cron');
             document.getElementById('auditLogs').classList.toggle('active', tab === 'logs');
             document.querySelector('.collapse-controls').style.display = tab === 'list' ? 'flex' : 'none';
@@ -1478,10 +1562,63 @@
                 loadTasksKeepState();
             } else if (tab === 'raw') {
                 loadRaw();
+            } else if (tab === 'history') {
+                loadHistory();
             } else if (tab === 'cron') {
                 loadCronLogs();
             } else if (tab === 'logs') {
                 loadAuditLogs();
+            }
+        }
+
+        // ========== 历史版本相关 ==========
+
+        async function loadHistory() {
+            const list = document.getElementById('historyList');
+            try {
+                const resp = await fetch('/api/backups');
+                const data = await resp.json();
+
+                if (!data.backups?.length) {
+                    list.innerHTML = '<div class="log-empty">No backups found</div>';
+                    return;
+                }
+
+                list.innerHTML = data.backups.map(b => {
+                    // 格式化时间：20251231_151544 -> 2025-12-31 15:15:44
+                    const ts = b.timestamp.replace(/_/, ' ').replace(/(\d{4})(\d{2})(\d{2}) (\d{2})(\d{2})(\d{2})/, '$1-$2-$3 $4:$5:$6');
+                    const userLabel = b.username ? `<span class="history-user">${escapeHtml(b.username)}</span>` : '';
+                    return `<div class="history-item" onclick="toggleHistoryItem(this, '${b.filename}')">
+                        <div class="history-item-header">
+                            <span class="history-time">${ts}${userLabel}</span>
+                            <span class="view-icon">&#128065;</span>
+                        </div>
+                    </div>`;
+                }).join('');
+            } catch (e) {
+                list.innerHTML = '<div class="log-empty">Failed to load backups</div>';
+            }
+        }
+
+        async function toggleHistoryItem(el, filename) {
+            if (el.classList.contains('expanded')) {
+                el.classList.remove('expanded');
+                el.querySelector('.history-content')?.remove();
+                return;
+            }
+
+            try {
+                const resp = await fetch(`/api/backup/${filename}`);
+                const data = await resp.json();
+                if (data.content) {
+                    el.classList.add('expanded');
+                    const contentDiv = document.createElement('div');
+                    contentDiv.className = 'history-content';
+                    contentDiv.textContent = data.content;
+                    el.appendChild(contentDiv);
+                }
+            } catch (e) {
+                showMessage('Failed to load backup content', 'error');
             }
         }
 
