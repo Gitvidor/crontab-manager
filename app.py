@@ -79,42 +79,93 @@ def find_task_by_id(task_id, tasks=None):
     return next((t for t in tasks if t['id'] == task_id), None)
 
 
+def is_cron_task_line(line):
+    """判断是否为任务行（生效或禁用的 cron 任务）"""
+    # 已生效的 cron 任务
+    if re.match(r'^[\d*,/-]+\s+[\d*,/-]+\s+[\d*,/-]+\s+[\d*,/-]+\s+[\d*,/-]+\s+.+$', line):
+        return True
+    # 已注释的 cron 任务（# + cron表达式）
+    if re.match(r'^#[\d*,/-]+\s+[\d*,/-]+\s+[\d*,/-]+\s+[\d*,/-]+\s+[\d*,/-]+\s+.+$', line):
+        return True
+    return False
+
+
 def parse_crontab():
-    """解析crontab，返回按空行分组的任务列表"""
+    """
+    解析 crontab，返回按新规则分组的任务列表
+
+    新组识别规则:
+    1. 任务行 + 空行 + 注释行 → 开始新组
+    2. 连续多行注释（≥2行）→ 开始新组
+
+    组名识别: 1行注释=组名，多行注释=倒数第二行为组名
+    任务名识别: 任务行上方的注释行，若未被选为组名则作为任务名
+    """
     result = subprocess.run(['crontab', '-l'], capture_output=True, text=True)
     if result.returncode != 0:
         return []
 
     groups = []
     lines = result.stdout.split('\n')
+
+    # 初始化状态
+    comment_buffer = []  # [(line_num, text), ...]
+    new_group_context = True  # 文件开头视同空行后
     current_group = {'id': 0, 'title': '', 'title_line': -1, 'tasks': []}
     task_id = 0
-    pending_task_name = None  # 待分配的任务名（来自##注释）
-    pending_task_name_line = -1
+    last_non_empty_is_task = False  # 上一个非空行是否是任务行
 
     for i, line in enumerate(lines):
         line = line.rstrip()
 
-        # 空行：结束当前组，开始新组
+        # 空行处理
         if not line:
-            if current_group['tasks']:
-                groups.append(current_group)
-                current_group = {'id': len(groups), 'title': '', 'title_line': -1, 'tasks': []}
-            pending_task_name = None  # 清除待分配的任务名
+            # 如果上一个非空行是任务行 → 设置 new_group_context
+            if last_non_empty_is_task:
+                new_group_context = True
+            # 多个连续空行视为一个，不清空 comment_buffer
             continue
 
-        # 注释行
-        if line.startswith('#'):
-            # 检查是否是任务名注释（以##开头）
-            if line.startswith('##'):
-                pending_task_name = line[2:].strip()
-                pending_task_name_line = i
-                continue
+        # 判断是否为任务行
+        if is_cron_task_line(line):
+            # === 处理任务行 ===
 
-            # 检查是否是被禁用的任务（以#后跟数字或*开头）
+            # 判断是否开始新组
+            start_new_group = new_group_context and len(comment_buffer) > 0
+
+            if start_new_group:
+                # 如果当前组有任务，先保存
+                if current_group['tasks']:
+                    groups.append(current_group)
+                    current_group = {'id': len(groups), 'title': '', 'title_line': -1, 'tasks': []}
+
+                # 根据注释行数确定组名和任务名
+                if len(comment_buffer) == 1:
+                    # 单行注释 = 组名，任务无任务名
+                    current_group['title'] = comment_buffer[0][1].lstrip('#').strip()
+                    current_group['title_line'] = comment_buffer[0][0]
+                    task_name = None
+                    task_name_line = -1
+                else:
+                    # 多行注释: 倒数第二行 = 组名，最后一行 = 任务名
+                    current_group['title'] = comment_buffer[-2][1].lstrip('#').strip()
+                    current_group['title_line'] = comment_buffer[-2][0]
+                    task_name = comment_buffer[-1][1].lstrip('#').strip()
+                    task_name_line = comment_buffer[-1][0]
+            else:
+                # 不开始新组
+                if len(comment_buffer) == 1:
+                    # 有1行注释 → 该注释 = 任务名
+                    task_name = comment_buffer[0][1].lstrip('#').strip()
+                    task_name_line = comment_buffer[0][0]
+                else:
+                    task_name = None
+                    task_name_line = -1
+
+            # 解析任务行
             disabled_match = re.match(r'^#([\d*,/-]+\s+[\d*,/-]+\s+[\d*,/-]+\s+[\d*,/-]+\s+[\d*,/-]+)\s+(.+)$', line)
             if disabled_match:
-                # 被禁用的cron任务
+                # 被禁用的 cron 任务
                 task = {
                     'id': task_id,
                     'line': i,
@@ -123,39 +174,40 @@ def parse_crontab():
                     'schedule': disabled_match.group(1),
                     'command': disabled_match.group(2)
                 }
-                # 检查前一行是否有任务名
-                if pending_task_name is not None and pending_task_name_line == i - 1:
-                    task['name'] = pending_task_name
-                    task['name_line'] = pending_task_name_line
-                current_group['tasks'].append(task)
-                task_id += 1
-                pending_task_name = None
             else:
-                # 普通注释作为组标题（仅取第一行注释，组内还没有任务且还没有标题）
-                if not current_group['tasks'] and not current_group['title']:
-                    current_group['title'] = line.lstrip('#').strip()
-                    current_group['title_line'] = i
-                pending_task_name = None  # 非##注释，清除待分配的任务名
-            continue
+                # 已生效的 cron 任务
+                cron_match = re.match(r'^([\d*,/-]+\s+[\d*,/-]+\s+[\d*,/-]+\s+[\d*,/-]+\s+[\d*,/-]+)\s+(.+)$', line)
+                task = {
+                    'id': task_id,
+                    'line': i,
+                    'raw': line,
+                    'enabled': True,
+                    'schedule': cron_match.group(1),
+                    'command': cron_match.group(2)
+                }
 
-        # 解析cron表达式
-        cron_match = re.match(r'^([\d*,/-]+\s+[\d*,/-]+\s+[\d*,/-]+\s+[\d*,/-]+\s+[\d*,/-]+)\s+(.+)$', line)
-        if cron_match:
-            task = {
-                'id': task_id,
-                'line': i,
-                'raw': line,
-                'enabled': True,
-                'schedule': cron_match.group(1),
-                'command': cron_match.group(2)
-            }
-            # 检查前一行是否有任务名
-            if pending_task_name is not None and pending_task_name_line == i - 1:
-                task['name'] = pending_task_name
-                task['name_line'] = pending_task_name_line
+            # 设置任务名
+            if task_name:
+                task['name'] = task_name
+                task['name_line'] = task_name_line
+
             current_group['tasks'].append(task)
             task_id += 1
-            pending_task_name = None
+
+            # 重置状态
+            comment_buffer = []
+            new_group_context = False
+            last_non_empty_is_task = True
+
+        elif line.startswith('#'):
+            # === 处理注释行 ===
+            comment_buffer.append((i, line))
+
+            # 如果连续注释达到2行，触发 new_group_context
+            if len(comment_buffer) >= 2:
+                new_group_context = True
+
+            last_non_empty_is_task = False
 
     # 添加最后一个组
     if current_group['tasks']:
@@ -463,16 +515,16 @@ def update_task_name(task_id):
     if 'name_line' in target_task:
         name_line = target_task['name_line']
         if new_name:
-            # 更新名称行
-            lines[name_line] = f'##{new_name}'
+            # 更新名称行（新规则：单 # 注释）
+            lines[name_line] = f'# {new_name}'
         else:
             # 删除名称行
             lines[name_line] = None
     else:
         # 任务没有名称行
         if new_name:
-            # 在任务行前插入名称行
-            lines.insert(task_line, f'##{new_name}')
+            # 在任务行前插入名称行（新规则：单 # 注释）
+            lines.insert(task_line, f'# {new_name}')
 
     # 过滤掉 None
     new_lines = [l for l in lines if l is not None]
@@ -644,7 +696,7 @@ def add_task_to_group(group_id):
                 # 构建新行（任务名行 + 任务行）
                 new_lines_to_insert = []
                 if name:
-                    new_lines_to_insert.append(f"##{name}")
+                    new_lines_to_insert.append(f"# {name}")
                 task_line = f"{schedule} {command}"
                 if not enabled:
                     task_line = '#' + task_line
