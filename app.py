@@ -231,6 +231,22 @@ def get_crontab_raw():
     return result.stdout if result.returncode == 0 else ""
 
 
+def cleanup_duplicate_backups():
+    """清理连续且完全相同的备份，仅保留最早的一个"""
+    backups = sorted([f for f in os.listdir(BACKUP_DIR) if f.endswith('.bak')])
+    if len(backups) < 2:
+        return
+    prev_content = None
+    for bak in backups:
+        filepath = os.path.join(BACKUP_DIR, bak)
+        with open(filepath, 'r') as f:
+            content = f.read()
+        if prev_content is not None and content == prev_content:
+            os.remove(filepath)
+        else:
+            prev_content = content
+
+
 def backup_crontab():
     """备份当前crontab"""
     current = get_crontab_raw()
@@ -239,6 +255,8 @@ def backup_crontab():
         backup_file = os.path.join(BACKUP_DIR, f'crontab_{timestamp}.bak')
         with open(backup_file, 'w') as f:
             f.write(current)
+        # 清理连续相同的备份
+        cleanup_duplicate_backups()
         # 只保留最近500个备份
         backups = sorted(os.listdir(BACKUP_DIR), reverse=True)
         for old in backups[500:]:
