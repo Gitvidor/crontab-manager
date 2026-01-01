@@ -1430,6 +1430,10 @@
             color: white;
         }
         .history-btn.diff-btn:hover { background: var(--primary-hover); }
+        .history-btn.save-mode {
+            background: var(--success);
+        }
+        .history-btn.save-mode:hover { background: var(--success-hover); }
         .history-btn.restore-btn {
             background: var(--warning);
             color: var(--text-primary);
@@ -1473,14 +1477,13 @@
     <div id="historyView" class="history-view">
         <div class="history-header">
             <span>Current Version</span>
-            <button class="history-btn diff-btn" onclick="toggleRawEditor()" id="editToggleBtn">Edit</button>
+            <button class="history-btn diff-btn" onclick="toggleEditMode()" id="editToggleBtn">Edit</button>
         </div>
-        <div class="raw-editor-section" id="rawEditorSection" style="display: none;">
+        <div class="raw-editor-section" id="rawEditorSection">
             <div class="code-editor">
                 <pre class="code-highlight" id="codeHighlight"></pre>
-                <textarea id="rawContent" oninput="updateHighlight()" onscroll="syncHighlightScroll()"></textarea>
+                <textarea id="rawContent" oninput="updateHighlight()" onscroll="syncHighlightScroll()" readonly></textarea>
             </div>
-            <button class="save-btn" onclick="saveRaw()">Save</button>
         </div>
 
         <div class="history-header">
@@ -1736,9 +1739,11 @@
             if (tab === 'list') {
                 loadTasksKeepState();
             } else if (tab === 'history') {
-                // 重置编辑器状态
-                document.getElementById('rawEditorSection').style.display = 'none';
+                // 重置为只读模式
+                document.getElementById('rawContent').readOnly = true;
                 document.getElementById('editToggleBtn').textContent = 'Edit';
+                document.getElementById('editToggleBtn').classList.remove('save-mode');
+                loadRaw();
                 loadHistory();
             } else if (tab === 'cron') {
                 loadCronLogs();
@@ -1749,13 +1754,24 @@
 
         // ========== 历史版本相关 ==========
 
-        function toggleRawEditor() {
-            const section = document.getElementById('rawEditorSection');
+        async function toggleEditMode() {
+            const textarea = document.getElementById('rawContent');
             const btn = document.getElementById('editToggleBtn');
-            const isHidden = section.style.display === 'none';
-            section.style.display = isHidden ? 'block' : 'none';
-            btn.textContent = isHidden ? 'Hide' : 'Edit';
-            if (isHidden) loadRaw();
+            const isEditing = !textarea.readOnly;
+
+            if (isEditing) {
+                // 保存模式 -> 只读模式
+                await saveRaw();
+                textarea.readOnly = true;
+                btn.textContent = 'Edit';
+                btn.classList.remove('save-mode');
+            } else {
+                // 只读模式 -> 编辑模式
+                textarea.readOnly = false;
+                textarea.focus();
+                btn.textContent = 'Save';
+                btn.classList.add('save-mode');
+            }
         }
 
         async function loadHistory() {
