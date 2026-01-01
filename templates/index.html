@@ -348,25 +348,55 @@
         .raw-editor-section {
             margin-bottom: var(--space-5);
         }
-        .raw-editor-section textarea {
-            width: 100%;
+        .code-editor {
+            position: relative;
             height: 50vh;
-            font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
-            font-size: 13px;
-            padding: var(--space-4);
             border: 1px solid var(--border-color);
             border-radius: var(--radius-md);
-            resize: vertical;
+            overflow: hidden;
             background: var(--bg-secondary);
-            color: var(--text-primary);
-            line-height: 1.6;
-            transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
         }
-        .raw-editor-section textarea:focus {
-            outline: none;
+        .code-editor:focus-within {
             border-color: var(--primary);
             box-shadow: 0 0 0 3px rgba(74, 144, 217, 0.15);
         }
+        .code-highlight, .code-editor textarea {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: var(--space-4);
+            font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+            font-size: 13px;
+            line-height: 1.6;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            overflow: auto;
+            box-sizing: border-box;
+        }
+        .code-highlight {
+            color: var(--text-primary);
+            pointer-events: none;
+            z-index: 1;
+        }
+        .code-editor textarea {
+            background: transparent;
+            color: transparent;
+            caret-color: var(--text-primary);
+            border: none;
+            outline: none;
+            resize: none;
+            z-index: 2;
+        }
+        /* 语法高亮颜色 */
+        .hl-comment { color: #6a9955; }
+        .hl-schedule { color: #dcdcaa; }
+        .hl-command { color: #ce9178; }
+        .hl-env-key { color: #9cdcfe; }
+        .hl-env-value { color: #ce9178; }
+        .hl-disabled { color: #6a9955; font-style: italic; }
         .save-btn {
             margin-top: var(--space-4);
             padding: var(--space-3) var(--space-6);
@@ -1441,13 +1471,20 @@
     <div id="taskList" class="task-list active"></div>
 
     <div id="historyView" class="history-view">
-        <div class="raw-editor-section">
-            <textarea id="rawContent"></textarea>
+        <div class="history-header">
+            <span>Current Version</span>
+            <button class="history-btn diff-btn" onclick="toggleRawEditor()" id="editToggleBtn">Edit</button>
+        </div>
+        <div class="raw-editor-section" id="rawEditorSection" style="display: none;">
+            <div class="code-editor">
+                <pre class="code-highlight" id="codeHighlight"></pre>
+                <textarea id="rawContent" oninput="updateHighlight()" onscroll="syncHighlightScroll()"></textarea>
+            </div>
             <button class="save-btn" onclick="saveRaw()">Save</button>
         </div>
 
         <div class="history-header">
-            <span>Backup History</span>
+            <span>History Version</span>
             <button class="refresh-btn" onclick="loadHistory()" title="Refresh">⟳</button>
         </div>
         <div class="history-list" id="historyList">
@@ -1699,7 +1736,9 @@
             if (tab === 'list') {
                 loadTasksKeepState();
             } else if (tab === 'history') {
-                loadRaw();
+                // 重置编辑器状态
+                document.getElementById('rawEditorSection').style.display = 'none';
+                document.getElementById('editToggleBtn').textContent = 'Edit';
                 loadHistory();
             } else if (tab === 'cron') {
                 loadCronLogs();
@@ -1709,6 +1748,15 @@
         }
 
         // ========== 历史版本相关 ==========
+
+        function toggleRawEditor() {
+            const section = document.getElementById('rawEditorSection');
+            const btn = document.getElementById('editToggleBtn');
+            const isHidden = section.style.display === 'none';
+            section.style.display = isHidden ? 'block' : 'none';
+            btn.textContent = isHidden ? 'Hide' : 'Edit';
+            if (isHidden) loadRaw();
+        }
 
         async function loadHistory() {
             const list = document.getElementById('historyList');
@@ -2641,6 +2689,52 @@
             const resp = await fetch('/api/raw');
             const data = await resp.json();
             document.getElementById('rawContent').value = data.content;
+            updateHighlight();
+        }
+
+        // Crontab 语法高亮
+        function highlightCrontab(text) {
+            return text.split('\n').map(line => {
+                const escaped = escapeHtml(line);
+                // 空行
+                if (!line.trim()) return escaped;
+                // 注释行
+                if (line.trim().startsWith('#')) {
+                    // 被禁用的任务（# 开头但后面是 cron 格式）
+                    if (/^#\s*[\d\*]/.test(line.trim())) {
+                        return `<span class="hl-disabled">${escaped}</span>`;
+                    }
+                    return `<span class="hl-comment">${escaped}</span>`;
+                }
+                // 环境变量 NAME=value
+                const envMatch = line.match(/^([A-Z_][A-Z0-9_]*)\s*=\s*(.*)$/i);
+                if (envMatch) {
+                    const key = escapeHtml(envMatch[1]);
+                    const val = escapeHtml(envMatch[2]);
+                    return `<span class="hl-env-key">${key}</span>=<span class="hl-env-value">${val}</span>`;
+                }
+                // Cron 任务行：分 时 日 月 周 命令
+                const cronMatch = line.match(/^([\d\*\/\-,]+\s+[\d\*\/\-,]+\s+[\d\*\/\-,]+\s+[\d\*\/\-,]+\s+[\d\*\/\-,]+)\s+(.+)$/);
+                if (cronMatch) {
+                    const schedule = escapeHtml(cronMatch[1]);
+                    const cmd = escapeHtml(cronMatch[2]);
+                    return `<span class="hl-schedule">${schedule}</span> <span class="hl-command">${cmd}</span>`;
+                }
+                return escaped;
+            }).join('\n');
+        }
+
+        function updateHighlight() {
+            const textarea = document.getElementById('rawContent');
+            const highlight = document.getElementById('codeHighlight');
+            highlight.innerHTML = highlightCrontab(textarea.value) + '\n';
+        }
+
+        function syncHighlightScroll() {
+            const textarea = document.getElementById('rawContent');
+            const highlight = document.getElementById('codeHighlight');
+            highlight.scrollTop = textarea.scrollTop;
+            highlight.scrollLeft = textarea.scrollLeft;
         }
 
         // 保存原始内容
