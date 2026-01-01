@@ -1354,17 +1354,32 @@
         .diff-content {
             flex: 1;
             margin: 0;
-            padding: var(--space-3);
+            padding: 0;
             background: var(--bg-secondary);
             border: 1px solid var(--border-color);
             border-top: none;
             border-radius: 0 0 var(--radius-sm) var(--radius-sm);
             overflow: auto;
+            overscroll-behavior: contain;
             font-family: 'SF Mono', Monaco, monospace;
             font-size: 12px;
-            line-height: 1.5;
-            white-space: pre-wrap;
+            line-height: 1.6;
             color: var(--text-primary);
+        }
+        .diff-line {
+            padding: 0 var(--space-3);
+            white-space: pre-wrap;
+            word-break: break-all;
+            min-height: 1.6em;
+        }
+        .diff-line.diff-add {
+            background: rgba(46, 160, 67, 0.2);
+        }
+        .diff-line.diff-remove {
+            background: rgba(248, 81, 73, 0.2);
+        }
+        .diff-line.diff-empty {
+            background: var(--bg-tertiary);
         }
 
         /* 历史记录操作按钮 */
@@ -1747,6 +1762,38 @@
             }
         }
 
+        // LCS diff 算法
+        function computeDiff(oldLines, newLines) {
+            const m = oldLines.length, n = newLines.length;
+            // 构建 LCS 表
+            const dp = Array(m + 1).fill(null).map(() => Array(n + 1).fill(0));
+            for (let i = 1; i <= m; i++) {
+                for (let j = 1; j <= n; j++) {
+                    if (oldLines[i - 1] === newLines[j - 1]) {
+                        dp[i][j] = dp[i - 1][j - 1] + 1;
+                    } else {
+                        dp[i][j] = Math.max(dp[i - 1][j], dp[i][j - 1]);
+                    }
+                }
+            }
+            // 回溯生成 diff
+            const result = [];
+            let i = m, j = n;
+            while (i > 0 || j > 0) {
+                if (i > 0 && j > 0 && oldLines[i - 1] === newLines[j - 1]) {
+                    result.unshift({ type: 'same', oldLine: oldLines[i - 1], newLine: newLines[j - 1] });
+                    i--; j--;
+                } else if (j > 0 && (i === 0 || dp[i][j - 1] >= dp[i - 1][j])) {
+                    result.unshift({ type: 'add', oldLine: null, newLine: newLines[j - 1] });
+                    j--;
+                } else {
+                    result.unshift({ type: 'remove', oldLine: oldLines[i - 1], newLine: null });
+                    i--;
+                }
+            }
+            return result;
+        }
+
         async function showDiff(filename, timestamp) {
             try {
                 // 获取当前版本和备份版本
@@ -1757,13 +1804,53 @@
                 const currentData = await currentResp.json();
                 const backupData = await backupResp.json();
 
-                document.getElementById('diffCurrent').textContent = currentData.content || '';
-                document.getElementById('diffBackup').textContent = backupData.content || '';
+                const currentLines = (currentData.content || '').split('\n');
+                const backupLines = (backupData.content || '').split('\n');
+
+                // 使用 LCS diff 算法
+                const diff = computeDiff(backupLines, currentLines);
+                let currentHtml = '', backupHtml = '';
+
+                for (const d of diff) {
+                    if (d.type === 'same') {
+                        currentHtml += `<div class="diff-line">${escapeHtml(d.newLine)}</div>`;
+                        backupHtml += `<div class="diff-line">${escapeHtml(d.oldLine)}</div>`;
+                    } else if (d.type === 'add') {
+                        currentHtml += `<div class="diff-line diff-add">${escapeHtml(d.newLine)}</div>`;
+                        backupHtml += `<div class="diff-line diff-empty"></div>`;
+                    } else if (d.type === 'remove') {
+                        currentHtml += `<div class="diff-line diff-empty"></div>`;
+                        backupHtml += `<div class="diff-line diff-remove">${escapeHtml(d.oldLine)}</div>`;
+                    }
+                }
+
+                document.getElementById('diffCurrent').innerHTML = currentHtml;
+                document.getElementById('diffBackup').innerHTML = backupHtml;
                 document.getElementById('diffBackupTime').textContent = timestamp;
                 document.getElementById('diffModal').classList.add('show');
+
+                // 设置同步滚动
+                setupSyncScroll();
             } catch (e) {
                 showMessage('Failed to load diff', 'error');
             }
+        }
+
+        function setupSyncScroll() {
+            const panel1 = document.getElementById('diffCurrent');
+            const panel2 = document.getElementById('diffBackup');
+            let isSyncing = false;
+
+            const syncScroll = (source, target) => {
+                if (isSyncing) return;
+                isSyncing = true;
+                target.scrollTop = source.scrollTop;
+                target.scrollLeft = source.scrollLeft;
+                isSyncing = false;
+            };
+
+            panel1.onscroll = () => syncScroll(panel1, panel2);
+            panel2.onscroll = () => syncScroll(panel2, panel1);
         }
 
         function closeDiffModal() {
