@@ -1287,6 +1287,109 @@
             font-size: 12px;
             color: rgba(255,255,255,0.7);
         }
+
+        /* 版本对比弹窗 */
+        .diff-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 2000;
+            justify-content: center;
+            align-items: center;
+        }
+        .diff-modal.show { display: flex; }
+        .diff-modal-content {
+            background: var(--bg-primary);
+            border-radius: var(--radius-lg);
+            width: 90%;
+            max-width: 1200px;
+            max-height: 85vh;
+            display: flex;
+            flex-direction: column;
+            box-shadow: var(--shadow-lg);
+        }
+        .diff-modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: var(--space-4);
+            border-bottom: 1px solid var(--border-color);
+            font-weight: 600;
+            font-size: 16px;
+        }
+        .diff-close-btn {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: var(--text-muted);
+            line-height: 1;
+        }
+        .diff-close-btn:hover { color: var(--danger); }
+        .diff-modal-body {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+            gap: var(--space-2);
+            padding: var(--space-4);
+        }
+        .diff-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+        }
+        .diff-panel-header {
+            padding: var(--space-2) var(--space-3);
+            background: var(--bg-tertiary);
+            border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+            font-weight: 500;
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+        .diff-content {
+            flex: 1;
+            margin: 0;
+            padding: var(--space-3);
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-top: none;
+            border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+            overflow: auto;
+            font-family: 'SF Mono', Monaco, monospace;
+            font-size: 12px;
+            line-height: 1.5;
+            white-space: pre-wrap;
+            color: var(--text-primary);
+        }
+
+        /* 历史记录操作按钮 */
+        .history-actions {
+            display: flex;
+            gap: var(--space-2);
+        }
+        .history-btn {
+            padding: 4px 10px;
+            border: none;
+            border-radius: var(--radius-sm);
+            font-size: 12px;
+            cursor: pointer;
+            transition: all var(--transition-fast);
+        }
+        .history-btn.diff-btn {
+            background: var(--primary);
+            color: white;
+        }
+        .history-btn.diff-btn:hover { background: var(--primary-hover); }
+        .history-btn.restore-btn {
+            background: var(--warning);
+            color: var(--text-primary);
+        }
+        .history-btn.restore-btn:hover { background: #e0a800; }
     </style>
 </head>
 <body>
@@ -1360,6 +1463,26 @@
         <span class="undo-text">Task deleted</span>
         <button class="undo-btn" onclick="performUndo()">Undo</button>
         <span class="undo-countdown">5s</span>
+    </div>
+
+    <!-- 版本对比弹窗 -->
+    <div id="diffModal" class="diff-modal">
+        <div class="diff-modal-content">
+            <div class="diff-modal-header">
+                <span>Version Diff</span>
+                <button class="diff-close-btn" onclick="closeDiffModal()">&times;</button>
+            </div>
+            <div class="diff-modal-body">
+                <div class="diff-panel">
+                    <div class="diff-panel-header">Current</div>
+                    <pre class="diff-content" id="diffCurrent"></pre>
+                </div>
+                <div class="diff-panel">
+                    <div class="diff-panel-header">Backup: <span id="diffBackupTime"></span></div>
+                    <pre class="diff-content" id="diffBackup"></pre>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -1590,7 +1713,10 @@
                     return `<div class="history-item" onclick="toggleHistoryItem(this, '${b.filename}')">
                         <div class="history-item-header">
                             <span class="history-time">${ts}${userLabel}</span>
-                            <span class="view-icon">&#128065;</span>
+                            <div class="history-actions">
+                                <button class="history-btn diff-btn" onclick="event.stopPropagation(); showDiff('${b.filename}', '${ts}')">Diff</button>
+                                <button class="history-btn restore-btn" onclick="event.stopPropagation(); restoreBackup('${b.filename}', '${ts}')">Restore</button>
+                            </div>
                         </div>
                     </div>`;
                 }).join('');
@@ -1620,6 +1746,52 @@
                 showMessage('Failed to load backup content', 'error');
             }
         }
+
+        async function showDiff(filename, timestamp) {
+            try {
+                // 获取当前版本和备份版本
+                const [currentResp, backupResp] = await Promise.all([
+                    fetch('/api/raw'),
+                    fetch(`/api/backup/${filename}`)
+                ]);
+                const currentData = await currentResp.json();
+                const backupData = await backupResp.json();
+
+                document.getElementById('diffCurrent').textContent = currentData.content || '';
+                document.getElementById('diffBackup').textContent = backupData.content || '';
+                document.getElementById('diffBackupTime').textContent = timestamp;
+                document.getElementById('diffModal').classList.add('show');
+            } catch (e) {
+                showMessage('Failed to load diff', 'error');
+            }
+        }
+
+        function closeDiffModal() {
+            document.getElementById('diffModal').classList.remove('show');
+        }
+
+        async function restoreBackup(filename, timestamp) {
+            if (!confirm(`Restore to backup: ${timestamp}?`)) return;
+
+            try {
+                const resp = await fetch(`/api/restore/${filename}`, { method: 'POST' });
+                const data = await resp.json();
+                if (data.success) {
+                    showMessage('Restored successfully', 'success');
+                    loadRaw();
+                    loadHistory();
+                } else {
+                    showMessage(data.error || 'Restore failed', 'error');
+                }
+            } catch (e) {
+                showMessage('Restore failed', 'error');
+            }
+        }
+
+        // 点击弹窗外部关闭
+        document.getElementById('diffModal').addEventListener('click', function(e) {
+            if (e.target === this) closeDiffModal();
+        });
 
         // ========== 日志相关 ==========
 

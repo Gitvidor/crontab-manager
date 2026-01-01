@@ -456,6 +456,27 @@ def get_backup_content(filename):
     return jsonify({'error': 'Not found'}), 404
 
 
+@app.route('/api/restore/<filename>', methods=['POST'])
+@login_required
+def restore_backup(filename):
+    """回滚到指定备份版本"""
+    # 安全检查
+    if not filename.endswith('.bak') or '/' in filename or '\\' in filename:
+        return jsonify({'success': False, 'error': 'Invalid filename'}), 400
+    filepath = os.path.join(BACKUP_DIR, filename)
+    if not os.path.exists(filepath):
+        return jsonify({'success': False, 'error': 'Backup not found'}), 404
+
+    with open(filepath, 'r') as f:
+        content = f.read()
+
+    success, error = save_crontab(content, current_user.id)
+    if success:
+        log_action('restore_backup', {'filename': filename})
+        return jsonify({'success': True})
+    return jsonify({'success': False, 'error': error})
+
+
 # ===== 任务操作 API =====
 
 
