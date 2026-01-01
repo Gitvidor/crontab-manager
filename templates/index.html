@@ -260,12 +260,12 @@
         .task-card {
             background: var(--bg-secondary);
             border-radius: var(--radius-sm);
-            padding: var(--space-2) var(--space-3);
-            margin-bottom: var(--space-2);
+            padding: 4px var(--space-2);
+            margin-bottom: 2px;
             box-shadow: var(--shadow-sm);
             display: flex;
             align-items: center;
-            gap: var(--space-3);
+            gap: var(--space-2);
             transition: all var(--transition-normal);
             border: 1px solid var(--border-light);
         }
@@ -367,10 +367,10 @@
             width: 100%;
             height: 100%;
             margin: 0;
-            padding: var(--space-4);
+            padding: var(--space-3);
             font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
-            font-size: 13px;
-            line-height: 1.6;
+            font-size: 12px;
+            line-height: 1.5;
             white-space: pre-wrap;
             word-wrap: break-word;
             overflow: auto;
@@ -392,7 +392,7 @@
         }
         /* 语法高亮颜色 */
         .hl-comment { color: #6a9955; }
-        .hl-schedule { color: #dcdcaa; }
+        .hl-schedule { color: #b8860b; }
         .hl-command { color: #ce9178; }
         .hl-env-key { color: #9cdcfe; }
         .hl-env-value { color: #ce9178; }
@@ -620,8 +620,8 @@
         /* 任务分组卡片 */
         .task-group {
             background: var(--bg-secondary);
-            border-radius: var(--radius-lg);
-            margin-bottom: var(--space-4);
+            border-radius: var(--radius-md);
+            margin-bottom: var(--space-2);
             box-shadow: var(--shadow-md);
             overflow: hidden;
             transition: box-shadow var(--transition-normal);
@@ -629,8 +629,8 @@
         .task-group:hover { box-shadow: var(--shadow-lg); }
         .task-group .group-header {
             background: linear-gradient(to bottom, var(--bg-tertiary), var(--bg-hover));
-            padding: var(--space-3) var(--space-4);
-            min-height: 60px;
+            padding: 6px var(--space-3);
+            min-height: 36px;
             box-sizing: border-box;
             display: flex;
             align-items: center;
@@ -738,7 +738,7 @@
         .task-group .group-toggle-switch.on::after { left: 22px; }
         .task-group .group-toggle-switch.partial::after { left: 12px; }
         .task-group .group-tasks {
-            padding: var(--space-2);
+            padding: 4px 6px;
             max-height: 2000px;
             overflow: hidden;
             transition: max-height var(--transition-slow), padding var(--transition-slow), opacity var(--transition-slow);
@@ -746,7 +746,7 @@
         }
         .task-group.collapsed .group-tasks {
             max-height: 0;
-            padding: 0 var(--space-2);
+            padding: 0 6px;
             opacity: 0;
         }
         .task-group .group-header {
@@ -790,8 +790,8 @@
             transition: all var(--transition-fast);
         }
         .collapse-toggle-btn:hover {
-            background: #3A7BC8;
-            border-color: #3A7BC8;
+            background: #2563eb;
+            border-color: #2563eb;
         }
         .collapse-toggle-btn.all-collapsed {
             background: var(--success);
@@ -843,7 +843,7 @@
             flex-shrink: 0;
         }
         .new-group-btn:hover {
-            background: var(--success-hover);
+            background: #16a34a;
         }
         .new-group-btn:active { transform: scale(0.95); }
 
@@ -1877,14 +1877,14 @@
 
                 for (const d of diff) {
                     if (d.type === 'same') {
-                        currentHtml += `<div class="diff-line">${escapeHtml(d.newLine)}</div>`;
-                        backupHtml += `<div class="diff-line">${escapeHtml(d.oldLine)}</div>`;
+                        currentHtml += `<div class="diff-line">${highlightLine(d.newLine)}</div>`;
+                        backupHtml += `<div class="diff-line">${highlightLine(d.oldLine)}</div>`;
                     } else if (d.type === 'add') {
-                        currentHtml += `<div class="diff-line diff-add">${escapeHtml(d.newLine)}</div>`;
+                        currentHtml += `<div class="diff-line diff-add">${highlightLine(d.newLine)}</div>`;
                         backupHtml += `<div class="diff-line diff-empty"></div>`;
                     } else if (d.type === 'remove') {
                         currentHtml += `<div class="diff-line diff-empty"></div>`;
-                        backupHtml += `<div class="diff-line diff-remove">${escapeHtml(d.oldLine)}</div>`;
+                        backupHtml += `<div class="diff-line diff-remove">${highlightLine(d.oldLine)}</div>`;
                     }
                 }
 
@@ -2708,36 +2708,39 @@
             updateHighlight();
         }
 
-        // Crontab 语法高亮
+        // Crontab 单行语法高亮
+        function highlightLine(line) {
+            const escaped = escapeHtml(line);
+            // 空行
+            if (!line.trim()) return escaped;
+            // 注释行
+            if (line.trim().startsWith('#')) {
+                // 被禁用的任务（# 开头但后面是 cron 格式）
+                if (/^#\s*[\d\*]/.test(line.trim())) {
+                    return `<span class="hl-disabled">${escaped}</span>`;
+                }
+                return `<span class="hl-comment">${escaped}</span>`;
+            }
+            // 环境变量 NAME=value
+            const envMatch = line.match(/^([A-Z_][A-Z0-9_]*)\s*=\s*(.*)$/i);
+            if (envMatch) {
+                const key = escapeHtml(envMatch[1]);
+                const val = escapeHtml(envMatch[2]);
+                return `<span class="hl-env-key">${key}</span>=<span class="hl-env-value">${val}</span>`;
+            }
+            // Cron 任务行：分 时 日 月 周 命令
+            const cronMatch = line.match(/^([\d\*\/\-,]+\s+[\d\*\/\-,]+\s+[\d\*\/\-,]+\s+[\d\*\/\-,]+\s+[\d\*\/\-,]+)\s+(.+)$/);
+            if (cronMatch) {
+                const schedule = escapeHtml(cronMatch[1]);
+                const cmd = escapeHtml(cronMatch[2]);
+                return `<span class="hl-schedule">${schedule}</span> <span class="hl-command">${cmd}</span>`;
+            }
+            return escaped;
+        }
+
+        // Crontab 多行语法高亮
         function highlightCrontab(text) {
-            return text.split('\n').map(line => {
-                const escaped = escapeHtml(line);
-                // 空行
-                if (!line.trim()) return escaped;
-                // 注释行
-                if (line.trim().startsWith('#')) {
-                    // 被禁用的任务（# 开头但后面是 cron 格式）
-                    if (/^#\s*[\d\*]/.test(line.trim())) {
-                        return `<span class="hl-disabled">${escaped}</span>`;
-                    }
-                    return `<span class="hl-comment">${escaped}</span>`;
-                }
-                // 环境变量 NAME=value
-                const envMatch = line.match(/^([A-Z_][A-Z0-9_]*)\s*=\s*(.*)$/i);
-                if (envMatch) {
-                    const key = escapeHtml(envMatch[1]);
-                    const val = escapeHtml(envMatch[2]);
-                    return `<span class="hl-env-key">${key}</span>=<span class="hl-env-value">${val}</span>`;
-                }
-                // Cron 任务行：分 时 日 月 周 命令
-                const cronMatch = line.match(/^([\d\*\/\-,]+\s+[\d\*\/\-,]+\s+[\d\*\/\-,]+\s+[\d\*\/\-,]+\s+[\d\*\/\-,]+)\s+(.+)$/);
-                if (cronMatch) {
-                    const schedule = escapeHtml(cronMatch[1]);
-                    const cmd = escapeHtml(cronMatch[2]);
-                    return `<span class="hl-schedule">${schedule}</span> <span class="hl-command">${cmd}</span>`;
-                }
-                return escaped;
-            }).join('\n');
+            return text.split('\n').map(highlightLine).join('\n');
         }
 
         function updateHighlight() {
