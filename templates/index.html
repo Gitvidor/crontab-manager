@@ -1176,10 +1176,17 @@
         }
 
         /* 搜索框 */
+        .search-wrapper {
+            flex: 1;
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
         .search-box {
             flex: 1;
             height: 32px;
-            padding: 0 var(--space-3);
+            padding: 0 36px 0 var(--space-3);
             border: 1px solid var(--border-color);
             border-radius: var(--radius-md);
             font-size: 13px;
@@ -1196,6 +1203,31 @@
         .search-box:focus {
             border-color: var(--primary);
             box-shadow: 0 0 0 3px rgba(74, 144, 217, 0.15);
+        }
+
+        .case-toggle {
+            position: absolute;
+            right: 4px;
+            height: 24px;
+            padding: 0 6px;
+            border: none;
+            background: transparent;
+            color: var(--text-muted);
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            border-radius: var(--radius-sm);
+            transition: all var(--transition-fast);
+        }
+
+        .case-toggle:hover {
+            background: var(--bg-hover);
+            color: var(--text-secondary);
+        }
+
+        .case-toggle.active {
+            background: var(--primary);
+            color: white;
         }
 
         /* Filter Controls */
@@ -2223,8 +2255,11 @@
                 <path d="M7 19l5-5 5 5" />
             </svg>
         </button>
-        <input type="text" class="search-box" id="searchBox" placeholder="Search group names or task names..."
-            oninput="filterTasks()">
+        <div class="search-wrapper">
+            <input type="text" class="search-box" id="searchBox" placeholder="Search group names or task names..."
+                oninput="filterTasks()">
+            <button class="case-toggle" id="caseToggle" onclick="toggleCaseSensitive()" title="Case Sensitive">Aa</button>
+        </div>
         <button class="new-group-btn" onclick="showNewGroupForm()"><span class="plus-icon">+</span> New Group</button>
     </div>
 
@@ -2401,7 +2436,8 @@
         function highlightText(text, keyword) {
             if (!keyword) return escapeHtml(text);
             const escaped = escapeHtml(text);
-            const regex = new RegExp(`(${keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+            const flags = caseSensitive ? 'g' : 'gi';
+            const regex = new RegExp(`(${keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, flags);
             return escaped.replace(regex, '<span class="search-highlight">$1</span>');
         }
 
@@ -3033,6 +3069,13 @@
         // ========== 搜索过滤 ==========
 
         let currentFilter = 'all';
+        let caseSensitive = false;
+
+        function toggleCaseSensitive() {
+            caseSensitive = !caseSensitive;
+            document.getElementById('caseToggle').classList.toggle('active', caseSensitive);
+            filterTasks();
+        }
 
         function setFilter(filter) {
             currentFilter = filter;
@@ -3047,17 +3090,23 @@
         }
 
         function filterTasks() {
-            const keyword = document.getElementById('searchBox').value.trim().toLowerCase();
+            const rawKeyword = document.getElementById('searchBox').value.trim();
+            const keyword = caseSensitive ? rawKeyword : rawKeyword.toLowerCase();
 
             const isFlatView = currentFilter !== 'all';
             document.getElementById('taskList').classList.toggle('flat-view', isFlatView);
 
+            // 辅助函数：根据大小写敏感设置进行匹配
+            const matchText = (text, kw) => {
+                if (!kw) return true;
+                return caseSensitive ? text.includes(kw) : text.toLowerCase().includes(kw);
+            };
+
             document.querySelectorAll('.task-group').forEach(groupEl => {
                 const groupTitleEl = groupEl.querySelector('.group-title');
                 const originalGroupTitle = groupEl.dataset.title || 'Unnamed Group';
-                const groupTitleLower = originalGroupTitle.toLowerCase();
                 const tasks = groupEl.querySelectorAll('.task-card');
-                let groupMatch = !isFlatView && groupTitleLower.includes(keyword); // In flat view, group title match is ignored
+                let groupMatch = !isFlatView && matchText(originalGroupTitle, keyword); // In flat view, group title match is ignored
                 let visibleTaskCount = 0;
 
                 // 高亮组名 (only if not flat view)
@@ -3080,7 +3129,7 @@
                     const command = decodeURIComponent(taskEl.dataset.command);
 
                     const scheduleText = `${minute} ${hour} ${day} ${month} ${weekday}`;
-                    const taskMatch = scheduleText.toLowerCase().includes(keyword) || command.toLowerCase().includes(keyword);
+                    const taskMatch = matchText(scheduleText, keyword) || matchText(command, keyword);
 
                     // Filter status
                     let statusMatch = true;
@@ -3094,7 +3143,7 @@
                         visibleTaskCount++;
 
                         // 高亮命令
-                        if (keyword && command.toLowerCase().includes(keyword)) {
+                        if (keyword && matchText(command, keyword)) {
                             commandEl.innerHTML = highlightText(command, keyword);
                         } else {
                             commandEl.textContent = command;
