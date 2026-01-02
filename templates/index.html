@@ -260,12 +260,12 @@
         .task-card {
             background: var(--bg-secondary);
             border-radius: var(--radius-sm);
-            padding: 4px var(--space-2);
-            margin-bottom: 2px;
+            padding: 3px var(--space-2);
+            margin-bottom: 1px;
             box-shadow: var(--shadow-sm);
             display: flex;
             align-items: center;
-            gap: var(--space-2);
+            gap: var(--space-1);
             transition: all var(--transition-normal);
             border: 1px solid var(--border-light);
         }
@@ -278,10 +278,10 @@
             background: var(--bg-tertiary);
         }
         .task-card .toggle {
-            width: 36px;
-            height: 20px;
+            width: 32px;
+            height: 18px;
             background: var(--text-muted);
-            border-radius: 10px;
+            border-radius: 9px;
             position: relative;
             cursor: pointer;
             flex-shrink: 0;
@@ -290,8 +290,8 @@
         .task-card .toggle.on { background: var(--success); }
         .task-card .toggle::after {
             content: '';
-            width: 16px;
-            height: 16px;
+            width: 14px;
+            height: 14px;
             background: white;
             border-radius: 50%;
             position: absolute;
@@ -300,24 +300,24 @@
             transition: left var(--transition-normal);
             box-shadow: var(--shadow-sm);
         }
-        .task-card .toggle.on::after { left: 18px; }
+        .task-card .toggle.on::after { left: 16px; }
         .task-info { flex: 1; min-width: 0; display: flex; flex-direction: column; overflow: visible; }
         .task-comment {
             color: var(--text-secondary);
-            font-size: 12px;
-            margin-bottom: var(--space-1);
+            font-size: 11px;
+            margin-bottom: 2px;
         }
         .task-schedule {
             font-weight: 600;
-            font-size: 12px;
+            font-size: 11px;
             color: var(--text-primary);
             font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
         }
         .task-name {
-            font-size: 12px;
+            font-size: 11px;
             font-weight: 600;
             color: var(--primary);
-            margin-bottom: var(--space-1);
+            margin-bottom: 2px;
             cursor: pointer;
             width: fit-content;
         }
@@ -334,13 +334,13 @@
         }
         .task-command {
             font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
-            font-size: 11px;
+            font-size: 10px;
             color: var(--text-secondary);
             background: var(--bg-tertiary);
-            padding: var(--space-1) var(--space-2);
+            padding: 2px var(--space-1);
             border-radius: var(--radius-sm);
             word-break: break-all;
-            margin-top: var(--space-1);
+            margin-top: 2px;
             border: 1px solid var(--border-light);
         }
 
@@ -369,7 +369,7 @@
             margin: 0;
             padding: var(--space-3);
             font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
-            font-size: 12px;
+            font-size: 11px;
             line-height: 1.5;
             white-space: pre-wrap;
             word-wrap: break-word;
@@ -393,7 +393,7 @@
         /* 语法高亮颜色 */
         .hl-comment { color: #6a9955; }
         .hl-schedule { color: #b8860b; }
-        .hl-command { color: #ce9178; }
+        .hl-command { color: #000; }
         .hl-env-key { color: #9cdcfe; }
         .hl-env-value { color: #ce9178; }
         .hl-disabled { color: #6a9955; font-style: italic; }
@@ -430,23 +430,24 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: var(--space-4);
+            margin-bottom: var(--space-2);
             font-weight: 500;
+            font-size: 13px;
             color: var(--text-primary);
         }
         .history-list {
             display: flex;
             flex-direction: column;
-            gap: var(--space-2);
+            gap: var(--space-1);
         }
         .history-item {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: var(--space-3) var(--space-4);
+            padding: var(--space-2) var(--space-3);
             background: var(--bg-secondary);
             border: 1px solid var(--border-color);
-            border-radius: var(--radius-md);
+            border-radius: var(--radius-sm);
             cursor: pointer;
             transition: all var(--transition-fast);
         }
@@ -466,33 +467,33 @@
         }
         .history-time {
             font-family: 'SF Mono', Monaco, monospace;
-            font-size: 13px;
+            font-size: 12px;
             color: var(--text-primary);
         }
         .history-user {
-            margin-left: var(--space-3);
-            padding: 2px 8px;
+            margin-left: var(--space-2);
+            padding: 2px 6px;
             background: var(--bg-tertiary);
             border-radius: var(--radius-sm);
-            font-size: 12px;
+            font-size: 11px;
             color: var(--text-secondary);
         }
         .view-icon {
             color: var(--text-muted);
-            font-size: 14px;
+            font-size: 12px;
         }
         .history-content {
-            margin-top: var(--space-3);
+            margin-top: var(--space-2);
             font-family: 'SF Mono', Monaco, monospace;
-            font-size: 12px;
+            font-size: 11px;
             white-space: pre-wrap;
             background: var(--bg-tertiary);
-            padding: var(--space-3);
+            padding: var(--space-2);
             border-radius: var(--radius-sm);
             max-height: 400px;
             overflow: auto;
             color: var(--text-secondary);
-            line-height: 1.5;
+            line-height: 1.4;
         }
 
         /* 消息提示 */
@@ -534,7 +535,7 @@
             border-radius: var(--radius-sm);
             cursor: pointer;
             font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
-            font-size: 12px;
+            font-size: 11px;
             border: 1px solid transparent;
             transition: all var(--transition-fast);
         }
@@ -543,7 +544,7 @@
             border-color: var(--primary);
         }
         .editable.time-field {
-            min-width: 35px;
+            min-width: 30px;
             text-align: center;
         }
         .editable.cmd-field {
@@ -620,7 +621,7 @@
         /* 任务分组卡片 */
         .task-group {
             background: var(--bg-secondary);
-            border-radius: var(--radius-md);
+            border-radius: var(--radius-sm);
             margin-bottom: var(--space-2);
             box-shadow: var(--shadow-md);
             overflow: hidden;
@@ -629,8 +630,8 @@
         .task-group:hover { box-shadow: var(--shadow-lg); }
         .task-group .group-header {
             background: linear-gradient(to bottom, var(--bg-tertiary), var(--bg-hover));
-            padding: 6px var(--space-3);
-            min-height: 36px;
+            padding: 3px var(--space-2);
+            min-height: 26px;
             box-sizing: border-box;
             display: flex;
             align-items: center;
@@ -673,15 +674,15 @@
         .group-delete-btn:hover::after { background: #4D0000; }
         .task-group .group-title {
             font-weight: 600;
-            font-size: 15px;
+            font-size: 16px;
             color: var(--text-primary);
-            padding: 2px var(--space-1);
+            padding: 1px var(--space-1);
             border-radius: var(--radius-sm);
             border: 1px solid transparent;
             transition: font-size var(--transition-normal), color var(--transition-normal);
         }
         .task-group.collapsed .group-title {
-            font-size: 13px;
+            font-size: 14px;
         }
         .task-group.disabled .group-title {
             color: var(--text-muted);
@@ -711,13 +712,13 @@
             font-weight: 500;
         }
         .task-group .group-toggle-switch {
-            width: 44px;
-            height: 24px;
+            width: 36px;
+            height: 20px;
             background: var(--text-muted);
-            border-radius: 12px;
+            border-radius: 10px;
             position: relative;
             cursor: pointer;
-            margin-right: var(--space-3);
+            margin-right: var(--space-2);
             flex-shrink: 0;
             transition: background var(--transition-normal);
         }
@@ -725,8 +726,8 @@
         .task-group .group-toggle-switch.partial { background: var(--warning); }
         .task-group .group-toggle-switch::after {
             content: '';
-            width: 20px;
-            height: 20px;
+            width: 16px;
+            height: 16px;
             background: white;
             border-radius: 50%;
             position: absolute;
@@ -735,10 +736,10 @@
             transition: left var(--transition-normal);
             box-shadow: var(--shadow-sm);
         }
-        .task-group .group-toggle-switch.on::after { left: 22px; }
-        .task-group .group-toggle-switch.partial::after { left: 12px; }
+        .task-group .group-toggle-switch.on::after { left: 18px; }
+        .task-group .group-toggle-switch.partial::after { left: 9px; }
         .task-group .group-tasks {
-            padding: 4px 6px;
+            padding: 3px 4px;
             max-height: 2000px;
             overflow: hidden;
             transition: max-height var(--transition-slow), padding var(--transition-slow), opacity var(--transition-slow);
@@ -746,7 +747,7 @@
         }
         .task-group.collapsed .group-tasks {
             max-height: 0;
-            padding: 0 6px;
+            padding: 0 4px;
             opacity: 0;
         }
         .task-group .group-header {
@@ -846,19 +847,24 @@
             background: #16a34a;
         }
         .new-group-btn:active { transform: scale(0.95); }
+        .plus-icon {
+            font-size: 1.2em;
+            font-weight: 700;
+            line-height: 1;
+        }
 
         /* 组内添加任务按钮 */
         .group-add-task-btn {
             display: flex;
             align-items: center;
             justify-content: center;
-            padding: var(--space-2);
-            margin-top: var(--space-2);
+            padding: 4px var(--space-2);
+            margin-top: var(--space-1);
             background: var(--bg-tertiary);
-            border: 2px dashed var(--border-color);
+            border: 1px dashed var(--border-color);
             border-radius: var(--radius-sm);
             color: var(--text-muted);
-            font-size: 12px;
+            font-size: 11px;
             font-weight: 500;
             cursor: pointer;
             transition: all var(--transition-normal);
@@ -1393,7 +1399,7 @@
             overflow: auto;
             overscroll-behavior: contain;
             font-family: 'SF Mono', Monaco, monospace;
-            font-size: 12px;
+            font-size: 11px;
             line-height: 1.6;
             color: var(--text-primary);
         }
@@ -1464,7 +1470,7 @@
             <svg class="collapse-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 14l5-5 5 5"/><path d="M7 19l5-5 5 5"/></svg>
         </button>
         <input type="text" class="search-box" id="searchBox" placeholder="Search tasks..." oninput="filterTasks()">
-        <button class="new-group-btn" onclick="showNewGroupForm()">+ New Group</button>
+        <button class="new-group-btn" onclick="showNewGroupForm()"><span class="plus-icon">+</span> New Group</button>
     </div>
 
     <div id="newGroupForm" class="new-group-form">
@@ -1530,12 +1536,12 @@
             </div>
             <div class="diff-modal-body">
                 <div class="diff-panel">
-                    <div class="diff-panel-header">Current</div>
-                    <pre class="diff-content" id="diffCurrent"></pre>
-                </div>
-                <div class="diff-panel">
                     <div class="diff-panel-header">Backup: <span id="diffBackupTime"></span></div>
                     <pre class="diff-content" id="diffBackup"></pre>
+                </div>
+                <div class="diff-panel">
+                    <div class="diff-panel-header">Current</div>
+                    <pre class="diff-content" id="diffCurrent"></pre>
                 </div>
             </div>
         </div>
@@ -1819,7 +1825,9 @@
                     el.classList.add('expanded');
                     const contentDiv = document.createElement('div');
                     contentDiv.className = 'history-content';
-                    contentDiv.textContent = data.content;
+                    // 应用语法高亮
+                    const lines = data.content.split('\n');
+                    contentDiv.innerHTML = lines.map(line => `<div>${highlightLine(line)}</div>`).join('');
                     el.appendChild(contentDiv);
                 }
             } catch (e) {
@@ -2137,7 +2145,7 @@
                     <div class="group-tasks">
                         ${group.tasks.map(task => renderTask(task, group.id)).join('')}
                         <div class="group-drop-end" data-group-id="${group.id}" ondragover="dragDropEndOver(event)" ondragleave="dragDropEndLeave(event)" ondrop="dropToEnd(event)"></div>
-                        <div class="group-add-task-btn" onclick="showGroupAddForm(${group.id})">+ Add Task</div>
+                        <div class="group-add-task-btn" onclick="showGroupAddForm(${group.id})"><span class="plus-icon">+</span> New Task</div>
                         <div class="group-add-form" id="group-add-form-${group.id}">
                             <input type="text" id="g${group.id}-name" class="mini-name-input" placeholder="Task name (optional)">
                             <div class="mini-cron-inputs">
