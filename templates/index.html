@@ -2798,12 +2798,14 @@
         }
 
         // 渲染单个任务（内联编辑模式）
-        function renderTask(task, groupId) {
+        function renderTask(task, groupId, group) {
             const parts = task.schedule.split(/\s+/);
             const [minute, hour, day, month, weekday] = parts.length >= 5 ? parts : ['*', '*', '*', '*', '*'];
             const cronDescription = parseCronToHuman(minute, hour, day, month, weekday);
-            const taskName = task.name
-                ? `<span class="task-name editable" ondblclick="editTaskName(${task.id},this)" title="Double-click to edit">${escapeHtml(task.name)}</span>`
+            // 当组有标题且只有一个任务时，使用组标题作为任务名显示
+            const displayName = (group && group.title && group.tasks.length === 1) ? group.title : task.name;
+            const taskName = displayName
+                ? `<span class="task-name editable" ondblclick="editTaskName(${task.id},this)" title="Double-click to edit">${escapeHtml(displayName)}</span>`
                 : `<span class="task-name task-name-empty editable" onclick="editTaskName(${task.id},this)" title="Click to enter task name"> Task name</span>`;
 
             return `
@@ -2861,7 +2863,7 @@
                         <button class="group-delete-btn" onclick="event.stopPropagation();deleteGroup(${group.id})" title="Delete group"></button>
                     </div>
                     <div class="group-tasks">
-                        ${group.tasks.map(task => renderTask(task, group.id)).join('')}
+                        ${group.tasks.map(task => renderTask(task, group.id, group)).join('')}
                         <div class="group-drop-end" data-group-id="${group.id}" ondragover="dragDropEndOver(event)" ondragleave="dragDropEndLeave(event)" ondrop="dropToEnd(event)"></div>
                         <div class="group-add-task-btn" onclick="showGroupAddForm(${group.id})"><span class="plus-icon">+</span> New Task</div>
                         <div class="group-add-form" id="group-add-form-${group.id}">
