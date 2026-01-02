@@ -23,7 +23,7 @@
             --bg-tertiary: #f1f5f9;
             --bg-hover: #e2e8f0;
 
-            --text-primary: #1e293b;
+            --text-primary: #1a2332;
             --text-secondary: #64748b;
             --text-muted: #94a3b8;
 
@@ -333,15 +333,18 @@
         }
 
         .tab.active {
-            background: var(--success);
+            background: var(--primary);
             color: white;
             box-shadow: var(--shadow-sm);
         }
 
         .tab:hover:not(.active) {
-            background: var(--primary);
-            color: white;
-            box-shadow: var(--shadow-sm);
+            background: #cbd5e1;
+            color: var(--text-primary);
+        }
+
+        .tab:active {
+            transform: scale(0.95);
         }
 
         /* 任务列表视图 */
@@ -1161,12 +1164,36 @@
 
         .filter-btn:hover {
             color: var(--text-primary);
+            background: #d9dce1;
         }
 
         .filter-btn.active {
-            background: var(--success);
+            background: var(--primary);
             color: white;
             box-shadow: var(--shadow-sm);
+        }
+
+        /* 按钮之间的分割线 */
+        .filter-btn+.filter-btn {
+            position: relative;
+        }
+
+        .filter-btn+.filter-btn::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 20%;
+            height: 60%;
+            width: 1px;
+            background: var(--border-color);
+        }
+
+        /* active/hover 按钮旁边不显示分割线 */
+        .filter-btn.active+.filter-btn::before,
+        .filter-btn+.filter-btn.active::before,
+        .filter-btn:hover+.filter-btn::before,
+        .filter-btn+.filter-btn:hover::before {
+            display: none;
         }
 
         /* 新建任务组按钮 */
@@ -1189,7 +1216,9 @@
         }
 
         .new-group-btn:hover {
-            background: #16a34a;
+            background: var(--success-hover);
+            transform: translateY(-1px);
+            box-shadow: var(--shadow-md);
         }
 
         .new-group-btn:active {
@@ -1208,7 +1237,8 @@
             align-items: center;
             justify-content: center;
             padding: 4px var(--space-2);
-            margin-top: var(--space-1);
+            margin-top: 2px;
+            margin-bottom: var(--space-1);
             background: var(--bg-tertiary);
             border: 1px dashed var(--border-color);
             border-radius: var(--radius-sm);
@@ -1224,6 +1254,10 @@
             border-color: var(--success);
             color: var(--success);
             transform: translateY(-1px);
+        }
+
+        .group-add-task-btn:active {
+            transform: scale(0.98);
         }
 
         /* 组内添加任务表单 */
@@ -1334,6 +1368,11 @@
         .group-add-form .mini-add-btn:hover {
             background: var(--success-hover);
             transform: translateY(-1px);
+            box-shadow: var(--shadow-md);
+        }
+
+        .group-add-form .mini-add-btn:active {
+            transform: scale(0.95);
         }
 
         .group-add-form .mini-cancel-btn {
@@ -1411,6 +1450,10 @@
             background: var(--success-hover);
             transform: translateY(-1px);
             box-shadow: var(--shadow-md);
+        }
+
+        .new-group-form .create-btn:active {
+            transform: scale(0.95);
         }
 
         .new-group-form .cancel-btn {
@@ -2081,7 +2124,7 @@
             </svg>
         </button>
         <div class="filter-controls">
-            <button class="filter-btn active" data-filter="all" onclick="setFilter('all')">ALL</button>
+            <button class="filter-btn active" data-filter="all" onclick="setFilter('all')">All</button>
             <button class="filter-btn" data-filter="active" onclick="setFilter('active')">Active</button>
             <button class="filter-btn" data-filter="paused" onclick="setFilter('paused')">Paused</button>
         </div>
