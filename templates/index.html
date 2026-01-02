@@ -660,6 +660,54 @@
             color: var(--text-secondary);
         }
 
+        .pagination {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: var(--space-1);
+            margin-top: var(--space-3);
+            padding: var(--space-2) 0;
+        }
+
+        .pagination:empty {
+            display: none;
+        }
+
+        .page-btn {
+            min-width: 32px;
+            height: 32px;
+            padding: 0 var(--space-2);
+            border: 1px solid var(--border-color);
+            background: var(--bg-secondary);
+            color: var(--text-secondary);
+            font-size: 13px;
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            transition: all var(--transition-fast);
+        }
+
+        .page-btn:hover:not(:disabled) {
+            background: var(--bg-hover);
+            color: var(--text-primary);
+        }
+
+        .page-btn.active {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+
+        .page-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .page-info {
+            font-size: 13px;
+            color: var(--text-secondary);
+            margin: 0 var(--space-2);
+        }
+
         .view-icon {
             color: var(--text-muted);
             font-size: 12px;
@@ -2295,6 +2343,7 @@
         <div class="history-list" id="historyList">
             <div class="log-empty">Loading...</div>
         </div>
+        <div class="pagination" id="historyPagination"></div>
     </div>
 
     <div id="cronLogs" class="cron-logs">
@@ -2599,34 +2648,103 @@
             codeEditor.classList.remove('editing');
         }
 
+        // 历史版本分页
+        let historyBackups = [];
+        let historyCurrentPage = 1;
+        const HISTORY_PAGE_SIZE = 50;
+
         async function loadHistory() {
             const list = document.getElementById('historyList');
+            const pagination = document.getElementById('historyPagination');
             try {
                 const resp = await fetch('/api/backups');
                 const data = await resp.json();
 
                 if (!data.backups?.length) {
                     list.innerHTML = '<div class="log-empty">No backups found</div>';
+                    pagination.innerHTML = '';
                     return;
                 }
 
-                list.innerHTML = data.backups.map(b => {
-                    // 格式化时间：20251231_151544 -> 2025-12-31 15:15:44
-                    const ts = b.timestamp.replace(/_/, ' ').replace(/(\d{4})(\d{2})(\d{2}) (\d{2})(\d{2})(\d{2})/, '$1-$2-$3 $4:$5:$6');
-                    const userLabel = b.username ? `<span class="history-user">${escapeHtml(b.username)}</span>` : '';
-                    return `<div class="history-item">
-                        <div class="history-item-header" onclick="toggleHistoryItem(this.parentElement, '${b.filename}')">
-                            <span class="history-time">${ts}${userLabel}</span>
-                            <div class="history-actions">
-                                <button class="history-btn diff-btn" onclick="event.stopPropagation(); showDiff('${b.filename}', '${ts}')">Diff</button>
-                                <button class="history-btn restore-btn" onclick="event.stopPropagation(); restoreBackup('${b.filename}', '${ts}')">Restore</button>
-                            </div>
-                        </div>
-                    </div>`;
-                }).join('');
+                historyBackups = data.backups;
+                historyCurrentPage = 1;
+                renderHistoryPage();
             } catch (e) {
                 list.innerHTML = '<div class="log-empty">Failed to load backups</div>';
+                pagination.innerHTML = '';
             }
+        }
+
+        function renderHistoryPage() {
+            const list = document.getElementById('historyList');
+            const totalPages = Math.ceil(historyBackups.length / HISTORY_PAGE_SIZE);
+            const start = (historyCurrentPage - 1) * HISTORY_PAGE_SIZE;
+            const end = start + HISTORY_PAGE_SIZE;
+            const pageBackups = historyBackups.slice(start, end);
+
+            list.innerHTML = pageBackups.map(b => {
+                // 格式化时间：20251231_151544 -> 2025-12-31 15:15:44
+                const ts = b.timestamp.replace(/_/, ' ').replace(/(\d{4})(\d{2})(\d{2}) (\d{2})(\d{2})(\d{2})/, '$1-$2-$3 $4:$5:$6');
+                const userLabel = b.username ? `<span class="history-user">${escapeHtml(b.username)}</span>` : '';
+                return `<div class="history-item">
+                    <div class="history-item-header" onclick="toggleHistoryItem(this.parentElement, '${b.filename}')">
+                        <span class="history-time">${ts}${userLabel}</span>
+                        <div class="history-actions">
+                            <button class="history-btn diff-btn" onclick="event.stopPropagation(); showDiff('${b.filename}', '${ts}')">Diff</button>
+                            <button class="history-btn restore-btn" onclick="event.stopPropagation(); restoreBackup('${b.filename}', '${ts}')">Restore</button>
+                        </div>
+                    </div>
+                </div>`;
+            }).join('');
+
+            renderHistoryPagination(totalPages);
+        }
+
+        function renderHistoryPagination(totalPages) {
+            const pagination = document.getElementById('historyPagination');
+            if (totalPages <= 1) {
+                pagination.innerHTML = '';
+                return;
+            }
+
+            let html = '';
+            html += `<button class="page-btn" onclick="goHistoryPage(1)" ${historyCurrentPage === 1 ? 'disabled' : ''}>«</button>`;
+            html += `<button class="page-btn" onclick="goHistoryPage(${historyCurrentPage - 1})" ${historyCurrentPage === 1 ? 'disabled' : ''}>‹</button>`;
+
+            // 显示页码
+            const maxVisible = 5;
+            let startPage = Math.max(1, historyCurrentPage - Math.floor(maxVisible / 2));
+            let endPage = Math.min(totalPages, startPage + maxVisible - 1);
+            if (endPage - startPage < maxVisible - 1) {
+                startPage = Math.max(1, endPage - maxVisible + 1);
+            }
+
+            if (startPage > 1) {
+                html += `<button class="page-btn" onclick="goHistoryPage(1)">1</button>`;
+                if (startPage > 2) html += `<span class="page-info">...</span>`;
+            }
+
+            for (let i = startPage; i <= endPage; i++) {
+                html += `<button class="page-btn ${i === historyCurrentPage ? 'active' : ''}" onclick="goHistoryPage(${i})">${i}</button>`;
+            }
+
+            if (endPage < totalPages) {
+                if (endPage < totalPages - 1) html += `<span class="page-info">...</span>`;
+                html += `<button class="page-btn" onclick="goHistoryPage(${totalPages})">${totalPages}</button>`;
+            }
+
+            html += `<button class="page-btn" onclick="goHistoryPage(${historyCurrentPage + 1})" ${historyCurrentPage === totalPages ? 'disabled' : ''}>›</button>`;
+            html += `<button class="page-btn" onclick="goHistoryPage(${totalPages})" ${historyCurrentPage === totalPages ? 'disabled' : ''}>»</button>`;
+            html += `<span class="page-info">${historyBackups.length} items</span>`;
+
+            pagination.innerHTML = html;
+        }
+
+        function goHistoryPage(page) {
+            const totalPages = Math.ceil(historyBackups.length / HISTORY_PAGE_SIZE);
+            if (page < 1 || page > totalPages) return;
+            historyCurrentPage = page;
+            renderHistoryPage();
         }
 
         async function toggleHistoryItem(el, filename) {
