@@ -779,6 +779,32 @@
             min-width: 200px;
         }
 
+        .task-actions {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            flex-shrink: 0;
+        }
+
+        .detail-btn {
+            width: 14px;
+            height: 14px;
+            background: var(--primary);
+            border: 0.5px solid var(--primary-hover);
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            transition: transform var(--transition-fast);
+        }
+
+        .detail-btn:hover {
+            transform: scale(1.2);
+            background: var(--primary-hover);
+        }
+
         .run-btn {
             width: 14px;
             height: 14px;
@@ -2871,8 +2897,16 @@
                         <span class="editable cmd-field" ondblclick="editField(${task.id},'command',this)">${escapeHtml(task.command)}</span>
                     </div>
                 </div>
-                <button class="run-btn" onclick="runTask(${task.id})" title="Run Now">▶</button>
-                <button class="delete-btn" onclick="deleteTask(${task.id})" title="Delete">×</button>
+                <div class="task-actions">
+                    <button class="detail-btn" onclick="showTaskDetail(${task.id})" title="Details">
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="10"/>
+                            <path d="M12 16v-4M12 8h.01"/>
+                        </svg>
+                    </button>
+                    <button class="run-btn" onclick="runTask(${task.id})" title="Run Now">▶</button>
+                    <button class="delete-btn" onclick="deleteTask(${task.id})" title="Delete">×</button>
+                </div>
             </div>`;
         }
 
@@ -3386,6 +3420,22 @@
                 if (e.key === 'Enter') { input.blur(); }
                 if (e.key === 'Escape') { input.onblur = cancel; input.blur(); }
             };
+        }
+
+        // 显示任务详情
+        function showTaskDetail(id) {
+            const card = document.getElementById(`task-${id}`);
+            const name = decodeURIComponent(card.dataset.name) || 'Unnamed Task';
+            const command = decodeURIComponent(card.dataset.command);
+            const minute = decodeURIComponent(card.dataset.minute);
+            const hour = decodeURIComponent(card.dataset.hour);
+            const day = decodeURIComponent(card.dataset.day);
+            const month = decodeURIComponent(card.dataset.month);
+            const weekday = decodeURIComponent(card.dataset.weekday);
+            const schedule = `${minute} ${hour} ${day} ${month} ${weekday}`;
+            const enabled = !card.classList.contains('disabled');
+
+            alert(`Task Details\n\nName: ${name}\nSchedule: ${schedule}\nCommand: ${command}\nStatus: ${enabled ? 'Enabled' : 'Disabled'}`);
         }
 
         // Run task manually（手动运行任务）
