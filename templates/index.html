@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -29,9 +30,9 @@
             --border-color: #e2e8f0;
             --border-light: #f1f5f9;
 
-            --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
-            --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -2px rgba(0,0,0,0.1);
-            --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -4px rgba(0,0,0,0.1);
+            --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+            --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
 
             --radius-sm: 6px;
             --radius-md: 8px;
@@ -49,7 +50,12 @@
             --space-6: 24px;
         }
 
-        * { box-sizing: border-box; margin: 0; padding: 0; }
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             background: var(--bg-primary);
@@ -59,7 +65,13 @@
             color: var(--text-primary);
             line-height: 1.5;
         }
-        h1 { color: var(--text-primary); margin-bottom: 0; font-weight: 600; font-size: 28px; }
+
+        h1 {
+            color: var(--text-primary);
+            margin-bottom: 0;
+            font-weight: 600;
+            font-size: 28px;
+        }
 
         /* 用户信息栏 */
         .header {
@@ -68,18 +80,22 @@
             align-items: center;
             margin-bottom: var(--space-4);
         }
+
         .user-info {
             display: flex;
             align-items: center;
             gap: var(--space-3);
         }
+
         .user-name {
             font-size: 14px;
             color: var(--text-secondary);
         }
+
         .user-name strong {
             color: var(--text-primary);
         }
+
         .logout-btn {
             display: flex;
             align-items: center;
@@ -92,6 +108,7 @@
             cursor: pointer;
             transition: all var(--transition-fast);
         }
+
         .logout-btn:hover {
             background: var(--danger);
             color: white;
@@ -99,12 +116,23 @@
         }
 
         /* 日志视图 */
-        .audit-logs { display: none; }
-        .audit-logs.active { display: block; }
+        .audit-logs {
+            display: none;
+        }
+
+        .audit-logs.active {
+            display: block;
+        }
 
         /* Cron执行日志视图 */
-        .cron-logs { display: none; }
-        .cron-logs.active { display: block; }
+        .cron-logs {
+            display: none;
+        }
+
+        .cron-logs.active {
+            display: block;
+        }
+
         .cron-log-header {
             display: flex;
             justify-content: space-between;
@@ -114,10 +142,12 @@
             background: var(--bg-tertiary);
             border-radius: var(--radius-md);
         }
+
         .cron-log-source {
             font-size: 13px;
             color: var(--text-secondary);
         }
+
         .cron-log-source code {
             background: var(--bg-hover);
             padding: 2px var(--space-2);
@@ -125,6 +155,7 @@
             font-family: 'SF Mono', Monaco, monospace;
             font-size: 12px;
         }
+
         .refresh-btn {
             width: 32px;
             height: 32px;
@@ -141,20 +172,30 @@
             align-items: center;
             justify-content: center;
         }
+
         .refresh-btn:hover {
             background: var(--primary-hover);
             transform: scale(1.1);
         }
+
         .refresh-btn:active {
             transform: scale(0.95);
         }
+
         .refresh-btn.spinning {
             animation: spin-refresh 0.6s ease-in-out;
         }
+
         @keyframes spin-refresh {
-            from { transform: rotate(0deg); }
-            to { transform: rotate(360deg); }
+            from {
+                transform: rotate(0deg);
+            }
+
+            to {
+                transform: rotate(360deg);
+            }
         }
+
         .cron-log-list {
             background: var(--bg-secondary);
             border-radius: var(--radius-md);
@@ -162,6 +203,7 @@
             max-height: 75vh;
             overflow-y: auto;
         }
+
         .cron-log-line {
             padding: var(--space-2) var(--space-3);
             border-bottom: 1px solid var(--border-light);
@@ -171,21 +213,36 @@
             word-break: break-all;
             line-height: 1.5;
         }
-        .cron-log-line:last-child { border-bottom: none; }
-        .cron-log-line:hover { background: var(--bg-tertiary); }
-        .cron-log-line:nth-child(odd) { background: var(--bg-primary); }
-        .cron-log-line:nth-child(odd):hover { background: var(--bg-tertiary); }
+
+        .cron-log-line:last-child {
+            border-bottom: none;
+        }
+
+        .cron-log-line:hover {
+            background: var(--bg-tertiary);
+        }
+
+        .cron-log-line:nth-child(odd) {
+            background: var(--bg-primary);
+        }
+
+        .cron-log-line:nth-child(odd):hover {
+            background: var(--bg-tertiary);
+        }
+
         .cron-log-error {
             text-align: center;
             padding: var(--space-6);
             color: var(--danger);
         }
+
         .log-list {
             background: var(--bg-secondary);
             border-radius: var(--radius-md);
             border: 1px solid var(--border-color);
             overflow: hidden;
         }
+
         .log-item {
             padding: var(--space-3) var(--space-4);
             border-bottom: 1px solid var(--border-light);
@@ -193,28 +250,56 @@
             display: flex;
             gap: var(--space-4);
         }
-        .log-item:last-child { border-bottom: none; }
-        .log-item:hover { background: var(--bg-tertiary); }
+
+        .log-item:last-child {
+            border-bottom: none;
+        }
+
+        .log-item:hover {
+            background: var(--bg-tertiary);
+        }
+
         .log-time {
             color: var(--text-muted);
             font-family: 'SF Mono', Monaco, monospace;
             font-size: 12px;
             min-width: 140px;
         }
+
         .log-user {
             color: var(--primary);
             font-weight: 500;
             min-width: 80px;
         }
+
         .log-action {
             font-weight: 500;
             min-width: 120px;
         }
-        .log-action.login { color: var(--success); }
-        .log-action.logout { color: var(--text-muted); }
-        .log-action.add, .log-action.create { color: var(--success); }
-        .log-action.delete { color: var(--danger); }
-        .log-action.update, .log-action.toggle, .log-action.save { color: var(--primary); }
+
+        .log-action.login {
+            color: var(--success);
+        }
+
+        .log-action.logout {
+            color: var(--text-muted);
+        }
+
+        .log-action.add,
+        .log-action.create {
+            color: var(--success);
+        }
+
+        .log-action.delete {
+            color: var(--danger);
+        }
+
+        .log-action.update,
+        .log-action.toggle,
+        .log-action.save {
+            color: var(--primary);
+        }
+
         .log-details {
             color: var(--text-secondary);
             flex: 1;
@@ -222,16 +307,19 @@
             font-size: 12px;
             word-break: break-all;
         }
+
         .log-empty {
             text-align: center;
             padding: var(--space-6);
             color: var(--text-muted);
         }
+
         .tabs {
             display: flex;
             gap: var(--space-2);
             margin-bottom: var(--space-5);
         }
+
         .tab {
             padding: var(--space-3) var(--space-5);
             border: none;
@@ -243,11 +331,13 @@
             color: var(--text-secondary);
             transition: all var(--transition-fast);
         }
+
         .tab.active {
             background: var(--success);
             color: white;
             box-shadow: var(--shadow-sm);
         }
+
         .tab:hover:not(.active) {
             background: var(--primary);
             color: white;
@@ -255,8 +345,14 @@
         }
 
         /* 任务列表视图 */
-        .task-list { display: none; }
-        .task-list.active { display: block; }
+        .task-list {
+            display: none;
+        }
+
+        .task-list.active {
+            display: block;
+        }
+
         .task-card {
             background: var(--bg-secondary);
             border-radius: var(--radius-sm);
@@ -269,14 +365,17 @@
             transition: all var(--transition-normal);
             border: 1px solid var(--border-light);
         }
+
         .task-card:hover {
             box-shadow: var(--shadow-md);
             transform: translateY(-1px);
         }
+
         .task-card.disabled {
             opacity: 0.5;
             background: var(--bg-tertiary);
         }
+
         .task-card .toggle {
             width: 32px;
             height: 18px;
@@ -287,7 +386,11 @@
             flex-shrink: 0;
             transition: background var(--transition-normal);
         }
-        .task-card .toggle.on { background: var(--success); }
+
+        .task-card .toggle.on {
+            background: var(--success);
+        }
+
         .task-card .toggle::after {
             content: '';
             width: 14px;
@@ -300,19 +403,32 @@
             transition: left var(--transition-normal);
             box-shadow: var(--shadow-sm);
         }
-        .task-card .toggle.on::after { left: 16px; }
-        .task-info { flex: 1; min-width: 0; display: flex; flex-direction: column; overflow: visible; }
+
+        .task-card .toggle.on::after {
+            left: 16px;
+        }
+
+        .task-info {
+            flex: 1;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            overflow: visible;
+        }
+
         .task-comment {
             color: var(--text-secondary);
             font-size: 11px;
             margin-bottom: 2px;
         }
+
         .task-schedule {
             font-weight: 600;
             font-size: 11px;
             color: var(--text-primary);
             font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
         }
+
         .task-name {
             font-size: 11px;
             font-weight: 600;
@@ -321,17 +437,21 @@
             cursor: pointer;
             width: fit-content;
         }
+
         .task-name:hover {
             opacity: 0.8;
         }
+
         .task-name-empty {
             color: var(--text-muted);
             font-style: italic;
             font-weight: 400;
         }
+
         .task-name-empty:hover {
             color: var(--primary);
         }
+
         .task-command {
             font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
             font-size: 10px;
@@ -348,6 +468,7 @@
         .raw-editor-section {
             margin-bottom: var(--space-5);
         }
+
         .code-editor {
             position: relative;
             height: 50vh;
@@ -356,11 +477,14 @@
             overflow: hidden;
             background: var(--bg-secondary);
         }
+
         .code-editor:focus-within {
             border-color: var(--primary);
             box-shadow: 0 0 0 3px rgba(74, 144, 217, 0.15);
         }
-        .code-highlight, .code-editor textarea {
+
+        .code-highlight,
+        .code-editor textarea {
             position: absolute;
             top: 0;
             left: 0;
@@ -376,11 +500,13 @@
             overflow: auto;
             box-sizing: border-box;
         }
+
         .code-highlight {
             color: var(--text-primary);
             pointer-events: none;
             z-index: 1;
         }
+
         .code-editor textarea {
             background: transparent;
             color: transparent;
@@ -390,13 +516,33 @@
             resize: none;
             z-index: 2;
         }
+
         /* 语法高亮颜色 */
-        .hl-comment { color: #6a9955; }
-        .hl-schedule { color: #b8860b; }
-        .hl-command { color: #000; }
-        .hl-env-key { color: #9cdcfe; }
-        .hl-env-value { color: #ce9178; }
-        .hl-disabled { color: #6a9955; font-style: italic; }
+        .hl-comment {
+            color: #6a9955;
+        }
+
+        .hl-schedule {
+            color: #b8860b;
+        }
+
+        .hl-command {
+            color: #000;
+        }
+
+        .hl-env-key {
+            color: #9cdcfe;
+        }
+
+        .hl-env-value {
+            color: #ce9178;
+        }
+
+        .hl-disabled {
+            color: #6a9955;
+            font-style: italic;
+        }
+
         .save-btn {
             margin-top: var(--space-4);
             padding: var(--space-3) var(--space-6);
@@ -410,12 +556,17 @@
             transition: all var(--transition-fast);
             box-shadow: var(--shadow-sm);
         }
+
         .save-btn:hover {
             background: var(--success-hover);
             box-shadow: var(--shadow-md);
             transform: translateY(-1px);
         }
-        .save-btn:active { transform: translateY(0); }
+
+        .save-btn:active {
+            transform: translateY(0);
+        }
+
         .save-btn:disabled {
             background: var(--text-muted);
             cursor: not-allowed;
@@ -424,8 +575,14 @@
         }
 
         /* 历史版本视图 */
-        .history-view { display: none; }
-        .history-view.active { display: block; }
+        .history-view {
+            display: none;
+        }
+
+        .history-view.active {
+            display: block;
+        }
+
         .history-header {
             display: flex;
             justify-content: space-between;
@@ -435,11 +592,13 @@
             font-size: 13px;
             color: var(--text-primary);
         }
+
         .history-list {
             display: flex;
             flex-direction: column;
             gap: var(--space-1);
         }
+
         .history-item {
             display: flex;
             justify-content: space-between;
@@ -451,25 +610,30 @@
             cursor: pointer;
             transition: all var(--transition-fast);
         }
+
         .history-item:hover {
             background: var(--bg-hover);
             border-color: var(--primary);
         }
+
         .history-item.expanded {
             flex-direction: column;
             align-items: stretch;
         }
+
         .history-item-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
             width: 100%;
         }
+
         .history-time {
             font-family: 'SF Mono', Monaco, monospace;
             font-size: 12px;
             color: var(--text-primary);
         }
+
         .history-user {
             margin-left: var(--space-2);
             padding: 2px 6px;
@@ -478,10 +642,12 @@
             font-size: 11px;
             color: var(--text-secondary);
         }
+
         .view-icon {
             color: var(--text-muted);
             font-size: 12px;
         }
+
         .history-content {
             margin-top: var(--space-2);
             font-family: 'SF Mono', Monaco, monospace;
@@ -510,19 +676,38 @@
             box-shadow: var(--shadow-lg);
             animation: slideIn var(--transition-normal) ease-out;
         }
+
         @keyframes slideIn {
-            from { transform: translateX(100%); opacity: 0; }
-            to { transform: translateX(0); opacity: 1; }
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
         }
-        .message.success { background: var(--success); display: block; }
-        .message.error { background: #ef4444; display: block; }
+
+        .message.success {
+            background: var(--success);
+            display: block;
+        }
+
+        .message.error {
+            background: #ef4444;
+            display: block;
+        }
 
         .header {
             display: flex;
             align-items: center;
             margin-bottom: var(--space-5);
         }
-        .header h1 { margin-bottom: 0; }
+
+        .header h1 {
+            margin-bottom: 0;
+        }
 
         /* 内联编辑样式 */
         .task-schedule {
@@ -530,6 +715,7 @@
             gap: var(--space-2);
             align-items: center;
         }
+
         .editable {
             padding: 2px var(--space-1);
             border-radius: var(--radius-sm);
@@ -539,18 +725,22 @@
             border: 1px solid transparent;
             transition: all var(--transition-fast);
         }
+
         .editable:hover {
             background: rgba(74, 144, 217, 0.1);
             border-color: var(--primary);
         }
+
         .editable.time-field {
             min-width: 30px;
             text-align: center;
         }
+
         .editable.cmd-field {
             flex: 1;
             word-break: break-all;
         }
+
         .editable input {
             font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
             font-size: 12px;
@@ -561,14 +751,17 @@
             background: var(--bg-secondary);
             box-shadow: 0 0 0 3px rgba(74, 144, 217, 0.15);
         }
+
         .editable input.time-input {
             width: 45px;
             text-align: center;
         }
+
         .editable input.cmd-input {
             width: 100%;
             min-width: 200px;
         }
+
         .run-btn {
             width: 14px;
             height: 14px;
@@ -585,10 +778,12 @@
             padding-left: 1px;
             transition: transform var(--transition-fast);
         }
+
         .run-btn:hover {
             transform: scale(1.2);
             background: var(--success-hover);
         }
+
         .delete-btn {
             width: 14px;
             height: 14px;
@@ -601,7 +796,11 @@
             font-size: 0;
             transition: transform var(--transition-fast);
         }
-        .delete-btn:hover { transform: scale(1.2); }
+
+        .delete-btn:hover {
+            transform: scale(1.2);
+        }
+
         .delete-btn::before,
         .delete-btn::after {
             content: '';
@@ -613,10 +812,19 @@
             background: transparent;
             transition: background var(--transition-fast);
         }
-        .delete-btn::before { transform: translate(-50%, -50%) rotate(45deg); }
-        .delete-btn::after { transform: translate(-50%, -50%) rotate(-45deg); }
+
+        .delete-btn::before {
+            transform: translate(-50%, -50%) rotate(45deg);
+        }
+
+        .delete-btn::after {
+            transform: translate(-50%, -50%) rotate(-45deg);
+        }
+
         .delete-btn:hover::before,
-        .delete-btn:hover::after { background: #4D0000; }
+        .delete-btn:hover::after {
+            background: #4D0000;
+        }
 
         /* 任务分组卡片 */
         .task-group {
@@ -627,7 +835,11 @@
             overflow: hidden;
             transition: box-shadow var(--transition-normal);
         }
-        .task-group:hover { box-shadow: var(--shadow-lg); }
+
+        .task-group:hover {
+            box-shadow: var(--shadow-lg);
+        }
+
         .task-group .group-header {
             background: linear-gradient(to bottom, var(--bg-tertiary), var(--bg-hover));
             padding: 3px var(--space-2);
@@ -640,9 +852,11 @@
             user-select: none;
             transition: background var(--transition-fast);
         }
+
         .task-group .group-header:hover {
             background: linear-gradient(to bottom, var(--bg-hover), #d1d5db);
         }
+
         .group-delete-btn {
             margin-left: auto;
             width: 14px;
@@ -656,7 +870,11 @@
             font-size: 0;
             transition: transform var(--transition-fast);
         }
-        .group-delete-btn:hover { transform: scale(1.15); }
+
+        .group-delete-btn:hover {
+            transform: scale(1.15);
+        }
+
         .group-delete-btn::before,
         .group-delete-btn::after {
             content: '';
@@ -668,10 +886,20 @@
             background: transparent;
             transition: background var(--transition-fast);
         }
-        .group-delete-btn::before { transform: translate(-50%, -50%) rotate(45deg); }
-        .group-delete-btn::after { transform: translate(-50%, -50%) rotate(-45deg); }
+
+        .group-delete-btn::before {
+            transform: translate(-50%, -50%) rotate(45deg);
+        }
+
+        .group-delete-btn::after {
+            transform: translate(-50%, -50%) rotate(-45deg);
+        }
+
         .group-delete-btn:hover::before,
-        .group-delete-btn:hover::after { background: #4D0000; }
+        .group-delete-btn:hover::after {
+            background: #4D0000;
+        }
+
         .task-group .group-title {
             font-weight: 600;
             font-size: 16px;
@@ -681,17 +909,21 @@
             border: 1px solid transparent;
             transition: font-size var(--transition-normal), color var(--transition-normal);
         }
+
         .task-group.collapsed .group-title {
             font-size: 14px;
         }
+
         .task-group.disabled .group-title {
             color: var(--text-muted);
         }
+
         .task-group .group-title:hover {
             background: rgba(74, 144, 217, 0.1);
             border-color: var(--primary);
             cursor: text;
         }
+
         .task-group .group-title input {
             font-weight: 600;
             font-size: 13px;
@@ -703,6 +935,7 @@
             width: 200px;
             box-shadow: 0 0 0 3px rgba(74, 144, 217, 0.15);
         }
+
         .task-group .group-count {
             font-size: 11px;
             color: var(--text-secondary);
@@ -711,6 +944,7 @@
             border-radius: 10px;
             font-weight: 500;
         }
+
         .task-group .group-toggle-switch {
             width: 36px;
             height: 20px;
@@ -722,8 +956,15 @@
             flex-shrink: 0;
             transition: background var(--transition-normal);
         }
-        .task-group .group-toggle-switch.on { background: var(--success); }
-        .task-group .group-toggle-switch.partial { background: var(--warning); }
+
+        .task-group .group-toggle-switch.on {
+            background: var(--success);
+        }
+
+        .task-group .group-toggle-switch.partial {
+            background: var(--warning);
+        }
+
         .task-group .group-toggle-switch::after {
             content: '';
             width: 16px;
@@ -736,8 +977,15 @@
             transition: left var(--transition-normal);
             box-shadow: var(--shadow-sm);
         }
-        .task-group .group-toggle-switch.on::after { left: 18px; }
-        .task-group .group-toggle-switch.partial::after { left: 9px; }
+
+        .task-group .group-toggle-switch.on::after {
+            left: 18px;
+        }
+
+        .task-group .group-toggle-switch.partial::after {
+            left: 9px;
+        }
+
         .task-group .group-tasks {
             padding: 3px 4px;
             max-height: 2000px;
@@ -745,25 +993,70 @@
             transition: max-height var(--transition-slow), padding var(--transition-slow), opacity var(--transition-slow);
             opacity: 1;
         }
+
         .task-group.collapsed .group-tasks {
             max-height: 0;
             padding: 0 4px;
             opacity: 0;
         }
+
         .task-group .group-header {
             transition: border-bottom var(--transition-slow);
         }
-        .task-group.collapsed .group-header { border-bottom: none; }
+
+        .task-group.collapsed .group-header {
+            border-bottom: none;
+        }
+
         .task-group .task-card {
             margin-bottom: var(--space-1);
             box-shadow: none;
             border: 1px solid var(--border-light);
         }
+
         .task-group .task-card:hover {
             box-shadow: var(--shadow-sm);
         }
+
         .task-group .task-card:last-child {
             margin-bottom: 0;
+        }
+
+        /* Flat View Mode */
+        .task-list.flat-view {
+            padding-top: var(--space-2);
+        }
+
+        .task-list.flat-view .task-group {
+            background: transparent;
+            border: none;
+            box-shadow: none;
+            margin-bottom: 0;
+            border-radius: 0;
+            overflow: visible;
+        }
+
+        .task-list.flat-view .group-header {
+            display: none !important;
+        }
+
+        .task-list.flat-view .group-tasks {
+            padding: 0;
+            max-height: none !important;
+            opacity: 1 !important;
+            margin-top: 0;
+            display: block !important;
+        }
+
+        .task-list.flat-view .task-card {
+            margin-bottom: var(--space-2);
+            box-shadow: var(--shadow-sm);
+            border: 1px solid var(--border-color);
+        }
+
+        .task-list.flat-view .group-add-task-btn,
+        .task-list.flat-view .group-add-form {
+            display: none !important;
         }
 
         /* 折叠控制按钮 */
@@ -778,6 +1071,7 @@
             z-index: 100;
             backdrop-filter: blur(8px);
         }
+
         .collapse-toggle-btn {
             display: flex;
             align-items: center;
@@ -790,22 +1084,37 @@
             color: white;
             transition: all var(--transition-fast);
         }
+
         .collapse-toggle-btn:hover {
             background: #2563eb;
             border-color: #2563eb;
         }
+
         .collapse-toggle-btn.all-collapsed {
             background: var(--success);
             border-color: var(--success);
         }
+
         .collapse-toggle-btn.all-collapsed:hover {
             background: #16a34a;
             border-color: #16a34a;
         }
-        .collapse-toggle-btn .expand-icon { display: none; }
-        .collapse-toggle-btn .collapse-icon { display: block; }
-        .collapse-toggle-btn.all-collapsed .expand-icon { display: block; }
-        .collapse-toggle-btn.all-collapsed .collapse-icon { display: none; }
+
+        .collapse-toggle-btn .expand-icon {
+            display: none;
+        }
+
+        .collapse-toggle-btn .collapse-icon {
+            display: block;
+        }
+
+        .collapse-toggle-btn.all-collapsed .expand-icon {
+            display: block;
+        }
+
+        .collapse-toggle-btn.all-collapsed .collapse-icon {
+            display: none;
+        }
 
         /* 搜索框 */
         .search-box {
@@ -819,10 +1128,45 @@
             color: var(--text-primary);
             transition: all var(--transition-fast);
         }
-        .search-box::placeholder { color: var(--text-muted); }
+
+        .search-box::placeholder {
+            color: var(--text-muted);
+        }
+
         .search-box:focus {
             border-color: var(--primary);
             box-shadow: 0 0 0 3px rgba(74, 144, 217, 0.15);
+        }
+
+        /* Filter Controls */
+        .filter-controls {
+            display: flex;
+            background: var(--bg-tertiary);
+            padding: 2px;
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border-color);
+        }
+
+        .filter-btn {
+            padding: var(--space-2) var(--space-3);
+            border: none;
+            background: transparent;
+            color: var(--text-secondary);
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            border-radius: var(--radius-sm);
+            transition: all var(--transition-fast);
+        }
+
+        .filter-btn:hover {
+            color: var(--text-primary);
+        }
+
+        .filter-btn.active {
+            background: var(--success);
+            color: white;
+            box-shadow: var(--shadow-sm);
         }
 
         /* 新建任务组按钮 */
@@ -843,10 +1187,15 @@
             gap: var(--space-1);
             flex-shrink: 0;
         }
+
         .new-group-btn:hover {
             background: #16a34a;
         }
-        .new-group-btn:active { transform: scale(0.95); }
+
+        .new-group-btn:active {
+            transform: scale(0.95);
+        }
+
         .plus-icon {
             font-size: 1.2em;
             font-weight: 700;
@@ -869,6 +1218,7 @@
             cursor: pointer;
             transition: all var(--transition-normal);
         }
+
         .group-add-task-btn:hover {
             background: rgba(76, 175, 80, 0.1);
             border-color: var(--success);
@@ -886,11 +1236,23 @@
             border-radius: var(--radius-md);
             animation: fadeIn var(--transition-fast) ease-out;
         }
+
         @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(-4px); }
-            to { opacity: 1; transform: translateY(0); }
+            from {
+                opacity: 0;
+                transform: translateY(-4px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
-        .group-add-form.active { display: block; }
+
+        .group-add-form.active {
+            display: block;
+        }
+
         .group-add-form .mini-name-input {
             width: 100%;
             padding: var(--space-2);
@@ -902,16 +1264,19 @@
             color: var(--text-primary);
             transition: all var(--transition-fast);
         }
+
         .group-add-form .mini-name-input:focus {
             outline: none;
             border-color: var(--primary);
             box-shadow: 0 0 0 2px rgba(74, 144, 217, 0.15);
         }
+
         .group-add-form .mini-cron-inputs {
             display: flex;
             gap: var(--space-1);
             margin-bottom: var(--space-2);
         }
+
         .group-add-form .mini-cron-inputs input {
             width: 42px;
             padding: var(--space-1);
@@ -924,15 +1289,18 @@
             color: var(--text-primary);
             transition: all var(--transition-fast);
         }
+
         .group-add-form .mini-cron-inputs input:focus {
             outline: none;
             border-color: var(--primary);
             box-shadow: 0 0 0 2px rgba(74, 144, 217, 0.15);
         }
+
         .group-add-form .mini-command-row {
             display: flex;
             gap: var(--space-2);
         }
+
         .group-add-form .mini-command-row input {
             flex: 1;
             padding: var(--space-2);
@@ -944,11 +1312,13 @@
             color: var(--text-primary);
             transition: all var(--transition-fast);
         }
+
         .group-add-form .mini-command-row input:focus {
             outline: none;
             border-color: var(--primary);
             box-shadow: 0 0 0 2px rgba(74, 144, 217, 0.15);
         }
+
         .group-add-form .mini-add-btn {
             padding: var(--space-2) var(--space-3);
             background: var(--success);
@@ -960,10 +1330,12 @@
             cursor: pointer;
             transition: all var(--transition-fast);
         }
+
         .group-add-form .mini-add-btn:hover {
             background: var(--success-hover);
             transform: translateY(-1px);
         }
+
         .group-add-form .mini-cancel-btn {
             padding: var(--space-2) var(--space-3);
             background: var(--bg-secondary);
@@ -975,6 +1347,7 @@
             cursor: pointer;
             transition: all var(--transition-fast);
         }
+
         .group-add-form .mini-cancel-btn:hover {
             background: var(--bg-hover);
             color: var(--text-primary);
@@ -990,7 +1363,13 @@
             box-shadow: var(--shadow-md);
             animation: fadeIn var(--transition-fast) ease-out;
         }
-        .new-group-form.active { display: flex; gap: var(--space-2); align-items: center; }
+
+        .new-group-form.active {
+            display: flex;
+            gap: var(--space-2);
+            align-items: center;
+        }
+
         .new-group-form input {
             flex: 1;
             padding: var(--space-3);
@@ -1001,12 +1380,17 @@
             color: var(--text-primary);
             transition: all var(--transition-fast);
         }
+
         .new-group-form input:focus {
             outline: none;
             border-color: var(--primary);
             box-shadow: 0 0 0 3px rgba(74, 144, 217, 0.15);
         }
-        .new-group-form input::placeholder { color: var(--text-muted); }
+
+        .new-group-form input::placeholder {
+            color: var(--text-muted);
+        }
+
         .new-group-form button {
             padding: var(--space-3) var(--space-4);
             border: none;
@@ -1016,21 +1400,25 @@
             cursor: pointer;
             transition: all var(--transition-fast);
         }
+
         .new-group-form .create-btn {
             background: var(--success);
             color: white;
             box-shadow: var(--shadow-sm);
         }
+
         .new-group-form .create-btn:hover {
             background: var(--success-hover);
             transform: translateY(-1px);
             box-shadow: var(--shadow-md);
         }
+
         .new-group-form .cancel-btn {
             background: var(--bg-tertiary);
             color: var(--text-secondary);
             border: 1px solid var(--border-color);
         }
+
         .new-group-form .cancel-btn:hover {
             background: var(--bg-hover);
             color: var(--text-primary);
@@ -1039,65 +1427,190 @@
         /* 响应式设计 */
         /* 平板适配 */
         @media (max-width: 768px) {
-            body { padding: var(--space-3); }
-            h1 { font-size: 22px; }
-            .header { flex-wrap: wrap; gap: var(--space-2); }
+            body {
+                padding: var(--space-3);
+            }
+
+            h1 {
+                font-size: 22px;
+            }
+
+            .header {
+                flex-wrap: wrap;
+                gap: var(--space-2);
+            }
+
             .collapse-controls {
                 flex-wrap: wrap;
                 gap: var(--space-2);
             }
-            .collapse-toggle-btn { flex: 1; justify-content: center; }
+
+            .collapse-toggle-btn {
+                flex: 1;
+                justify-content: center;
+            }
+
             .search-box {
                 order: -1;
                 flex: 1 1 100%;
                 max-width: none;
             }
-            .new-group-btn { flex: 1; justify-content: center; }
-            .task-card { flex-wrap: wrap; padding: var(--space-3); }
-            .task-info { min-width: 100%; order: 1; margin-top: var(--space-2); }
-            .new-group-form { flex-wrap: wrap; }
-            .new-group-form input { flex: 1 1 100%; }
-            .new-group-form button { flex: 1; }
-            .group-add-form .mini-cron-inputs { flex-wrap: wrap; }
-            .group-add-form .mini-cron-inputs input { flex: 1; min-width: 36px; }
-            .group-add-form .mini-command-row { flex-wrap: wrap; }
-            .group-add-form .mini-command-row input { flex: 1 1 100%; margin-bottom: var(--space-2); }
-            .task-group .group-header { padding: var(--space-3); min-height: 50px; }
+
+            .new-group-btn {
+                flex: 1;
+                justify-content: center;
+            }
+
+            .task-card {
+                flex-wrap: wrap;
+                padding: var(--space-3);
+            }
+
+            .task-info {
+                min-width: 100%;
+                order: 1;
+                margin-top: var(--space-2);
+            }
+
+            .new-group-form {
+                flex-wrap: wrap;
+            }
+
+            .new-group-form input {
+                flex: 1 1 100%;
+            }
+
+            .new-group-form button {
+                flex: 1;
+            }
+
+            .group-add-form .mini-cron-inputs {
+                flex-wrap: wrap;
+            }
+
+            .group-add-form .mini-cron-inputs input {
+                flex: 1;
+                min-width: 36px;
+            }
+
+            .group-add-form .mini-command-row {
+                flex-wrap: wrap;
+            }
+
+            .group-add-form .mini-command-row input {
+                flex: 1 1 100%;
+                margin-bottom: var(--space-2);
+            }
+
+            .task-group .group-header {
+                padding: var(--space-3);
+                min-height: 50px;
+            }
         }
 
         /* 手机适配 */
         @media (max-width: 480px) {
-            body { padding: var(--space-2); }
-            h1 { font-size: 20px; }
+            body {
+                padding: var(--space-2);
+            }
+
+            h1 {
+                font-size: 20px;
+            }
+
             .header {
                 flex-direction: column;
                 align-items: flex-start;
                 gap: var(--space-2);
             }
-            .user-info { width: 100%; justify-content: space-between; }
-            .tabs { flex-wrap: wrap; gap: var(--space-1); }
-            .tab { flex: 1; text-align: center; padding: var(--space-2) var(--space-1); font-size: 12px; min-width: 0; }
-            .collapse-controls { gap: var(--space-1); }
-            .collapse-toggle-btn { padding: var(--space-2) var(--space-3); font-size: 12px; }
-            .search-box { padding: var(--space-3); font-size: 14px; }
-            .new-group-btn { padding: var(--space-2) var(--space-3); font-size: 12px; }
-            .task-group { margin-bottom: var(--space-3); border-radius: var(--radius-md); }
+
+            .user-info {
+                width: 100%;
+                justify-content: space-between;
+            }
+
+            .tabs {
+                flex-wrap: wrap;
+                gap: var(--space-1);
+            }
+
+            .tab {
+                flex: 1;
+                text-align: center;
+                padding: var(--space-2) var(--space-1);
+                font-size: 12px;
+                min-width: 0;
+            }
+
+            .collapse-controls {
+                gap: var(--space-1);
+            }
+
+            .collapse-toggle-btn {
+                padding: var(--space-2) var(--space-3);
+                font-size: 12px;
+            }
+
+            .search-box {
+                padding: var(--space-3);
+                font-size: 14px;
+            }
+
+            .new-group-btn {
+                padding: var(--space-2) var(--space-3);
+                font-size: 12px;
+            }
+
+            .task-group {
+                margin-bottom: var(--space-3);
+                border-radius: var(--radius-md);
+            }
+
             .task-group .group-header {
                 gap: var(--space-2);
                 padding: var(--space-2) var(--space-3);
                 min-height: 44px;
             }
-            .task-group .group-title { font-size: 14px; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-            .task-group .group-count { font-size: 10px; flex-shrink: 0; }
+
+            .task-group .group-title {
+                font-size: 14px;
+                flex: 1;
+                min-width: 0;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+
+            .task-group .group-count {
+                font-size: 10px;
+                flex-shrink: 0;
+            }
+
             .task-card {
                 padding: var(--space-2);
                 gap: var(--space-2);
                 border-radius: var(--radius-sm);
             }
-            .task-name { font-size: 13px; }
-            .task-schedule { gap: var(--space-1); }
-            .editable.time-field { min-width: 28px; font-size: 11px; padding: 4px 2px; }
-            .task-command { font-size: 10px; padding: var(--space-1); }
+
+            .task-name {
+                font-size: 13px;
+            }
+
+            .task-schedule {
+                gap: var(--space-1);
+            }
+
+            .editable.time-field {
+                min-width: 28px;
+                font-size: 11px;
+                padding: 4px 2px;
+            }
+
+            .task-command {
+                font-size: 10px;
+                padding: var(--space-1);
+            }
+
             .message {
                 left: var(--space-2);
                 right: var(--space-2);
@@ -1105,28 +1618,46 @@
                 bottom: var(--space-5);
                 text-align: center;
             }
+
             .log-entry {
                 flex-wrap: wrap;
                 gap: var(--space-1);
                 padding: var(--space-2);
             }
-            .log-time, .log-user, .log-action {
+
+            .log-time,
+            .log-user,
+            .log-action {
                 min-width: auto;
                 font-size: 11px;
             }
+
             .log-details {
                 flex: 1 1 100%;
                 font-size: 11px;
                 margin-top: var(--space-1);
             }
-            .group-add-form { padding: var(--space-2) !important; }
+
+            .group-add-form {
+                padding: var(--space-2) !important;
+            }
+
             .group-add-form .mini-cron-inputs input {
                 min-width: 30px;
                 padding: var(--space-2);
                 font-size: 12px;
             }
-            .group-add-task-btn { padding: var(--space-2) var(--space-3); font-size: 12px; }
-            .cron-tooltip { font-size: 11px; padding: var(--space-1) var(--space-2); }
+
+            .group-add-task-btn {
+                padding: var(--space-2) var(--space-3);
+                font-size: 12px;
+            }
+
+            .cron-tooltip {
+                font-size: 11px;
+                padding: var(--space-1) var(--space-2);
+            }
+
             /* 拖拽手柄增大触摸区域 */
             .drag-handle {
                 padding: var(--space-3) var(--space-2);
@@ -1144,17 +1675,20 @@
         .task-card.dragging {
             opacity: 0.2;
         }
+
         /* 拖影生成后隐藏原位置（占位符已在原位） */
         .task-group.dragging-collapsed,
         .task-card.dragging-collapsed {
             display: none !important;
         }
+
         /* 组拖拽目标指示器 */
         .task-group.drag-over {
             border: 2px dashed var(--primary);
             background: rgba(74, 144, 217, 0.08);
             box-shadow: inset 0 0 0 2px rgba(74, 144, 217, 0.1);
         }
+
         /* 任务拖拽占位符 - 真实 DOM 元素，会推开其他任务 */
         .drag-placeholder {
             border: 2px dashed var(--primary);
@@ -1165,6 +1699,7 @@
             transition: height 0.15s ease-out;
             overflow: hidden;
         }
+
         /* 组拖拽占位符 */
         .drag-placeholder-group {
             border: 2px dashed var(--primary);
@@ -1175,6 +1710,7 @@
             transition: height 0.15s ease-out;
             overflow: hidden;
         }
+
         /* 组末尾放置区 - 与任务卡片等大 */
         .group-drop-end {
             height: 0;
@@ -1182,12 +1718,14 @@
             transition: all var(--transition-fast);
             border-radius: var(--radius-sm);
         }
+
         .group-drop-end.visible {
             height: 52px;
             border: 2px dashed var(--primary);
             background: rgba(74, 144, 217, 0.06);
             margin-top: var(--space-1);
         }
+
         .drag-handle {
             cursor: -webkit-grab;
             cursor: grab;
@@ -1198,23 +1736,28 @@
             user-select: none;
             border-radius: var(--radius-sm);
         }
+
         .drag-handle:hover {
             color: var(--text-secondary);
             background: var(--bg-hover);
         }
+
         .drag-handle:active {
             cursor: -webkit-grabbing;
             cursor: grabbing;
         }
+
         .task-card:not([draggable="true"]),
         .task-group:not([draggable="true"]) {
             cursor: default;
         }
+
         .group-drag-handle {
             margin-right: var(--space-2);
             overflow: hidden;
             transition: width 0.2s ease, opacity 0.2s ease, margin 0.2s ease;
         }
+
         /* 展开状态隐藏拖拽图标 */
         .task-group:not(.collapsed) .group-drag-handle {
             width: 0;
@@ -1239,6 +1782,7 @@
             transition: opacity var(--transition-fast);
             box-shadow: var(--shadow-lg);
         }
+
         .cron-tooltip::after {
             content: '';
             position: absolute;
@@ -1247,21 +1791,26 @@
             border: 6px solid transparent;
             border-top-color: var(--text-primary);
         }
+
         .task-schedule-wrapper {
             position: relative;
             display: inline-block;
             width: fit-content;
         }
+
         .task-schedule-wrapper:hover .cron-tooltip {
             opacity: 1;
         }
+
         .task-card:has(.task-schedule-wrapper:hover) {
             overflow: visible;
             z-index: 100;
         }
+
         .task-group:has(.task-schedule-wrapper:hover) {
             overflow: visible;
         }
+
         .group-tasks:has(.task-schedule-wrapper:hover) {
             overflow: visible;
         }
@@ -1292,11 +1841,16 @@
             opacity: 0;
             transition: transform var(--transition-normal), opacity var(--transition-normal);
         }
+
         .undo-toast.show {
             transform: translateX(-50%) translateY(0);
             opacity: 1;
         }
-        .undo-toast .undo-text { font-size: 14px; }
+
+        .undo-toast .undo-text {
+            font-size: 14px;
+        }
+
         .undo-toast .undo-btn {
             background: var(--primary);
             color: white;
@@ -1308,21 +1862,29 @@
             font-size: 13px;
             transition: background var(--transition-fast);
         }
-        .undo-toast .undo-btn:hover { background: var(--primary-hover); }
+
+        .undo-toast .undo-btn:hover {
+            background: var(--primary-hover);
+        }
+
         .undo-toast .undo-timer {
             width: 24px;
             height: 24px;
             border-radius: 50%;
-            border: 2px solid rgba(255,255,255,0.3);
+            border: 2px solid rgba(255, 255, 255, 0.3);
             border-top-color: white;
             animation: spin 1s linear infinite;
         }
+
         @keyframes spin {
-            to { transform: rotate(360deg); }
+            to {
+                transform: rotate(360deg);
+            }
         }
+
         .undo-toast .undo-countdown {
             font-size: 12px;
-            color: rgba(255,255,255,0.7);
+            color: rgba(255, 255, 255, 0.7);
         }
 
         /* 版本对比弹窗 */
@@ -1333,12 +1895,16 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0,0,0,0.5);
+            background: rgba(0, 0, 0, 0.5);
             z-index: 2000;
             justify-content: center;
             align-items: center;
         }
-        .diff-modal.show { display: flex; }
+
+        .diff-modal.show {
+            display: flex;
+        }
+
         .diff-modal-content {
             background: var(--bg-primary);
             border-radius: var(--radius-lg);
@@ -1349,6 +1915,7 @@
             flex-direction: column;
             box-shadow: var(--shadow-lg);
         }
+
         .diff-modal-header {
             display: flex;
             justify-content: space-between;
@@ -1358,6 +1925,7 @@
             font-weight: 600;
             font-size: 16px;
         }
+
         .diff-close-btn {
             background: none;
             border: none;
@@ -1366,7 +1934,11 @@
             color: var(--text-muted);
             line-height: 1;
         }
-        .diff-close-btn:hover { color: var(--danger); }
+
+        .diff-close-btn:hover {
+            color: var(--danger);
+        }
+
         .diff-modal-body {
             display: flex;
             flex: 1;
@@ -1374,12 +1946,14 @@
             gap: var(--space-2);
             padding: var(--space-4);
         }
+
         .diff-panel {
             flex: 1;
             display: flex;
             flex-direction: column;
             min-width: 0;
         }
+
         .diff-panel-header {
             padding: var(--space-2) var(--space-3);
             background: var(--bg-tertiary);
@@ -1388,6 +1962,7 @@
             font-size: 13px;
             color: var(--text-secondary);
         }
+
         .diff-content {
             flex: 1;
             margin: 0;
@@ -1403,18 +1978,22 @@
             line-height: 1.6;
             color: var(--text-primary);
         }
+
         .diff-line {
             padding: 0 var(--space-3);
             white-space: pre-wrap;
             word-break: break-all;
             min-height: 1.6em;
         }
+
         .diff-line.diff-add {
             background: rgba(46, 160, 67, 0.2);
         }
+
         .diff-line.diff-remove {
             background: rgba(248, 81, 73, 0.2);
         }
+
         .diff-line.diff-empty {
             background: var(--bg-tertiary);
         }
@@ -1424,6 +2003,7 @@
             display: flex;
             gap: var(--space-2);
         }
+
         .history-btn {
             padding: 4px 10px;
             border: none;
@@ -1432,28 +2012,46 @@
             cursor: pointer;
             transition: all var(--transition-fast);
         }
+
         .history-btn.diff-btn {
             background: var(--primary);
             color: white;
         }
-        .history-btn.diff-btn:hover { background: var(--primary-hover); }
+
+        .history-btn.diff-btn:hover {
+            background: var(--primary-hover);
+        }
+
         .history-btn.save-mode {
             background: var(--success);
         }
-        .history-btn.save-mode:hover { background: var(--success-hover); }
+
+        .history-btn.save-mode:hover {
+            background: var(--success-hover);
+        }
+
         .history-btn.restore-btn {
             background: var(--warning);
             color: var(--text-primary);
         }
-        .history-btn.restore-btn:hover { background: #e0a800; }
+
+        .history-btn.restore-btn:hover {
+            background: #e0a800;
+        }
     </style>
 </head>
+
 <body>
     <div class="header">
         <h1>Crontab Manager</h1>
         <div class="user-info">
             <span class="user-name">User: <strong>{{ username }}</strong></span>
-            <a href="/logout" class="logout-btn" title="Logout"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg></a>
+            <a href="/logout" class="logout-btn" title="Logout"><svg width="16" height="16" viewBox="0 0 24 24"
+                    fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                    <polyline points="16 17 21 12 16 7" />
+                    <line x1="21" y1="12" x2="9" y2="12" />
+                </svg></a>
         </div>
     </div>
 
@@ -1466,9 +2064,22 @@
 
     <div class="collapse-controls">
         <button class="collapse-toggle-btn" id="collapseToggleBtn" onclick="toggleAllGroups()" title="Expand All">
-            <svg class="expand-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 10l5 5 5-5"/><path d="M7 5l5 5 5-5"/></svg>
-            <svg class="collapse-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 14l5-5 5 5"/><path d="M7 19l5-5 5 5"/></svg>
+            <svg class="expand-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                stroke-width="2">
+                <path d="M7 10l5 5 5-5" />
+                <path d="M7 5l5 5 5-5" />
+            </svg>
+            <svg class="collapse-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                stroke-width="2">
+                <path d="M7 14l5-5 5 5" />
+                <path d="M7 19l5-5 5 5" />
+            </svg>
         </button>
+        <div class="filter-controls">
+            <button class="filter-btn active" data-filter="all" onclick="setFilter('all')">ALL</button>
+            <button class="filter-btn" data-filter="active" onclick="setFilter('active')">Active</button>
+            <button class="filter-btn" data-filter="paused" onclick="setFilter('paused')">Paused</button>
+        </div>
         <input type="text" class="search-box" id="searchBox" placeholder="Search tasks..." oninput="filterTasks()">
         <button class="new-group-btn" onclick="showNewGroupForm()"><span class="plus-icon">+</span> New Group</button>
     </div>
@@ -1489,7 +2100,8 @@
         <div class="raw-editor-section" id="rawEditorSection">
             <div class="code-editor">
                 <pre class="code-highlight" id="codeHighlight"></pre>
-                <textarea id="rawContent" oninput="updateHighlight()" onscroll="syncHighlightScroll()" readonly></textarea>
+                <textarea id="rawContent" oninput="updateHighlight()" onscroll="syncHighlightScroll()"
+                    readonly></textarea>
             </div>
         </div>
 
@@ -1949,7 +2561,7 @@
         }
 
         // 点击弹窗外部关闭
-        document.getElementById('diffModal').addEventListener('click', function(e) {
+        document.getElementById('diffModal').addEventListener('click', function (e) {
             if (e.target === this) closeDiffModal();
         });
 
@@ -2082,7 +2694,7 @@
         // 渲染单个任务（内联编辑模式）
         function renderTask(task, groupId) {
             const parts = task.schedule.split(/\s+/);
-            const [minute, hour, day, month, weekday] = parts.length >= 5 ? parts : ['*','*','*','*','*'];
+            const [minute, hour, day, month, weekday] = parts.length >= 5 ? parts : ['*', '*', '*', '*', '*'];
             const cronDescription = parseCronToHuman(minute, hour, day, month, weekday);
             const taskName = task.name
                 ? `<span class="task-name editable" ondblclick="editTaskName(${task.id},this)" title="Double-click to edit">${escapeHtml(task.name)}</span>`
@@ -2240,21 +2852,36 @@
 
         // ========== 搜索过滤 ==========
 
+        let currentFilter = 'all';
+
+        function setFilter(filter) {
+            currentFilter = filter;
+            // Update UI
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                if (btn.dataset.filter === filter) btn.classList.add('active');
+                else btn.classList.remove('active');
+            });
+            filterTasks();
+        }
+
         function filterTasks() {
             const keyword = document.getElementById('searchBox').value.trim().toLowerCase();
+
+            const isFlatView = currentFilter !== 'all';
+            document.getElementById('taskList').classList.toggle('flat-view', isFlatView);
 
             document.querySelectorAll('.task-group').forEach(groupEl => {
                 const groupTitleEl = groupEl.querySelector('.group-title');
                 const originalGroupTitle = groupEl.dataset.title || 'Unnamed Group';
                 const groupTitleLower = originalGroupTitle.toLowerCase();
                 const tasks = groupEl.querySelectorAll('.task-card');
-                let groupMatch = groupTitleLower.includes(keyword);
+                let groupMatch = !isFlatView && groupTitleLower.includes(keyword); // In flat view, group title match is ignored
                 let visibleTaskCount = 0;
 
-                // 高亮组名
-                if (keyword && groupMatch) {
+                // 高亮组名 (only if not flat view)
+                if (!isFlatView && keyword && groupMatch) {
                     groupTitleEl.innerHTML = highlightText(originalGroupTitle, keyword);
-                } else {
+                } else if (!isFlatView) {
                     groupTitleEl.textContent = originalGroupTitle || 'Unnamed Group';
                 }
 
@@ -2273,7 +2900,14 @@
                     const scheduleText = `${minute} ${hour} ${day} ${month} ${weekday}`;
                     const taskMatch = scheduleText.toLowerCase().includes(keyword) || command.toLowerCase().includes(keyword);
 
-                    if (keyword === '' || taskMatch || groupMatch) {
+                    // Filter status
+                    let statusMatch = true;
+                    // Check if the toggle is 'on'
+                    const isEnabled = taskEl.querySelector('.toggle').classList.contains('on');
+                    if (currentFilter === 'active' && !isEnabled) statusMatch = false;
+                    if (currentFilter === 'paused' && isEnabled) statusMatch = false;
+
+                    if ((keyword === '' || taskMatch || groupMatch) && statusMatch) {
                         taskEl.style.display = 'flex';
                         visibleTaskCount++;
 
@@ -2289,10 +2923,11 @@
                 });
 
                 // 如果组名匹配或有匹配的任务，显示该组
-                if (keyword === '' || groupMatch || visibleTaskCount > 0) {
+                // In flat view, we only show the group container if it has visible tasks (group header is hidden by CSS)
+                if ((!isFlatView && (keyword === '' || groupMatch)) || visibleTaskCount > 0) {
                     groupEl.style.display = 'block';
-                    // 搜索时自动展开有匹配结果的组
-                    if (keyword !== '') {
+                    // 搜索时或Flat模式下自动展开
+                    if (keyword !== '' || isFlatView) {
                         groupEl.classList.remove('collapsed');
                     }
                 } else {
@@ -2834,7 +3469,7 @@
         // 全局事件监听：处理拖拽在窗口外结束的情况
         document.addEventListener('dragend', cleanupDragState);
         window.addEventListener('blur', cleanupDragState);
-        document.addEventListener('drop', function(e) {
+        document.addEventListener('drop', function (e) {
             // 如果 drop 发生在非目标区域，也要清理状态
             setTimeout(cleanupDragState, 100);
         });
@@ -3206,4 +3841,5 @@
         });
     </script>
 </body>
+
 </html>
