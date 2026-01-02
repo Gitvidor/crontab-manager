@@ -3188,6 +3188,7 @@
 
         let currentFilter = 'all';
         let caseSensitive = false;
+        let savedCollapsedState = []; // 保存离开 All 状态时的折叠状态
 
         function toggleCaseSensitive() {
             caseSensitive = !caseSensitive;
@@ -3196,7 +3197,14 @@
         }
 
         function setFilter(filter) {
+            const prevFilter = currentFilter;
             currentFilter = filter;
+
+            // 离开 All 时保存折叠状态
+            if (prevFilter === 'all' && filter !== 'all') {
+                savedCollapsedState = saveCollapsedState();
+            }
+
             // Update UI
             document.querySelectorAll('.filter-btn').forEach(btn => {
                 if (btn.dataset.filter === filter) btn.classList.add('active');
@@ -3205,6 +3213,12 @@
             // Active/Paused 时隐藏折叠按钮和 New Group
             document.querySelector('.collapse-controls').classList.toggle('flat-mode', filter !== 'all');
             filterTasks();
+
+            // 返回 All 时恢复折叠状态
+            if (prevFilter !== 'all' && filter === 'all') {
+                restoreCollapsedState(savedCollapsedState);
+                updateCollapseToggleBtn();
+            }
         }
 
         function filterTasks() {
