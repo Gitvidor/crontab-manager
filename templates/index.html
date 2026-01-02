@@ -349,10 +349,6 @@
             color: var(--text-primary);
         }
 
-        .tab:active {
-            transform: scale(0.95);
-        }
-
         /* 任务列表视图 */
         .task-list {
             display: none;
@@ -2257,6 +2253,12 @@
 
         .history-btn.restore-btn:hover {
             background: #e0a800;
+            transform: translateY(-1px);
+            box-shadow: var(--shadow-md);
+        }
+
+        .history-btn.restore-btn:active {
+            transform: scale(0.95);
         }
     </style>
 </head>
