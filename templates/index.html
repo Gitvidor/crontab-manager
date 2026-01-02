@@ -478,10 +478,14 @@
             border: 1px solid var(--border-color);
             border-radius: var(--radius-md);
             overflow: hidden;
+            background: var(--bg-tertiary);
+        }
+
+        .code-editor.editing {
             background: var(--bg-secondary);
         }
 
-        .code-editor:focus-within {
+        .code-editor.editing:focus-within {
             border-color: var(--primary);
             box-shadow: 0 0 0 3px rgba(74, 144, 217, 0.15);
         }
@@ -596,6 +600,11 @@
             color: var(--text-primary);
         }
 
+        .history-header-btns {
+            display: flex;
+            gap: var(--space-2);
+        }
+
         .history-list {
             display: flex;
             flex-direction: column;
@@ -610,13 +619,7 @@
             background: var(--bg-secondary);
             border: 1px solid var(--border-color);
             border-radius: var(--radius-sm);
-            cursor: pointer;
             transition: all var(--transition-fast);
-        }
-
-        .history-item:hover {
-            background: var(--bg-hover);
-            border-color: var(--primary);
         }
 
         .history-item.expanded {
@@ -629,6 +632,11 @@
             justify-content: space-between;
             align-items: center;
             width: 100%;
+            cursor: pointer;
+        }
+
+        .history-item-header:hover {
+            background: var(--bg-hover);
         }
 
         .history-time {
@@ -2068,6 +2076,12 @@
 
         .history-btn.diff-btn:hover {
             background: var(--primary-hover);
+            transform: translateY(-1px);
+            box-shadow: var(--shadow-md);
+        }
+
+        .history-btn.diff-btn:active {
+            transform: scale(0.95);
         }
 
         .history-btn.save-mode {
@@ -2076,6 +2090,23 @@
 
         .history-btn.save-mode:hover {
             background: var(--success-hover);
+            transform: translateY(-1px);
+            box-shadow: var(--shadow-md);
+        }
+
+        .history-btn.save-mode:active {
+            transform: scale(0.95);
+        }
+
+        .history-btn.cancel-edit-btn {
+            background: var(--bg-tertiary);
+            color: var(--text-secondary);
+            border: 1px solid var(--border-color);
+        }
+
+        .history-btn.cancel-edit-btn:hover {
+            background: var(--bg-hover);
+            color: var(--text-primary);
         }
 
         .history-btn.restore-btn {
@@ -2128,7 +2159,8 @@
             <button class="filter-btn" data-filter="active" onclick="setFilter('active')">Active</button>
             <button class="filter-btn" data-filter="paused" onclick="setFilter('paused')">Paused</button>
         </div>
-        <input type="text" class="search-box" id="searchBox" placeholder="Search tasks..." oninput="filterTasks()">
+        <input type="text" class="search-box" id="searchBox" placeholder="Search group names or task names..."
+            oninput="filterTasks()">
         <button class="new-group-btn" onclick="showNewGroupForm()"><span class="plus-icon">+</span> New Group</button>
     </div>
 
@@ -2143,7 +2175,11 @@
     <div id="historyView" class="history-view">
         <div class="history-header">
             <span>Current Version</span>
-            <button class="history-btn diff-btn" onclick="toggleEditMode()" id="editToggleBtn">Edit</button>
+            <div class="history-header-btns">
+                <button class="history-btn diff-btn" onclick="toggleEditMode()" id="editToggleBtn">Edit</button>
+                <button class="history-btn cancel-edit-btn" onclick="cancelEditMode()" id="cancelEditBtn"
+                    style="display: none;">Cancel</button>
+            </div>
         </div>
         <div class="raw-editor-section" id="rawEditorSection">
             <div class="code-editor">
@@ -2424,6 +2460,8 @@
         async function toggleEditMode() {
             const textarea = document.getElementById('rawContent');
             const btn = document.getElementById('editToggleBtn');
+            const cancelBtn = document.getElementById('cancelEditBtn');
+            const codeEditor = textarea.closest('.code-editor');
             const isEditing = !textarea.readOnly;
 
             if (isEditing) {
@@ -2432,13 +2470,33 @@
                 textarea.readOnly = true;
                 btn.textContent = 'Edit';
                 btn.classList.remove('save-mode');
+                cancelBtn.style.display = 'none';
+                codeEditor.classList.remove('editing');
             } else {
                 // 只读模式 -> 编辑模式
                 textarea.readOnly = false;
                 textarea.focus();
                 btn.textContent = 'Save';
                 btn.classList.add('save-mode');
+                cancelBtn.style.display = 'inline-flex';
+                codeEditor.classList.add('editing');
             }
+        }
+
+        function cancelEditMode() {
+            const textarea = document.getElementById('rawContent');
+            const btn = document.getElementById('editToggleBtn');
+            const cancelBtn = document.getElementById('cancelEditBtn');
+            const codeEditor = textarea.closest('.code-editor');
+
+            // 恢复原始内容
+            loadRaw();
+            // 切换回只读模式
+            textarea.readOnly = true;
+            btn.textContent = 'Edit';
+            btn.classList.remove('save-mode');
+            cancelBtn.style.display = 'none';
+            codeEditor.classList.remove('editing');
         }
 
         async function loadHistory() {
@@ -2456,8 +2514,8 @@
                     // 格式化时间：20251231_151544 -> 2025-12-31 15:15:44
                     const ts = b.timestamp.replace(/_/, ' ').replace(/(\d{4})(\d{2})(\d{2}) (\d{2})(\d{2})(\d{2})/, '$1-$2-$3 $4:$5:$6');
                     const userLabel = b.username ? `<span class="history-user">${escapeHtml(b.username)}</span>` : '';
-                    return `<div class="history-item" onclick="toggleHistoryItem(this, '${b.filename}')">
-                        <div class="history-item-header">
+                    return `<div class="history-item">
+                        <div class="history-item-header" onclick="toggleHistoryItem(this.parentElement, '${b.filename}')">
                             <span class="history-time">${ts}${userLabel}</span>
                             <div class="history-actions">
                                 <button class="history-btn diff-btn" onclick="event.stopPropagation(); showDiff('${b.filename}', '${ts}')">Diff</button>
@@ -2746,7 +2804,7 @@
             const cronDescription = parseCronToHuman(minute, hour, day, month, weekday);
             const taskName = task.name
                 ? `<span class="task-name editable" ondblclick="editTaskName(${task.id},this)" title="Double-click to edit">${escapeHtml(task.name)}</span>`
-                : `<span class="task-name task-name-empty editable" onclick="editTaskName(${task.id},this)" title="Click to add name">+ Task name</span>`;
+                : `<span class="task-name task-name-empty editable" onclick="editTaskName(${task.id},this)" title="Click to enter task name"> Task name</span>`;
 
             return `
             <div class="task-card ${task.enabled ? '' : 'disabled'}" id="task-${task.id}"
@@ -3266,7 +3324,7 @@
                         element.textContent = newName;
                         element.classList.remove('task-name-empty');
                     } else {
-                        element.textContent = '+ Task name';
+                        element.textContent = 'Task name';
                         element.classList.add('task-name-empty');
                     }
                 } else {
