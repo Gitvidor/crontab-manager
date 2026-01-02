@@ -1073,6 +1073,7 @@
         /* 折叠控制按钮 */
         .collapse-controls {
             display: flex;
+            align-items: center;
             gap: var(--space-2);
             margin-bottom: var(--space-3);
             position: sticky;
@@ -1087,12 +1088,15 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            padding: var(--space-2);
+            height: 32px;
+            width: 32px;
+            padding: 0;
             background: var(--primary);
             border: 1px solid var(--primary);
             border-radius: var(--radius-sm);
             cursor: pointer;
             color: white;
+            flex-shrink: 0;
             transition: all var(--transition-fast);
         }
 
@@ -1127,10 +1131,23 @@
             display: none;
         }
 
+        /* Active/Paused 模式下隐藏折叠按钮和 New Group */
+        .collapse-controls.flat-mode .collapse-toggle-btn,
+        .collapse-controls.flat-mode .new-group-btn {
+            width: 0;
+            padding: 0;
+            margin: 0 calc(var(--space-2) * -0.5);
+            border-color: transparent;
+            opacity: 0;
+            pointer-events: none;
+            white-space: nowrap;
+        }
+
         /* 搜索框 */
         .search-box {
             flex: 1;
-            padding: var(--space-2) var(--space-3);
+            height: 32px;
+            padding: 0 var(--space-3);
             border: 1px solid var(--border-color);
             border-radius: var(--radius-md);
             font-size: 13px;
@@ -1152,14 +1169,18 @@
         /* Filter Controls */
         .filter-controls {
             display: flex;
+            align-items: center;
+            height: 32px;
             background: var(--bg-tertiary);
             padding: 2px;
             border-radius: var(--radius-md);
             border: 1px solid var(--border-color);
+            flex-shrink: 0;
         }
 
         .filter-btn {
-            padding: var(--space-2) var(--space-3);
+            height: 100%;
+            padding: 0 var(--space-3);
             border: none;
             background: transparent;
             color: var(--text-secondary);
@@ -1168,6 +1189,8 @@
             cursor: pointer;
             border-radius: var(--radius-sm);
             transition: all var(--transition-fast);
+            display: flex;
+            align-items: center;
         }
 
         .filter-btn:hover {
@@ -1221,6 +1244,8 @@
             justify-content: center;
             gap: var(--space-1);
             flex-shrink: 0;
+            white-space: nowrap;
+            overflow: hidden;
         }
 
         .new-group-btn:hover {
@@ -2142,6 +2167,11 @@
     </div>
 
     <div class="collapse-controls">
+        <div class="filter-controls">
+            <button class="filter-btn active" data-filter="all" onclick="setFilter('all')">All</button>
+            <button class="filter-btn" data-filter="active" onclick="setFilter('active')">Active</button>
+            <button class="filter-btn" data-filter="paused" onclick="setFilter('paused')">Paused</button>
+        </div>
         <button class="collapse-toggle-btn" id="collapseToggleBtn" onclick="toggleAllGroups()" title="Expand All">
             <svg class="expand-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                 stroke-width="2">
@@ -2154,11 +2184,6 @@
                 <path d="M7 19l5-5 5 5" />
             </svg>
         </button>
-        <div class="filter-controls">
-            <button class="filter-btn active" data-filter="all" onclick="setFilter('all')">All</button>
-            <button class="filter-btn" data-filter="active" onclick="setFilter('active')">Active</button>
-            <button class="filter-btn" data-filter="paused" onclick="setFilter('paused')">Paused</button>
-        </div>
         <input type="text" class="search-box" id="searchBox" placeholder="Search group names or task names..."
             oninput="filterTasks()">
         <button class="new-group-btn" onclick="showNewGroupForm()"><span class="plus-icon">+</span> New Group</button>
@@ -2969,6 +2994,8 @@
                 if (btn.dataset.filter === filter) btn.classList.add('active');
                 else btn.classList.remove('active');
             });
+            // Active/Paused 时隐藏折叠按钮和 New Group
+            document.querySelector('.collapse-controls').classList.toggle('flat-mode', filter !== 'all');
             filterTasks();
         }
 
