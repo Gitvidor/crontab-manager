@@ -2307,7 +2307,7 @@
         </button>
         <div class="search-wrapper">
             <input type="text" class="search-box" id="searchBox" placeholder="Search group names or task names..."
-                oninput="filterTasks()">
+                oninput="taskCurrentPage=1; filterTasks()">
             <button class="case-toggle" id="caseToggle" onclick="toggleCaseSensitive()" title="Case Sensitive">Aa</button>
         </div>
         <button class="new-group-btn" onclick="showNewGroupForm()"><span class="plus-icon">+</span> New Group</button>
@@ -2320,6 +2320,7 @@
     </div>
 
     <div id="taskList" class="task-list active"></div>
+    <div class="pagination" id="taskPagination"></div>
 
     <div id="historyView" class="history-view">
         <div class="history-header">
@@ -3192,8 +3193,14 @@
         let caseSensitive = false;
         let savedCollapsedState = []; // 保存离开 All 状态时的折叠状态
 
+        // 任务列表分页
+        let taskCurrentPage = 1;
+        const GROUP_PAGE_SIZE = 20;  // All 模式每页任务组数
+        const TASK_PAGE_SIZE = 10;   // Active/Paused 模式每页任务数
+
         function toggleCaseSensitive() {
             caseSensitive = !caseSensitive;
+            taskCurrentPage = 1;
             document.getElementById('caseToggle').classList.toggle('active', caseSensitive);
             filterTasks();
         }
@@ -3201,6 +3208,9 @@
         function setFilter(filter) {
             const prevFilter = currentFilter;
             currentFilter = filter;
+
+            // 切换过滤器时重置页码
+            taskCurrentPage = 1;
 
             // 离开 All 时保存折叠状态
             if (prevFilter === 'all' && filter !== 'all') {
@@ -3236,12 +3246,16 @@
                 return caseSensitive ? text.includes(kw) : text.toLowerCase().includes(kw);
             };
 
+            // 收集可见的组和任务
+            const visibleGroups = [];
+            const visibleTasks = [];
+
             document.querySelectorAll('.task-group').forEach(groupEl => {
                 const groupTitleEl = groupEl.querySelector('.group-title');
                 const originalGroupTitle = groupEl.dataset.title || 'Unnamed Group';
                 const tasks = groupEl.querySelectorAll('.task-card');
-                let groupMatch = !isFlatView && matchText(originalGroupTitle, keyword); // In flat view, group title match is ignored
-                let visibleTaskCount = 0;
+                let groupMatch = !isFlatView && matchText(originalGroupTitle, keyword);
+                let groupVisibleTaskCount = 0;
 
                 // 高亮组名 (only if not flat view)
                 if (!isFlatView && keyword && groupMatch) {
@@ -3251,10 +3265,7 @@
                 }
 
                 tasks.forEach(taskEl => {
-                    const scheduleEl = taskEl.querySelector('.task-schedule');
                     const commandEl = taskEl.querySelector('.task-command .cmd-field');
-
-                    // 获取原始值
                     const minute = decodeURIComponent(taskEl.dataset.minute);
                     const hour = decodeURIComponent(taskEl.dataset.hour);
                     const day = decodeURIComponent(taskEl.dataset.day);
@@ -3265,40 +3276,152 @@
                     const scheduleText = `${minute} ${hour} ${day} ${month} ${weekday}`;
                     const taskMatch = matchText(scheduleText, keyword) || matchText(command, keyword);
 
-                    // Filter status
                     let statusMatch = true;
-                    // Check if the toggle is 'on'
                     const isEnabled = taskEl.querySelector('.toggle').classList.contains('on');
                     if (currentFilter === 'active' && !isEnabled) statusMatch = false;
                     if (currentFilter === 'paused' && isEnabled) statusMatch = false;
 
-                    if ((keyword === '' || taskMatch || groupMatch) && statusMatch) {
-                        taskEl.style.display = 'flex';
-                        visibleTaskCount++;
+                    const isTaskVisible = (keyword === '' || taskMatch || groupMatch) && statusMatch;
 
-                        // 高亮命令
-                        if (keyword && matchText(command, keyword)) {
-                            commandEl.innerHTML = highlightText(command, keyword);
-                        } else {
-                            commandEl.textContent = command;
+                    if (isTaskVisible) {
+                        groupVisibleTaskCount++;
+                        if (isFlatView) {
+                            visibleTasks.push({ taskEl, commandEl, command, keyword, matchText });
                         }
-                    } else {
-                        taskEl.style.display = 'none';
+                    }
+                    // 标记任务是否可见（用于分页显示）
+                    taskEl.dataset.visible = isTaskVisible ? '1' : '0';
+                    // 先隐藏所有任务，稍后由分页逻辑显示
+                    taskEl.style.display = 'none';
+
+                    // 高亮命令（All 模式也需要）
+                    if (!isFlatView && isTaskVisible && keyword && matchText(command, keyword)) {
+                        commandEl.innerHTML = highlightText(command, keyword);
+                    } else if (!isFlatView && isTaskVisible) {
+                        commandEl.textContent = command;
                     }
                 });
 
-                // 如果组名匹配或有匹配的任务，显示该组
-                // In flat view, we only show the group container if it has visible tasks (group header is hidden by CSS)
-                if ((!isFlatView && (keyword === '' || groupMatch)) || visibleTaskCount > 0) {
-                    groupEl.style.display = 'block';
-                    // 搜索时或Flat模式下自动展开
+                // 判断组是否可见
+                const isGroupVisible = (!isFlatView && (keyword === '' || groupMatch)) || groupVisibleTaskCount > 0;
+                groupEl.style.display = 'none'; // 先隐藏，稍后由分页逻辑显示
+
+                if (isGroupVisible) {
+                    visibleGroups.push({ groupEl, groupVisibleTaskCount });
                     if (keyword !== '' || isFlatView) {
                         groupEl.classList.remove('collapsed');
                     }
-                } else {
-                    groupEl.style.display = 'none';
                 }
             });
+
+            // 应用分页
+            if (isFlatView) {
+                // Active/Paused 模式：按任务分页
+                applyTaskPagination(visibleTasks, visibleGroups);
+            } else {
+                // All 模式：按任务组分页
+                applyGroupPagination(visibleGroups);
+            }
+        }
+
+        // All 模式分页：按任务组
+        function applyGroupPagination(visibleGroups) {
+            const totalPages = Math.ceil(visibleGroups.length / GROUP_PAGE_SIZE);
+            const start = (taskCurrentPage - 1) * GROUP_PAGE_SIZE;
+            const end = start + GROUP_PAGE_SIZE;
+
+            visibleGroups.forEach((item, index) => {
+                if (index >= start && index < end) {
+                    item.groupEl.style.display = 'block';
+                    // 只显示可见的任务
+                    item.groupEl.querySelectorAll('.task-card').forEach(taskEl => {
+                        if (taskEl.dataset.visible === '1') {
+                            taskEl.style.display = 'flex';
+                        }
+                    });
+                }
+            });
+
+            renderTaskPagination(totalPages, visibleGroups.length, 'groups');
+        }
+
+        // Active/Paused 模式分页：按任务
+        function applyTaskPagination(visibleTasks, visibleGroups) {
+            const totalPages = Math.ceil(visibleTasks.length / TASK_PAGE_SIZE);
+            const start = (taskCurrentPage - 1) * TASK_PAGE_SIZE;
+            const end = start + TASK_PAGE_SIZE;
+
+            // 记录哪些组有可见任务
+            const groupsWithVisibleTasks = new Set();
+
+            visibleTasks.forEach((item, index) => {
+                if (index >= start && index < end) {
+                    item.taskEl.style.display = 'flex';
+                    groupsWithVisibleTasks.add(item.taskEl.closest('.task-group'));
+
+                    // 高亮命令
+                    if (item.keyword && item.matchText(item.command, item.keyword)) {
+                        item.commandEl.innerHTML = highlightText(item.command, item.keyword);
+                    } else {
+                        item.commandEl.textContent = item.command;
+                    }
+                }
+            });
+
+            // 显示有可见任务的组
+            groupsWithVisibleTasks.forEach(groupEl => {
+                groupEl.style.display = 'block';
+            });
+
+            renderTaskPagination(totalPages, visibleTasks.length, 'tasks');
+        }
+
+        // 渲染任务分页控件
+        function renderTaskPagination(totalPages, totalItems, itemType) {
+            const pagination = document.getElementById('taskPagination');
+            if (totalPages <= 1) {
+                pagination.innerHTML = '';
+                return;
+            }
+
+            let html = '';
+            html += `<button class="page-btn" onclick="goTaskPage(1)" ${taskCurrentPage === 1 ? 'disabled' : ''}>«</button>`;
+            html += `<button class="page-btn" onclick="goTaskPage(${taskCurrentPage - 1})" ${taskCurrentPage === 1 ? 'disabled' : ''}>‹</button>`;
+
+            const maxVisible = 5;
+            let startPage = Math.max(1, taskCurrentPage - Math.floor(maxVisible / 2));
+            let endPage = Math.min(totalPages, startPage + maxVisible - 1);
+            if (endPage - startPage < maxVisible - 1) {
+                startPage = Math.max(1, endPage - maxVisible + 1);
+            }
+
+            if (startPage > 1) {
+                html += `<button class="page-btn" onclick="goTaskPage(1)">1</button>`;
+                if (startPage > 2) html += `<span class="page-info">...</span>`;
+            }
+
+            for (let i = startPage; i <= endPage; i++) {
+                html += `<button class="page-btn ${i === taskCurrentPage ? 'active' : ''}" onclick="goTaskPage(${i})">${i}</button>`;
+            }
+
+            if (endPage < totalPages) {
+                if (endPage < totalPages - 1) html += `<span class="page-info">...</span>`;
+                html += `<button class="page-btn" onclick="goTaskPage(${totalPages})">${totalPages}</button>`;
+            }
+
+            html += `<button class="page-btn" onclick="goTaskPage(${taskCurrentPage + 1})" ${taskCurrentPage === totalPages ? 'disabled' : ''}>›</button>`;
+            html += `<button class="page-btn" onclick="goTaskPage(${totalPages})" ${taskCurrentPage === totalPages ? 'disabled' : ''}>»</button>`;
+            html += `<span class="page-info">${totalItems} ${itemType}</span>`;
+
+            pagination.innerHTML = html;
+        }
+
+        // 跳转到指定页
+        function goTaskPage(page) {
+            const isFlatView = currentFilter !== 'all';
+            // 需要重新计算总页数
+            taskCurrentPage = page;
+            filterTasks();
         }
 
         // 显示新建任务组表单
