@@ -2588,6 +2588,10 @@
             document.getElementById('cronLogs').classList.toggle('active', tab === 'cron');
             document.getElementById('auditLogs').classList.toggle('active', tab === 'logs');
             document.querySelector('.collapse-controls').style.display = tab === 'list' ? 'flex' : 'none';
+            // 非 Task list 时隐藏分页栏；Task list 时由 renderTaskPagination 控制显示
+            if (tab !== 'list') {
+                document.getElementById('taskPagination').style.display = 'none';
+            }
             document.getElementById('newGroupForm').classList.remove('active');
             document.getElementById('searchBox').value = '';
 
@@ -3185,6 +3189,8 @@
             await loadTasks();
             restoreCollapsedState(collapsedIds);
             updateCollapseToggleBtn();
+            // 重新应用当前过滤模式和分页
+            filterTasks();
         }
 
         // ========== 搜索过滤 ==========
@@ -3222,8 +3228,6 @@
                 if (btn.dataset.filter === filter) btn.classList.add('active');
                 else btn.classList.remove('active');
             });
-            // Active/Paused 时隐藏折叠按钮和 New Group
-            document.querySelector('.collapse-controls').classList.toggle('flat-mode', filter !== 'all');
             filterTasks();
 
             // 返回 All 时恢复折叠状态
@@ -3239,6 +3243,7 @@
 
             const isFlatView = currentFilter !== 'all';
             document.getElementById('taskList').classList.toggle('flat-view', isFlatView);
+            document.querySelector('.collapse-controls').classList.toggle('flat-mode', isFlatView);
 
             // 辅助函数：根据大小写敏感设置进行匹配
             const matchText = (text, kw) => {
@@ -3381,8 +3386,10 @@
             const pagination = document.getElementById('taskPagination');
             if (totalPages <= 1) {
                 pagination.innerHTML = '';
+                pagination.style.display = 'none';
                 return;
             }
+            pagination.style.display = 'flex';
 
             let html = '';
             html += `<button class="page-btn" onclick="goTaskPage(1)" ${taskCurrentPage === 1 ? 'disabled' : ''}>«</button>`;
