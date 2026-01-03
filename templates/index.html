@@ -80,9 +80,9 @@
             align-items: center;
             gap: var(--space-4);
             margin-bottom: var(--space-1);
-            padding: 5px var(--space-4);
+            padding: 8px var(--space-4);
             background: var(--bg-secondary);
-            box-shadow: var(--shadow-md);
+            border-bottom: 1px solid var(--border-color);
         }
 
         .user-info {
@@ -324,29 +324,48 @@
 
         .tabs {
             display: flex;
-            gap: 4px;
+            gap: var(--space-1);
         }
 
         .tab {
-            padding: var(--space-3) var(--space-3);
+            padding: 8px 16px;
             border: none;
             background: transparent;
             cursor: pointer;
-            border-radius: var(--radius-md);
-            font-size: 15px;
-            font-weight: 500;
+            font-size: 14px;
+            font-weight: 600;
             color: var(--text-secondary);
             transition: all var(--transition-fast);
+            position: relative;
+        }
+
+        .tab::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 0;
+            height: 2px;
+            background: var(--primary);
+            transition: width var(--transition-fast);
         }
 
         .tab.active {
-            background: var(--primary);
-            color: white;
+            color: var(--primary);
+        }
+
+        .tab.active::after {
+            width: 100%;
         }
 
         .tab:hover:not(.active) {
-            background: #cbd5e1;
             color: var(--text-primary);
+        }
+
+        .tab:hover:not(.active)::after {
+            width: 50%;
+            background: var(--border-color);
         }
 
         /* 任务列表视图 */
@@ -923,7 +942,7 @@
         }
 
         .task-group .group-header {
-            background: var(--bg-tertiary);
+            background: #f0f3f5;
             padding: 2px var(--space-2);
             min-height: 22px;
             box-sizing: border-box;
@@ -1150,7 +1169,7 @@
             position: sticky;
             top: 0;
             background: linear-gradient(to bottom, var(--bg-primary), var(--bg-primary) 90%, transparent);
-            padding: var(--space-2) 0;
+            padding: var(--space-1) 0 var(--space-2) 0;
             z-index: 100;
             backdrop-filter: blur(8px);
         }
@@ -1531,11 +1550,11 @@
         /* 新建任务组表单 */
         .new-group-form {
             display: none;
-            padding: var(--space-4);
+            padding: var(--space-2);
             background: var(--bg-secondary);
-            border-radius: var(--radius-lg);
-            margin-bottom: var(--space-4);
-            box-shadow: var(--shadow-md);
+            border-radius: var(--radius-md);
+            margin-bottom: var(--space-2);
+            border: 1px solid var(--border-color);
             animation: fadeIn var(--transition-fast) ease-out;
         }
 
@@ -1547,10 +1566,10 @@
 
         .new-group-form input {
             flex: 1;
-            padding: var(--space-3);
+            padding: var(--space-2);
             border: 1px solid var(--border-color);
-            border-radius: var(--radius-md);
-            font-size: 14px;
+            border-radius: var(--radius-sm);
+            font-size: 13px;
             background: var(--bg-secondary);
             color: var(--text-primary);
             transition: all var(--transition-fast);
@@ -1567,9 +1586,9 @@
         }
 
         .new-group-form button {
-            padding: var(--space-3) var(--space-4);
+            padding: var(--space-2) var(--space-3);
             border: none;
-            border-radius: var(--radius-md);
+            border-radius: var(--radius-sm);
             font-size: 13px;
             font-weight: 500;
             cursor: pointer;
