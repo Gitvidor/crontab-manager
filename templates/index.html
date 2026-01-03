@@ -2579,6 +2579,13 @@
         // ========== 标签页切换 ==========
 
         function switchTab(tab) {
+            // 检查是否处于编辑模式，如果是则阻止切换
+            const textarea = document.getElementById('rawContent');
+            if (textarea && !textarea.readOnly && tab !== 'history') {
+                alert('Please save or cancel your changes before switching tabs.');
+                return;
+            }
+
             document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
             const tabMap = { 'list': 1, 'history': 2, 'cron': 3, 'logs': 4 };
             document.querySelector(`.tab:nth-child(${tabMap[tab]})`).classList.add('active');
@@ -2598,10 +2605,6 @@
             if (tab === 'list') {
                 loadTasksKeepState();
             } else if (tab === 'history') {
-                // 重置为只读模式
-                document.getElementById('rawContent').readOnly = true;
-                document.getElementById('editToggleBtn').textContent = 'Edit';
-                document.getElementById('editToggleBtn').classList.remove('save-mode');
                 loadRaw();
                 loadHistory();
             } else if (tab === 'cron') {
