@@ -597,8 +597,8 @@
             justify-content: space-between;
             align-items: center;
             margin-bottom: var(--space-2);
-            font-weight: 500;
-            font-size: 13px;
+            font-weight: 600;
+            font-size: 14px;
             color: var(--text-primary);
         }
 
@@ -617,7 +617,7 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: var(--space-2) var(--space-3);
+            padding: var(--space-1) var(--space-2);
             background: var(--bg-secondary);
             border: 1px solid var(--border-color);
             border-radius: var(--radius-sm);
@@ -2308,7 +2308,8 @@
         <div class="search-wrapper">
             <input type="text" class="search-box" id="searchBox" placeholder="Search group names or task names..."
                 oninput="taskCurrentPage=1; filterTasks()">
-            <button class="case-toggle" id="caseToggle" onclick="toggleCaseSensitive()" title="Case Sensitive">Aa</button>
+            <button class="case-toggle" id="caseToggle" onclick="toggleCaseSensitive()"
+                title="Case Sensitive">Aa</button>
         </div>
         <button class="new-group-btn" onclick="showNewGroupForm()"><span class="plus-icon">+</span> New Group</button>
     </div>
@@ -2341,7 +2342,6 @@
 
         <div class="history-header">
             <span>History Version</span>
-            <button class="refresh-btn" onclick="loadHistory()" title="Refresh">⟳</button>
         </div>
         <div class="history-list" id="historyList">
             <div class="log-empty">Loading...</div>
@@ -2626,6 +2626,7 @@
             if (isEditing) {
                 // 保存模式 -> 只读模式
                 await saveRaw();
+                loadHistory(); // 保存后自动刷新历史版本
                 textarea.readOnly = true;
                 btn.textContent = 'Edit';
                 btn.classList.remove('save-mode');
