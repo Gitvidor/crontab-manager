@@ -918,19 +918,14 @@
             background: var(--bg-secondary);
             border-radius: var(--radius-sm);
             margin-bottom: var(--space-2);
-            box-shadow: var(--shadow-md);
+            border: 1px solid var(--border-color);
             overflow: hidden;
-            transition: box-shadow var(--transition-normal);
-        }
-
-        .task-group:hover {
-            box-shadow: var(--shadow-lg);
         }
 
         .task-group .group-header {
-            background: linear-gradient(to bottom, var(--bg-tertiary), var(--bg-hover));
-            padding: 3px var(--space-2);
-            min-height: 26px;
+            background: var(--bg-tertiary);
+            padding: 2px var(--space-2);
+            min-height: 22px;
             box-sizing: border-box;
             display: flex;
             align-items: center;
@@ -941,7 +936,7 @@
         }
 
         .task-group .group-header:hover {
-            background: linear-gradient(to bottom, var(--bg-hover), #d1d5db);
+            background: var(--bg-hover);
         }
 
         .group-delete-btn {
@@ -1102,7 +1097,7 @@
         }
 
         .task-group .task-card:hover {
-            box-shadow: var(--shadow-sm);
+            background: #f1f5f9;
         }
 
         .task-group .task-card:last-child {
@@ -1136,8 +1131,8 @@
         }
 
         .task-list.flat-view .task-card {
-            margin-bottom: var(--space-2);
-            box-shadow: var(--shadow-sm);
+            margin-bottom: var(--space-1);
+            box-shadow: none;
             border: 1px solid var(--border-color);
         }
 
@@ -1292,7 +1287,7 @@
             border: none;
             background: transparent;
             color: var(--text-secondary);
-            font-size: 13px;
+            font-size: 14px;
             font-weight: 500;
             cursor: pointer;
             border-radius: var(--radius-sm);
