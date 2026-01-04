@@ -114,6 +114,8 @@ def parse_crontab():
     current_group = {'id': 0, 'title': '', 'title_line': -1, 'tasks': []}
     task_id = 0
     last_non_empty_is_task = False  # 上一个非空行是否是任务行
+    comment_interrupted = False  # 注释后遇到空行（用于打断连续多行注释计数）
+    comment_after_task = False  # 注释是否紧跟任务行（用于判断是否打断连续性）
 
     for i, line in enumerate(lines):
         line = line.rstrip()
@@ -123,7 +125,9 @@ def parse_crontab():
             # 如果上一个非空行是任务行 → 设置 new_group_context
             if last_non_empty_is_task:
                 new_group_context = True
-            # 多个连续空行视为一个，不清空 comment_buffer
+            elif len(comment_buffer) > 0 and comment_after_task:
+                # 只有任务后紧跟的注释遇到空行才打断连续性
+                comment_interrupted = True
             continue
 
         # 判断是否为任务行
@@ -198,13 +202,33 @@ def parse_crontab():
             comment_buffer = []
             new_group_context = False
             last_non_empty_is_task = True
+            comment_interrupted = False
+            comment_after_task = False
 
         elif line.startswith('#'):
             # === 处理注释行 ===
+
+            # 特殊情况：任务行 + 注释 + 空行 → 注释当作空行处理
+            next_line = lines[i + 1].rstrip() if i + 1 < len(lines) else ''
+            if last_non_empty_is_task and not next_line:
+                # 当作空行处理：设置 new_group_context，不加入 buffer
+                new_group_context = True
+                last_non_empty_is_task = False  # 更新状态，避免后续注释也被当作空行
+                continue
+
+            # 如果注释被空行打断（任务+注释+空行+注释），清空buffer重新计数
+            if comment_interrupted:
+                comment_buffer = []
+                comment_interrupted = False
+
+            # 如果 buffer 为空，记录是否紧跟任务行
+            if len(comment_buffer) == 0:
+                comment_after_task = last_non_empty_is_task
+
             comment_buffer.append((i, line))
 
-            # 如果连续注释达到2行，触发 new_group_context
-            if len(comment_buffer) >= 2:
+            # 情况二：只有任务后紧跟的连续多行注释才触发新组
+            if len(comment_buffer) >= 2 and comment_after_task:
                 new_group_context = True
 
             last_non_empty_is_task = False
@@ -989,6 +1013,14 @@ def move_task_to_end():
     from_line = from_task['line']
     content = lines[from_line]
 
+    # 检查是否需要删除源组（跨组移动且源组只有这一个任务）
+    if from_group_id != to_group_id:
+        for g in groups:
+            if g['id'] == from_group_id:
+                if len(g['tasks']) == 1 and g['title_line'] >= 0:
+                    lines[g['title_line']] = None
+                break
+
     # 移除原位置的行
     lines[from_line] = None
 
@@ -1047,6 +1079,7 @@ def reorder_tasks():
     raw = get_crontab_raw()
     lines = raw.split('\n')
     tasks = get_all_tasks()
+    groups = parse_crontab()
 
     # 找到两个任务
     from_task = None
@@ -1073,6 +1106,14 @@ def reorder_tasks():
         lines_to_move.append(lines[name_line])
         lines_to_remove.append(name_line)
     lines_to_move.append(task_content)
+
+    # 检查是否需要删除源组（跨组移动且源组只有这一个任务）
+    if from_group_id != to_group_id:
+        for g in groups:
+            if g['id'] == from_group_id:
+                if len(g['tasks']) == 1 and g['title_line'] >= 0:
+                    lines_to_remove.append(g['title_line'])
+                break
 
     # 移除原位置的行（标记为 None）
     for ln in lines_to_remove:

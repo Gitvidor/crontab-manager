@@ -3045,8 +3045,8 @@
             const parts = task.schedule.split(/\s+/);
             const [minute, hour, day, month, weekday] = parts.length >= 5 ? parts : ['*', '*', '*', '*', '*'];
             const cronDescription = parseCronToHuman(minute, hour, day, month, weekday);
-            // 当组有标题且只有一个任务时，使用组标题作为任务名显示
-            const displayName = (group && group.title && group.tasks.length === 1) ? group.title : task.name;
+            // 直接使用任务名
+            const displayName = task.name;
             const taskName = displayName
                 ? `<span class="task-name editable" ondblclick="editTaskName(${task.id},this)" title="Double-click to edit">${escapeHtml(displayName)}</span>`
                 : `<span class="task-name task-name-empty editable" onclick="editTaskName(${task.id},this)" title="Click to enter task name"> Task name</span>`;
