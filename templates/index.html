@@ -664,6 +664,11 @@
             font-weight: 600;
             margin-left: var(--space-2);
             display: none;
+            cursor: pointer;
+        }
+
+        .task-group-label:hover {
+            color: var(--primary);
         }
 
         /* Active/Paused 模式下显示 group label */
@@ -3813,7 +3818,7 @@
             const taskName = displayName
                 ? `<span class="task-name editable" ondblclick="editTaskName(${task.id},this)" title="Double-click to edit">${escapeHtml(displayName)}</span>`
                 : `<span class="task-name task-name-empty editable" onclick="editTaskName(${task.id},this)" title="Click to enter task name"> Task name</span>`;
-            const groupLabel = `<span class="task-group-label">| ${escapeHtml(group.title || 'Unnamed Group')}</span>`;
+            const groupLabel = `<span class="task-group-label" onclick="goToGroup(${groupId})" title="Click to jump to group">| ${escapeHtml(group.title || 'Unnamed Group')}</span>`;
 
             return `
             <div class="task-card ${task.enabled ? '' : 'disabled'}" id="task-${task.id}"
@@ -4017,6 +4022,32 @@
                 restoreCollapsedState(savedCollapsedState);
                 updateCollapseToggleBtn();
             }
+        }
+
+        // 跳转到指定组（从 Active/Paused 视图跳转到 All 视图）
+        function goToGroup(groupId) {
+            // 切换到 All 视图
+            setFilter('all');
+
+            // 清空搜索框
+            document.getElementById('searchBox').value = '';
+
+            // 滚动到目标组
+            setTimeout(() => {
+                const groupEl = document.getElementById(`group-${groupId}`);
+                if (groupEl) {
+                    // 展开组
+                    groupEl.classList.remove('collapsed');
+                    // 滚动到可见位置
+                    groupEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    // 高亮闪烁效果
+                    groupEl.style.transition = 'box-shadow 0.3s ease';
+                    groupEl.style.boxShadow = '0 0 0 2px var(--primary)';
+                    setTimeout(() => {
+                        groupEl.style.boxShadow = '';
+                    }, 1500);
+                }
+            }, 100);
         }
 
         function filterTasks() {
