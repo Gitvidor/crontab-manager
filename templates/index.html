@@ -2574,6 +2574,76 @@
         .history-btn.restore-btn:active {
             transform: scale(0.95);
         }
+
+        /* 帮助按钮和面板样式 */
+        .help-toggle-btn {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            border: none;
+            background: linear-gradient(145deg, #fff9d6, #ffe066);
+            color: #cc9900;
+            cursor: pointer;
+            font-size: 12px;
+            margin-right: 8px;
+            transition: all 0.2s;
+            box-shadow: 0 1px 3px rgba(204, 153, 0, 0.3);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .help-toggle-btn:hover {
+            background: linear-gradient(145deg, #ffe066, #ffd700);
+            box-shadow: 0 2px 6px rgba(204, 153, 0, 0.4);
+            transform: scale(1.1);
+        }
+
+        .help-toggle-btn.active {
+            background: var(--primary);
+            color: white;
+            box-shadow: 0 2px 6px rgba(37, 99, 235, 0.4);
+        }
+
+        .edit-help-panel {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            margin: 8px 0;
+            padding: 12px 16px;
+            font-size: 13px;
+        }
+
+        .help-title {
+            font-weight: 600;
+            margin-bottom: 12px;
+            color: var(--text-primary);
+        }
+
+        .help-example {
+            margin-bottom: 12px;
+            padding: 8px;
+            background: var(--bg-secondary);
+            border-radius: 4px;
+        }
+
+        .help-example:last-child {
+            margin-bottom: 0;
+        }
+
+        .help-example code {
+            display: block;
+            font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+            color: var(--text-secondary);
+            line-height: 1.6;
+        }
+
+        .help-desc {
+            display: block;
+            margin-top: 4px;
+            color: var(--text-muted);
+            font-size: 12px;
+        }
     </style>
 </head>
 
@@ -2656,9 +2726,31 @@
         <div class="history-header">
             <span>Current Version</span>
             <div class="history-header-btns">
+                <button class="help-toggle-btn" onclick="toggleEditHelp()" id="editHelpBtn" title="Syntax Help">?</button>
                 <button class="history-btn diff-btn" onclick="toggleEditMode()" id="editToggleBtn">Edit</button>
                 <button class="history-btn cancel-edit-btn" onclick="cancelEditMode()" id="cancelEditBtn"
                     style="display: none;">Cancel</button>
+            </div>
+        </div>
+        <div class="edit-help-panel" id="editHelpPanel" style="display: none;">
+            <div class="help-content">
+                <div class="help-title">📝 Edit 编辑语法</div>
+                <div class="help-example">
+                    <span class="help-desc">1. 创建新组并添加任务</span>
+                    <code></code>
+                    <code>  ←空行</code>
+                    <code># 新组名称</code>
+                    <code># 任务名称（可选）</code>
+                    <code>* * * * * /path/to/command</code>
+                    <span class="help-desc">→ 空行 + 注释行 + 任务行</span>
+                </div>
+                <div class="help-example">
+                    <span class="help-desc">2. 在已有任务的任务组内添加任务</span>
+                    <code>... 组内已有任务 ...</code>
+                    <code># 任务名称（可选）</code>
+                    <code>* * * * * /path/to/command</code>
+                    <span class="help-desc">→ 紧跟在组内最后一个任务后添加，无空行</span>
+                </div>
             </div>
         </div>
         <div class="raw-editor-section" id="rawEditorSection">
@@ -2990,6 +3082,18 @@
         }
 
         // ========== 历史版本相关 ==========
+
+        function toggleEditHelp() {
+            const panel = document.getElementById('editHelpPanel');
+            const btn = document.getElementById('editHelpBtn');
+            if (panel.style.display === 'none') {
+                panel.style.display = 'block';
+                btn.classList.add('active');
+            } else {
+                panel.style.display = 'none';
+                btn.classList.remove('active');
+            }
+        }
 
         async function toggleEditMode() {
             const textarea = document.getElementById('rawContent');
