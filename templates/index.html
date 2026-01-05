@@ -277,9 +277,52 @@
         }
 
         .log-col-time { min-width: 140px; }
+        .log-col-user, .log-col-action { position: relative; cursor: pointer; }
         .log-col-user { min-width: 80px; }
-        .log-col-action { min-width: 120px; }
+        .log-col-action { min-width: 160px; }
         .log-col-details { flex: 1; }
+
+        .col-filter {
+            font-size: 10px;
+            color: var(--text-muted);
+            margin-left: 4px;
+            transition: color var(--transition-fast);
+        }
+
+        .col-filter:hover, .col-filter.active {
+            color: var(--primary);
+        }
+
+        .filter-dropdown {
+            display: none;
+            position: absolute;
+            top: 100%;
+            left: 0;
+            margin-top: 4px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-md);
+            min-width: 120px;
+            max-height: 320px;
+            overflow-y: auto;
+            z-index: 100;
+        }
+
+        .filter-dropdown.show { display: block; }
+
+        .filter-option {
+            padding: 6px 12px;
+            font-size: 12px;
+            font-weight: normal;
+            color: var(--text-primary);
+            cursor: pointer;
+            transition: background var(--transition-fast);
+        }
+
+        .filter-option:hover { background: var(--bg-hover); }
+        .filter-option.active { background: var(--primary); color: white; }
+        .filter-option.clear { color: var(--text-muted); font-style: italic; }
 
         .log-list {
             background: var(--bg-secondary);
@@ -2511,8 +2554,16 @@
         </div>
         <div class="log-header">
             <span class="log-col-time">Time</span>
-            <span class="log-col-user">User</span>
-            <span class="log-col-action">Action</span>
+            <span class="log-col-user">
+                User
+                <span class="col-filter" onclick="toggleFilterDropdown('user')"><svg width="10" height="10" viewBox="0 0 16 16" fill="currentColor"><path d="M1 2h14l-5.5 6v5l-3 2v-7L1 2z"/></svg></span>
+                <div class="filter-dropdown" id="userFilterDropdown"></div>
+            </span>
+            <span class="log-col-action">
+                Action
+                <span class="col-filter" onclick="toggleFilterDropdown('action')"><svg width="10" height="10" viewBox="0 0 16 16" fill="currentColor"><path d="M1 2h14l-5.5 6v5l-3 2v-7L1 2z"/></svg></span>
+                <div class="filter-dropdown" id="actionFilterDropdown"></div>
+            </span>
             <span class="log-col-details">Details</span>
         </div>
         <div class="log-list" id="logList">
@@ -2834,6 +2885,8 @@
         let allAuditLogs = [];  // 原始日志数据
         let auditLogs = [];     // 过滤后的日志
         let auditCurrentPage = 1;
+        let activeUserFilter = null;
+        let activeActionFilter = null;
         const AUDIT_ROW_HEIGHT = 33; // 每行高度(px): padding 8*2 + font 12 + border 1
         const AUDIT_MIN_PAGE_SIZE = 10;
 
@@ -3099,7 +3152,9 @@
         async function loadAuditLogs() {
             const logList = document.getElementById('logList');
             const pagination = document.getElementById('auditPagination');
-            document.getElementById('auditSearch').value = '';  // 清空搜索框
+            document.getElementById('auditSearch').value = '';
+            activeUserFilter = null;
+            activeActionFilter = null;
             try {
                 const resp = await fetch(`/api/audit_logs/${encodeURIComponent(currentMachine)}`);
                 const logs = await resp.json();
@@ -3107,6 +3162,8 @@
                 if (logs.length === 0) {
                     logList.innerHTML = '<div class="log-empty">No audit logs</div>';
                     pagination.innerHTML = '';
+                    document.getElementById('userFilters').innerHTML = '';
+                    document.getElementById('actionFilters').innerHTML = '';
                     allAuditLogs = [];
                     auditLogs = [];
                     return;
@@ -3115,6 +3172,7 @@
                 allAuditLogs = logs;
                 auditLogs = logs;
                 auditCurrentPage = 1;
+                renderAuditFilters();
                 renderAuditPage();
             } catch (e) {
                 logList.innerHTML = '<div class="log-empty">Failed to load</div>';
@@ -3122,21 +3180,65 @@
             }
         }
 
+        function renderAuditFilters() {
+            const users = [...new Set(allAuditLogs.map(l => l.user))].sort();
+            const actions = [...new Set(allAuditLogs.map(l => l.action))].sort();
+
+            const userDropdown = document.getElementById('userFilterDropdown');
+            const actionDropdown = document.getElementById('actionFilterDropdown');
+
+            userDropdown.innerHTML = `<div class="filter-option clear" onclick="selectFilter('user', null)">All</div>` +
+                users.map(u => `<div class="filter-option${activeUserFilter === u ? ' active' : ''}" onclick="selectFilter('user', '${u}')">${u}</div>`).join('');
+
+            actionDropdown.innerHTML = `<div class="filter-option clear" onclick="selectFilter('action', null)">All</div>` +
+                actions.map(a => `<div class="filter-option${activeActionFilter === a ? ' active' : ''}" onclick="selectFilter('action', '${a}')">${a}</div>`).join('');
+
+            // 更新过滤按钮状态
+            document.querySelectorAll('.log-col-user .col-filter')[0]?.classList.toggle('active', !!activeUserFilter);
+            document.querySelectorAll('.log-col-action .col-filter')[0]?.classList.toggle('active', !!activeActionFilter);
+        }
+
+        function toggleFilterDropdown(type) {
+            const dropdown = document.getElementById(type + 'FilterDropdown');
+            const otherType = type === 'user' ? 'action' : 'user';
+            document.getElementById(otherType + 'FilterDropdown').classList.remove('show');
+            dropdown.classList.toggle('show');
+        }
+
+        function selectFilter(type, value) {
+            if (type === 'user') {
+                activeUserFilter = value;
+            } else {
+                activeActionFilter = value;
+            }
+            document.getElementById(type + 'FilterDropdown').classList.remove('show');
+            renderAuditFilters();
+            filterAuditLogs();
+        }
+
+        // 点击其他地方关闭下拉菜单
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.log-col-user') && !e.target.closest('.log-col-action')) {
+                document.getElementById('userFilterDropdown')?.classList.remove('show');
+                document.getElementById('actionFilterDropdown')?.classList.remove('show');
+            }
+        });
+
         function filterAuditLogs() {
             const keyword = document.getElementById('auditSearch').value.toLowerCase().trim();
-            if (!keyword) {
-                auditLogs = allAuditLogs;
-            } else {
-                auditLogs = allAuditLogs.filter(log => {
-                    const searchText = [
-                        log.timestamp,
-                        log.user,
-                        log.action,
-                        formatLogDetails(log.details)
-                    ].join(' ').toLowerCase();
-                    return searchText.includes(keyword);
-                });
-            }
+
+            auditLogs = allAuditLogs.filter(log => {
+                // 标签过滤
+                if (activeUserFilter && log.user !== activeUserFilter) return false;
+                if (activeActionFilter && log.action !== activeActionFilter) return false;
+                // 关键字过滤
+                if (keyword) {
+                    const searchText = [log.timestamp, log.user, log.action, formatLogDetails(log.details)].join(' ').toLowerCase();
+                    if (!searchText.includes(keyword)) return false;
+                }
+                return true;
+            });
+
             auditCurrentPage = 1;
             renderAuditPage();
         }
