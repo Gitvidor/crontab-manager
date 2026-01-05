@@ -472,45 +472,65 @@
             background: var(--border-color);
         }
 
-        /* 机器选择器 */
-        .machine-selector {
+        /* 主机选择器 */
+        .host-selector {
             display: flex;
             align-items: center;
-            gap: var(--space-2);
+            gap: var(--space-3);
             margin-left: var(--space-4);
             padding-left: var(--space-4);
             border-left: 1px solid var(--border-color);
         }
 
-        .machine-selector select {
-            padding: 6px 28px 6px 10px;
-            border: 1px solid var(--border-color);
+        .host-selector .selector-group {
+            display: flex;
+            align-items: center;
+            background: var(--bg-tertiary);
+            border-radius: var(--radius-md);
+            padding: 4px;
+            gap: 2px;
+        }
+
+        .host-selector .selector-group label {
+            display: flex;
+            align-items: center;
+            gap: var(--space-1);
+            padding: 4px 8px;
+            font-size: 11px;
+            color: var(--text-muted);
+            white-space: nowrap;
+        }
+
+        .host-selector .selector-group label svg {
+            width: 12px;
+            height: 12px;
+            opacity: 0.7;
+        }
+
+        .host-selector select {
+            padding: 4px 24px 4px 8px;
+            border: none;
             border-radius: var(--radius-sm);
-            background: var(--bg-secondary);
+            background: var(--bg-primary);
             color: var(--text-primary);
-            font-size: 13px;
+            font-size: 12px;
+            font-weight: 500;
             cursor: pointer;
             transition: all var(--transition-fast);
             appearance: none;
-            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
             background-repeat: no-repeat;
-            background-position: right 8px center;
+            background-position: right 6px center;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
         }
 
-        .machine-selector select:hover {
-            border-color: var(--primary);
+        .host-selector select:hover {
+            background: var(--bg-secondary);
         }
 
-        .machine-selector select:focus {
+        .host-selector select:focus {
             outline: none;
-            border-color: var(--primary);
-            box-shadow: 0 0 0 2px rgba(74, 144, 217, 0.15);
-        }
-
-        .machine-selector label {
-            font-size: 12px;
-            color: var(--text-secondary);
-            white-space: nowrap;
+            box-shadow: 0 0 0 2px var(--primary-light);
         }
 
         .connection-status {
@@ -1843,7 +1863,7 @@
                 width: 100%;
             }
 
-            .machine-selector {
+            .host-selector {
                 order: 2;
                 width: 100%;
                 margin-left: 0;
@@ -2529,13 +2549,17 @@
             <button class="tab" onclick="switchTab('cron')">Cron Logs</button>
             <button class="tab" onclick="switchTab('logs')">Audit Logs</button>
         </div>
-        <div class="machine-selector">
-            <label>Machine:</label>
-            <select id="machineSelect" onchange="switchMachine(this.value)">
-            </select>
-            <label>User:</label>
-            <select id="linuxUserSelect" onchange="switchLinuxUser(this.value)">
-            </select>
+        <div class="host-selector">
+            <div class="selector-group">
+                <label><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg></label>
+                <select id="machineSelect" onchange="switchMachine(this.value)">
+                </select>
+            </div>
+            <div class="selector-group">
+                <label><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></label>
+                <select id="linuxUserSelect" onchange="switchLinuxUser(this.value)">
+                </select>
+            </div>
             <div class="connection-status" title="Connection status">
                 <span class="status-dot" id="connectionStatus"></span>
             </div>
