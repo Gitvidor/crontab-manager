@@ -247,6 +247,11 @@
             word-break: break-all;
         }
 
+        .cron-cmd-highlight {
+            color: var(--primary);
+            font-weight: 500;
+        }
+
         .cron-raw {
             color: var(--text-secondary);
             font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
@@ -3779,6 +3784,13 @@
             return null;
         }
 
+        // 格式化 details，高亮 CMD() 中的内容
+        function formatCronDetails(details) {
+            const escaped = escapeHtml(details);
+            // 匹配 CMD (...) 并高亮括号内内容
+            return escaped.replace(/CMD\s+\((.+)\)$/, 'CMD (<span class="cron-cmd-highlight">$1</span>)');
+        }
+
         function renderCronPage() {
             const logList = document.getElementById('cronLogList');
             const pagination = document.getElementById('cronPagination');
@@ -3802,7 +3814,7 @@
                     return `<div class="cron-log-line">
                         <span class="cron-time">${escapeHtml(parsed.time)}</span>
                         <span class="cron-host">${escapeHtml(parsed.host)}</span>
-                        <span class="cron-details">${escapeHtml(parsed.details)}</span>
+                        <span class="cron-details">${formatCronDetails(parsed.details)}</span>
                     </div>`;
                 } else {
                     return `<div class="cron-log-line"><span class="cron-raw">${escapeHtml(line)}</span></div>`;
