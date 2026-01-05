@@ -244,9 +244,46 @@
             color: var(--danger);
         }
 
+        .audit-header {
+            margin-bottom: var(--space-2);
+        }
+
+        .audit-search {
+            width: 100%;
+            max-width: 300px;
+            padding: var(--space-2) var(--space-3);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            font-size: 13px;
+            outline: none;
+        }
+
+        .audit-search:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 2px rgba(74, 144, 217, 0.1);
+        }
+
+        .log-header {
+            display: flex;
+            gap: var(--space-3);
+            padding: var(--space-2) var(--space-4);
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-bottom: none;
+            border-radius: var(--radius-md) var(--radius-md) 0 0;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-secondary);
+        }
+
+        .log-col-time { min-width: 140px; }
+        .log-col-user { min-width: 80px; }
+        .log-col-action { min-width: 120px; }
+        .log-col-details { flex: 1; }
+
         .log-list {
             background: var(--bg-secondary);
-            border-radius: var(--radius-md);
+            border-radius: 0 0 var(--radius-md) var(--radius-md);
             border: 1px solid var(--border-color);
             overflow: hidden;
         }
@@ -2469,6 +2506,15 @@
     </div>
 
     <div id="auditLogs" class="audit-logs">
+        <div class="audit-header">
+            <input type="text" id="auditSearch" class="audit-search" placeholder="Search logs..." oninput="filterAuditLogs()">
+        </div>
+        <div class="log-header">
+            <span class="log-col-time">Time</span>
+            <span class="log-col-user">User</span>
+            <span class="log-col-action">Action</span>
+            <span class="log-col-details">Details</span>
+        </div>
         <div class="log-list" id="logList">
             <div class="log-empty">Loading...</div>
         </div>
@@ -2785,7 +2831,8 @@
         const HISTORY_ROW_HEIGHT = 38; // 每行高度(px): padding 8 + content 24 + border 2 + gap 4
         const HISTORY_MIN_PAGE_SIZE = 10;
 
-        let auditLogs = [];
+        let allAuditLogs = [];  // 原始日志数据
+        let auditLogs = [];     // 过滤后的日志
         let auditCurrentPage = 1;
         const AUDIT_ROW_HEIGHT = 33; // 每行高度(px): padding 8*2 + font 12 + border 1
         const AUDIT_MIN_PAGE_SIZE = 10;
@@ -3052,6 +3099,7 @@
         async function loadAuditLogs() {
             const logList = document.getElementById('logList');
             const pagination = document.getElementById('auditPagination');
+            document.getElementById('auditSearch').value = '';  // 清空搜索框
             try {
                 const resp = await fetch(`/api/audit_logs/${encodeURIComponent(currentMachine)}`);
                 const logs = await resp.json();
@@ -3059,9 +3107,12 @@
                 if (logs.length === 0) {
                     logList.innerHTML = '<div class="log-empty">No audit logs</div>';
                     pagination.innerHTML = '';
+                    allAuditLogs = [];
+                    auditLogs = [];
                     return;
                 }
 
+                allAuditLogs = logs;
                 auditLogs = logs;
                 auditCurrentPage = 1;
                 renderAuditPage();
@@ -3071,8 +3122,35 @@
             }
         }
 
+        function filterAuditLogs() {
+            const keyword = document.getElementById('auditSearch').value.toLowerCase().trim();
+            if (!keyword) {
+                auditLogs = allAuditLogs;
+            } else {
+                auditLogs = allAuditLogs.filter(log => {
+                    const searchText = [
+                        log.timestamp,
+                        log.user,
+                        log.action,
+                        formatLogDetails(log.details)
+                    ].join(' ').toLowerCase();
+                    return searchText.includes(keyword);
+                });
+            }
+            auditCurrentPage = 1;
+            renderAuditPage();
+        }
+
         function renderAuditPage() {
             const logList = document.getElementById('logList');
+            const pagination = document.getElementById('auditPagination');
+
+            if (auditLogs.length === 0) {
+                logList.innerHTML = '<div class="log-empty">No matching logs</div>';
+                pagination.innerHTML = '';
+                return;
+            }
+
             const pageSize = getAuditPageSize();
             const totalPages = Math.ceil(auditLogs.length / pageSize);
             // 确保当前页在有效范围内
