@@ -213,13 +213,11 @@
         }
 
         .cron-log-line {
-            padding: var(--space-2) var(--space-3);
+            padding: var(--space-2) var(--space-4);
             border-bottom: 1px solid var(--border-light);
-            font-family: 'SF Mono', Monaco, monospace;
             font-size: 12px;
-            color: var(--text-secondary);
-            word-break: break-all;
-            line-height: 1.5;
+            display: flex;
+            gap: var(--space-4);
         }
 
         .cron-log-line:last-child {
@@ -230,12 +228,35 @@
             background: var(--bg-tertiary);
         }
 
-        .cron-log-line:nth-child(odd) {
-            background: var(--bg-primary);
+        .cron-time {
+            color: var(--text-muted);
+            font-family: 'SF Mono', Monaco, monospace;
+            min-width: 140px;
         }
 
-        .cron-log-line:nth-child(odd):hover {
-            background: var(--bg-tertiary);
+        .cron-host {
+            color: var(--text-secondary);
+            min-width: 100px;
+        }
+
+        .cron-user {
+            color: var(--primary);
+            font-weight: 500;
+            min-width: 80px;
+        }
+
+        .cron-cmd {
+            color: var(--text-secondary);
+            font-family: 'SF Mono', Monaco, monospace;
+            flex: 1;
+            word-break: break-all;
+        }
+
+        .cron-raw {
+            color: var(--text-secondary);
+            font-family: 'SF Mono', Monaco, monospace;
+            flex: 1;
+            word-break: break-all;
         }
 
         .cron-log-error {
@@ -262,7 +283,7 @@
 
         .log-header {
             display: flex;
-            gap: var(--space-3);
+            gap: var(--space-4);
             padding: var(--space-2) var(--space-4);
             background: var(--bg-tertiary);
             border: 1px solid var(--border-color);
@@ -278,6 +299,11 @@
         .log-col-user { min-width: 80px; }
         .log-col-action { min-width: 160px; }
         .log-col-details { flex: 1; }
+
+        .cron-col-time { min-width: 140px; }
+        .cron-col-host { min-width: 100px; }
+        .cron-col-user { min-width: 80px; }
+        .cron-col-cmd { flex: 1; }
 
         .col-filter {
             font-size: 10px;
@@ -333,7 +359,7 @@
             border-bottom: 1px solid var(--border-light);
             font-size: 12px;
             display: flex;
-            gap: var(--space-3);
+            gap: var(--space-4);
         }
 
         .log-item:last-child {
@@ -2540,9 +2566,17 @@
             <span class="cron-log-source">Source: <code id="cronLogSource">-</code></span>
             <button class="refresh-btn" onclick="loadCronLogs()" title="Refresh">⟳</button>
         </div>
+        <input type="text" id="cronSearch" class="audit-search" placeholder="Search logs..." oninput="filterCronLogs()">
+        <div class="log-header">
+            <span class="cron-col-time">Time</span>
+            <span class="cron-col-host">Host</span>
+            <span class="cron-col-user">User</span>
+            <span class="cron-col-cmd">Command</span>
+        </div>
         <div class="cron-log-list" id="cronLogList">
             <div class="log-empty">Loading...</div>
         </div>
+        <div class="pagination" id="cronPagination"></div>
     </div>
 
     <div id="auditLogs" class="audit-logs">
@@ -2888,6 +2922,12 @@
         const AUDIT_ROW_HEIGHT = 33; // 每行高度(px): padding 8*2 + font 12 + border 1
         const AUDIT_MIN_PAGE_SIZE = 10;
 
+        let allCronLogs = [];   // 原始日志数据
+        let cronLogs = [];      // 过滤后的日志
+        let cronCurrentPage = 1;
+        const CRON_ROW_HEIGHT = 24; // 每行高度(px): padding 4*2 + font 12 + border 1
+        const CRON_MIN_PAGE_SIZE = 15;
+
         const PAGE_HEADER_OFFSET = 180; // 页头+tabs+分页栏等固定高度
 
         function getHistoryPageSize() {
@@ -2900,6 +2940,12 @@
             const availableHeight = window.innerHeight - PAGE_HEADER_OFFSET;
             const rows = Math.floor(availableHeight / AUDIT_ROW_HEIGHT);
             return Math.max(AUDIT_MIN_PAGE_SIZE, rows);
+        }
+
+        function getCronPageSize() {
+            const availableHeight = window.innerHeight - PAGE_HEADER_OFFSET;
+            const rows = Math.floor(availableHeight / CRON_ROW_HEIGHT);
+            return Math.max(CRON_MIN_PAGE_SIZE, rows);
         }
 
         async function loadHistory() {
@@ -3334,6 +3380,9 @@
             if (auditLogs.length > 0 && document.getElementById('auditLogs').classList.contains('active')) {
                 renderAuditPage();
             }
+            if (cronLogs.length > 0 && document.getElementById('cronLogs').classList.contains('active')) {
+                renderCronPage();
+            }
         });
 
         function getActionClass(action) {
@@ -3371,8 +3420,10 @@
         // 加载Cron执行日志（支持远程机器）
         async function loadCronLogs() {
             const logList = document.getElementById('cronLogList');
+            const pagination = document.getElementById('cronPagination');
             const sourceEl = document.getElementById('cronLogSource');
             const refreshBtn = document.querySelector('.refresh-btn');
+            document.getElementById('cronSearch').value = '';
 
             // 添加旋转动画
             if (refreshBtn) {
@@ -3388,21 +3439,154 @@
 
                 if (data.error) {
                     logList.innerHTML = `<div class="cron-log-error">${escapeHtml(data.error)}</div>`;
+                    pagination.innerHTML = '';
+                    allCronLogs = [];
+                    cronLogs = [];
                     return;
                 }
 
                 if (!data.logs || data.logs.length === 0) {
                     logList.innerHTML = '<div class="log-empty">No cron execution logs found</div>';
+                    pagination.innerHTML = '';
+                    allCronLogs = [];
+                    cronLogs = [];
                     return;
                 }
 
-                logList.innerHTML = data.logs.map(line =>
-                    `<div class="cron-log-line">${escapeHtml(line)}</div>`
-                ).join('');
+                allCronLogs = data.logs;
+                cronLogs = data.logs;
+                cronCurrentPage = 1;
+                renderCronPage();
             } catch (e) {
                 logList.innerHTML = '<div class="cron-log-error">Failed to load cron logs</div>';
+                pagination.innerHTML = '';
                 sourceEl.textContent = '-';
+                allCronLogs = [];
+                cronLogs = [];
             }
+        }
+
+        function filterCronLogs() {
+            const keyword = document.getElementById('cronSearch').value.toLowerCase().trim();
+
+            cronLogs = allCronLogs.filter(line => {
+                if (!keyword) return true;
+                return line.toLowerCase().includes(keyword);
+            });
+
+            cronCurrentPage = 1;
+            renderCronPage();
+        }
+
+        // 解析 cron log 行
+        // 格式1 (syslog): Jan  5 10:30:01 hostname CRON[12345]: (root) CMD (/path/to/script.sh)
+        // 格式2 (cron): Jan  5 10:30:01 (root) CMD (/path/to/script.sh)
+        function parseCronLogLine(line) {
+            // 格式1: 带 hostname 的 syslog 格式
+            const syslogMatch = line.match(/^(\w{3}\s+\d+\s+\d+:\d+:\d+)\s+(\S+)\s+CRON\[\d+\]:\s*\((\w+)\)\s+CMD\s+\((.+)\)$/);
+            if (syslogMatch) {
+                return {
+                    time: syslogMatch[1],
+                    host: syslogMatch[2],
+                    user: syslogMatch[3],
+                    cmd: syslogMatch[4]
+                };
+            }
+
+            // 格式2: 不带 hostname 的格式
+            const cronMatch = line.match(/^(\w{3}\s+\d+\s+\d+:\d+:\d+)\s+\((\w+)\)\s+CMD\s+\((.+)\)$/);
+            if (cronMatch) {
+                return {
+                    time: cronMatch[1],
+                    host: '-',
+                    user: cronMatch[2],
+                    cmd: cronMatch[3]
+                };
+            }
+
+            // 无法解析，返回原始行
+            return null;
+        }
+
+        function renderCronPage() {
+            const logList = document.getElementById('cronLogList');
+            const pagination = document.getElementById('cronPagination');
+
+            if (cronLogs.length === 0) {
+                logList.innerHTML = '<div class="log-empty">No matching logs</div>';
+                pagination.innerHTML = '';
+                return;
+            }
+
+            const pageSize = getCronPageSize();
+            const totalPages = Math.ceil(cronLogs.length / pageSize);
+            if (cronCurrentPage > totalPages) cronCurrentPage = Math.max(1, totalPages);
+            const start = (cronCurrentPage - 1) * pageSize;
+            const end = start + pageSize;
+            const pageLogs = cronLogs.slice(start, end);
+
+            logList.innerHTML = pageLogs.map(line => {
+                const parsed = parseCronLogLine(line);
+                if (parsed) {
+                    return `<div class="cron-log-line">
+                        <span class="cron-time">${escapeHtml(parsed.time)}</span>
+                        <span class="cron-host">${escapeHtml(parsed.host)}</span>
+                        <span class="cron-user">${escapeHtml(parsed.user)}</span>
+                        <span class="cron-cmd">${escapeHtml(parsed.cmd)}</span>
+                    </div>`;
+                } else {
+                    return `<div class="cron-log-line"><span class="cron-raw">${escapeHtml(line)}</span></div>`;
+                }
+            }).join('');
+
+            renderCronPagination(totalPages);
+        }
+
+        function renderCronPagination(totalPages) {
+            const pagination = document.getElementById('cronPagination');
+            if (totalPages <= 1) {
+                pagination.innerHTML = '';
+                return;
+            }
+
+            let html = '';
+            html += `<button class="page-btn" onclick="goCronPage(1)" ${cronCurrentPage === 1 ? 'disabled' : ''}>«</button>`;
+            html += `<button class="page-btn" onclick="goCronPage(${cronCurrentPage - 1})" ${cronCurrentPage === 1 ? 'disabled' : ''}>‹</button>`;
+
+            const maxVisible = 5;
+            let startPage = Math.max(1, cronCurrentPage - Math.floor(maxVisible / 2));
+            let endPage = Math.min(totalPages, startPage + maxVisible - 1);
+            if (endPage - startPage < maxVisible - 1) {
+                startPage = Math.max(1, endPage - maxVisible + 1);
+            }
+
+            if (startPage > 1) {
+                html += `<button class="page-btn" onclick="goCronPage(1)">1</button>`;
+                if (startPage > 2) html += `<span class="page-info">...</span>`;
+            }
+
+            for (let i = startPage; i <= endPage; i++) {
+                html += `<button class="page-btn ${i === cronCurrentPage ? 'active' : ''}" onclick="goCronPage(${i})">${i}</button>`;
+            }
+
+            if (endPage < totalPages) {
+                if (endPage < totalPages - 1) html += `<span class="page-info">...</span>`;
+                html += `<button class="page-btn" onclick="goCronPage(${totalPages})">${totalPages}</button>`;
+            }
+
+            html += `<button class="page-btn" onclick="goCronPage(${cronCurrentPage + 1})" ${cronCurrentPage === totalPages ? 'disabled' : ''}>›</button>`;
+            html += `<button class="page-btn" onclick="goCronPage(${totalPages})" ${cronCurrentPage === totalPages ? 'disabled' : ''}>»</button>`;
+            html += `<span class="page-info">${cronLogs.length} items</span>`;
+
+            pagination.innerHTML = html;
+        }
+
+        function goCronPage(page) {
+            const pageSize = getCronPageSize();
+            const totalPages = Math.ceil(cronLogs.length / pageSize);
+            if (page < 1 || page > totalPages) return;
+            cronCurrentPage = page;
+            renderCronPage();
         }
 
         // ========== 机器管理 ==========
