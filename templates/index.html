@@ -247,12 +247,6 @@
             word-break: break-all;
         }
 
-        .cron-details-user {
-            color: var(--primary);
-            font-weight: 500;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-        }
-
         .cron-raw {
             color: var(--text-secondary);
             font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
@@ -3740,51 +3734,44 @@
             renderCronPage();
         }
 
-        // 格式化 ISO 8601 时间：去掉 T 和时区
+        // 格式化时间为统一格式 YYYY-MM-DD HH:MM:SS
         function formatCronTime(timeStr) {
             // ISO 8601: 2026-01-05T21:04:02.768617+08:00 -> 2026-01-05 21:04:02
             const isoMatch = timeStr.match(/^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2}:\d{2})/);
             if (isoMatch) {
                 return `${isoMatch[1]} ${isoMatch[2]}`;
             }
+            // Syslog: Jan  5 23:18:01 -> 2026-01-05 23:18:01
+            const months = {Jan:'01',Feb:'02',Mar:'03',Apr:'04',May:'05',Jun:'06',Jul:'07',Aug:'08',Sep:'09',Oct:'10',Nov:'11',Dec:'12'};
+            const syslogMatch = timeStr.match(/^(\w{3})\s+(\d+)\s+(\d+:\d+:\d+)$/);
+            if (syslogMatch) {
+                const month = months[syslogMatch[1]] || '01';
+                const day = syslogMatch[2].padStart(2, '0');
+                const year = new Date().getFullYear();
+                return `${year}-${month}-${day} ${syslogMatch[3]}`;
+            }
             return timeStr;
         }
 
-        // 解析 cron log 行
-        // 格式1 (syslog): Jan  5 10:30:01 hostname CRON[12345]: (root) CMD (/path/to/script.sh)
-        // 格式2 (cron): Jan  5 10:30:01 (root) CMD (/path/to/script.sh)
-        // 格式3 (journald ISO): 2026-01-05T21:04:02.768617+08:00 hostname crontab[12345]: (root) LIST (root)
+        // 解析 cron log 行：time + host + details
         function parseCronLogLine(line) {
-            // 格式3: journald ISO 8601 格式
-            const journaldMatch = line.match(/^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+[+-]\d{2}:\d{2})\s+(\S+)\s+cron(?:tab)?\[\d+\]:\s*\((\w+)\)\s+(.+)$/i);
-            if (journaldMatch) {
+            // 格式1: ISO 8601 时间 - 2026-01-05T21:04:02.768617+08:00 host details...
+            const isoMatch = line.match(/^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+[+-]\d{2}:\d{2})\s+(\S+)\s+(.+)$/);
+            if (isoMatch) {
                 return {
-                    time: formatCronTime(journaldMatch[1]),
-                    host: journaldMatch[2],
-                    user: journaldMatch[3],
-                    cmd: journaldMatch[4]
+                    time: formatCronTime(isoMatch[1]),
+                    host: isoMatch[2],
+                    details: isoMatch[3]
                 };
             }
 
-            // 格式1: 带 hostname 的 syslog 格式
-            const syslogMatch = line.match(/^(\w{3}\s+\d+\s+\d+:\d+:\d+)\s+(\S+)\s+CRON\[\d+\]:\s*\((\w+)\)\s+CMD\s+\((.+)\)$/);
+            // 格式2: Syslog 时间 - Jan  5 23:18:01 host details...
+            const syslogMatch = line.match(/^(\w{3}\s+\d+\s+\d+:\d+:\d+)\s+(\S+)\s+(.+)$/);
             if (syslogMatch) {
                 return {
-                    time: syslogMatch[1],
+                    time: formatCronTime(syslogMatch[1]),
                     host: syslogMatch[2],
-                    user: syslogMatch[3],
-                    cmd: syslogMatch[4]
-                };
-            }
-
-            // 格式2: 不带 hostname 的格式
-            const cronMatch = line.match(/^(\w{3}\s+\d+\s+\d+:\d+:\d+)\s+\((\w+)\)\s+CMD\s+\((.+)\)$/);
-            if (cronMatch) {
-                return {
-                    time: cronMatch[1],
-                    host: '-',
-                    user: cronMatch[2],
-                    cmd: cronMatch[3]
+                    details: syslogMatch[3]
                 };
             }
 
@@ -3815,7 +3802,7 @@
                     return `<div class="cron-log-line">
                         <span class="cron-time">${escapeHtml(parsed.time)}</span>
                         <span class="cron-host">${escapeHtml(parsed.host)}</span>
-                        <span class="cron-details"><span class="cron-details-user">(${escapeHtml(parsed.user)})</span> ${escapeHtml(parsed.cmd)}</span>
+                        <span class="cron-details">${escapeHtml(parsed.details)}</span>
                     </div>`;
                 } else {
                     return `<div class="cron-log-line"><span class="cron-raw">${escapeHtml(line)}</span></div>`;
