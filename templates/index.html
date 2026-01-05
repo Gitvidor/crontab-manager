@@ -3161,13 +3161,12 @@
 
             logList.innerHTML = pageLogs.map(log => {
                 const actionClass = getActionClass(log.action);
-                const actionText = getActionText(log.action);
                 const details = formatLogDetails(log.details);
                 return `
                     <div class="log-item">
                         <span class="log-time">${log.timestamp}</span>
                         <span class="log-user">${log.user}</span>
-                        <span class="log-action ${actionClass}">${actionText}</span>
+                        <span class="log-action ${actionClass}">${log.action}</span>
                         <span class="log-details">${details}</span>
                     </div>
                 `;
@@ -3240,24 +3239,6 @@
             if (action.includes('delete')) return 'delete';
             if (action.includes('update') || action.includes('toggle') || action.includes('save')) return 'update';
             return '';
-        }
-
-        function getActionText(action) {
-            const actionMap = {
-                'login': 'Login',
-                'logout': 'Logout',
-                'add_task': 'Add Task',
-                'add_to_group': 'Add to Group',
-                'update_task': 'Update Task',
-                'delete_task': 'Delete Task',
-                'toggle_task': 'Toggle Task',
-                'toggle_group': 'Toggle Group',
-                'create_group': 'Create Group',
-                'delete_group': 'Delete Group',
-                'update_group_title': 'Rename Group',
-                'save_raw': 'Save Raw'
-            };
-            return actionMap[action] || action;
         }
 
         function formatLogDetails(details) {
