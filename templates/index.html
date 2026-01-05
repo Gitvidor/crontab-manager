@@ -244,18 +244,15 @@
             color: var(--danger);
         }
 
-        .audit-header {
-            margin-bottom: var(--space-2);
-        }
-
         .audit-search {
             width: 100%;
-            max-width: 300px;
             padding: var(--space-2) var(--space-3);
             border: 1px solid var(--border-color);
             border-radius: var(--radius-md);
             font-size: 13px;
             outline: none;
+            margin-bottom: var(--space-2);
+            box-sizing: border-box;
         }
 
         .audit-search:focus {
@@ -2549,9 +2546,10 @@
     </div>
 
     <div id="auditLogs" class="audit-logs">
-        <div class="audit-header">
-            <input type="text" id="auditSearch" class="audit-search" placeholder="Search logs..." oninput="filterAuditLogs()">
+        <div class="cron-log-header">
+            <span class="cron-log-source">Source: <code id="auditLogSource">-</code></span>
         </div>
+        <input type="text" id="auditSearch" class="audit-search" placeholder="Search logs..." oninput="filterAuditLogs()">
         <div class="log-header">
             <span class="log-col-time">Time</span>
             <span class="log-col-user">
@@ -3152,18 +3150,22 @@
         async function loadAuditLogs() {
             const logList = document.getElementById('logList');
             const pagination = document.getElementById('auditPagination');
+            const sourceEl = document.getElementById('auditLogSource');
             document.getElementById('auditSearch').value = '';
             activeUserFilter = null;
             activeActionFilter = null;
+
             try {
                 const resp = await fetch(`/api/audit_logs/${encodeURIComponent(currentMachine)}`);
-                const logs = await resp.json();
+                const data = await resp.json();
+                const logs = data.logs || [];
+
+                // 更新 Source 显示
+                sourceEl.textContent = data.path || '-';
 
                 if (logs.length === 0) {
                     logList.innerHTML = '<div class="log-empty">No audit logs</div>';
                     pagination.innerHTML = '';
-                    document.getElementById('userFilters').innerHTML = '';
-                    document.getElementById('actionFilters').innerHTML = '';
                     allAuditLogs = [];
                     auditLogs = [];
                     return;

@@ -400,7 +400,10 @@ def get_audit_logs(machine_id=None):
                         break
                 except json.JSONDecodeError:
                     continue
-    return jsonify(logs)
+    return jsonify({
+        'path': os.path.abspath(AUDIT_LOG),
+        'logs': logs
+    })
 
 
 # ===== 机器管理 API =====
