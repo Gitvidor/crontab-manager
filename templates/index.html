@@ -372,7 +372,7 @@
         }
 
         .log-time {
-            color: var(--text-muted);
+            color: var(--text-secondary);
             font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
             font-size: 12px;
             min-width: 140px;
@@ -381,7 +381,10 @@
         .log-user {
             color: var(--primary);
             font-weight: 500;
-            min-width: 80px;
+            font-size: 11px;
+            padding: 2px 6px;
+            background: var(--bg-tertiary);
+            border-radius: var(--radius-sm);
         }
 
         .log-action {
@@ -436,7 +439,7 @@
             border: none;
             background: transparent;
             cursor: pointer;
-            font-size: 14px;
+            font-size: 16px;
             font-weight: 600;
             color: var(--text-secondary);
             transition: all var(--transition-fast);
@@ -487,7 +490,7 @@
             align-items: center;
             background: var(--bg-tertiary);
             border-radius: var(--radius-md);
-            padding: 4px;
+            padding: 5px;
             gap: 2px;
         }
 
@@ -495,25 +498,25 @@
             display: flex;
             align-items: center;
             gap: var(--space-1);
-            padding: 4px 8px;
-            font-size: 11px;
+            padding: 5px 10px;
+            font-size: 12px;
             color: var(--text-muted);
             white-space: nowrap;
         }
 
         .host-selector .selector-group label svg {
-            width: 12px;
-            height: 12px;
+            width: 14px;
+            height: 14px;
             opacity: 0.7;
         }
 
         .host-selector select {
-            padding: 4px 24px 4px 8px;
+            padding: 5px 28px 5px 10px;
             border: none;
             border-radius: var(--radius-sm);
             background: var(--bg-primary);
             color: var(--text-primary);
-            font-size: 12px;
+            font-size: 13px;
             font-weight: 500;
             cursor: pointer;
             transition: all var(--transition-fast);
@@ -881,9 +884,9 @@
         }
 
         .history-time {
-            font-family: 'SF Mono', Monaco, monospace;
+            font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
             font-size: 12px;
-            color: var(--text-primary);
+            color: var(--text-secondary);
         }
 
         .history-user {
@@ -892,7 +895,7 @@
             background: var(--bg-tertiary);
             border-radius: var(--radius-sm);
             font-size: 11px;
-            color: var(--text-secondary);
+            color: var(--primary);
         }
 
         .pagination {
