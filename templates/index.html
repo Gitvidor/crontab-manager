@@ -2741,6 +2741,7 @@
         let machines = {};           // 机器配置
         let currentMachine = 'local';
         let currentLinuxUser = 'root';  // 默认用户为 root
+        const collapsedStateMap = new Map();  // 保存每个 machine+user 的折叠状态
 
         // ========== 工具函数 ==========
         // Cron 时间解析为人类可读描述
@@ -3766,8 +3767,48 @@
             });
         }
 
+        // 获取当前 machine+user 的存储 key
+        function getCollapsedStateKey() {
+            return `${currentMachine}:${currentLinuxUser}`;
+        }
+
+        // 保存当前折叠状态到 Map
+        function saveCurrentCollapsedState() {
+            const key = getCollapsedStateKey();
+            const collapsed = [];
+            document.querySelectorAll('.task-group.collapsed').forEach(g => {
+                collapsed.push(g.dataset.groupId);
+            });
+            collapsedStateMap.set(key, collapsed);
+        }
+
+        // 恢复折叠状态（如无保存状态则默认全部折叠）
+        function restoreOrCollapseAll() {
+            const key = getCollapsedStateKey();
+            if (collapsedStateMap.has(key)) {
+                // 恢复保存的状态
+                const collapsedIds = collapsedStateMap.get(key);
+                document.querySelectorAll('.task-group').forEach(g => {
+                    if (collapsedIds.includes(g.dataset.groupId)) {
+                        g.classList.add('collapsed');
+                    } else {
+                        g.classList.remove('collapsed');
+                    }
+                });
+            } else {
+                // 首次访问，默认全部折叠
+                document.querySelectorAll('.task-group').forEach(g => {
+                    g.classList.add('collapsed');
+                });
+            }
+            updateCollapseToggleBtn();
+        }
+
         // 切换机器
         async function switchMachine(machineId) {
+            // 保存当前折叠状态
+            saveCurrentCollapsedState();
+            // 切换机器
             currentMachine = machineId;
             updateLinuxUserSelect();
             await checkMachineStatus();
@@ -3776,18 +3817,23 @@
 
         // 切换 Linux 用户
         async function switchLinuxUser(user) {
+            // 保存当前折叠状态
+            saveCurrentCollapsedState();
+            // 切换用户
             currentLinuxUser = user || 'root';
             refreshCurrentTab();
         }
 
         // 刷新当前标签页内容
-        function refreshCurrentTab() {
+        async function refreshCurrentTab() {
             const activeTab = document.querySelector('.tab.active');
             if (!activeTab) return;
 
             const tabText = activeTab.textContent.trim();
             if (tabText === 'Task List') {
-                loadTasks();
+                await loadTasks();
+                restoreOrCollapseAll();
+                filterTasks();
             } else if (tabText === 'Raw Version') {
                 loadRaw();
                 loadHistory();
