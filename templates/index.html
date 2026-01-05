@@ -2519,7 +2519,7 @@
         // 机器管理
         let machines = {};           // 机器配置
         let currentMachine = 'local';
-        let currentLinuxUser = '';
+        let currentLinuxUser = 'root';  // 默认用户为 root
 
         // ========== 工具函数 ==========
         // Cron 时间解析为人类可读描述
@@ -2611,7 +2611,7 @@
             // 自动添加机器参数
             const bodyData = options.body || {};
             bodyData.machine_id = currentMachine;
-            bodyData.linux_user = currentLinuxUser || '_default_';
+            bodyData.linux_user = currentLinuxUser || 'root';
             const resp = await fetch(url, {
                 method: options.method || 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -2679,7 +2679,7 @@
                         command: undoData.command,
                         enabled: undoData.enabled,
                         machine_id: currentMachine,
-                        linux_user: currentLinuxUser || '_default_'
+                        linux_user: currentLinuxUser || 'root'
                     })
                 });
                 const result = await resp.json();
@@ -2885,7 +2885,7 @@
             }
 
             try {
-                const resp = await fetch(getApiPath(`/api/backup/${filename}`));
+                const resp = await fetch(getApiPath('/api/backup') + `/${encodeURIComponent(filename)}`);
                 const data = await resp.json();
                 if (data.content) {
                     el.classList.add('expanded');
@@ -2938,7 +2938,7 @@
                 // 获取当前版本和备份版本
                 const [currentResp, backupResp] = await Promise.all([
                     fetch(getApiPath('/api/raw')),
-                    fetch(getApiPath(`/api/backup/${filename}`))
+                    fetch(getApiPath('/api/backup') + `/${encodeURIComponent(filename)}`)
                 ]);
                 const currentData = await currentResp.json();
                 const backupData = await backupResp.json();
@@ -3000,10 +3000,10 @@
             if (!confirm(`Restore to backup: ${timestamp}?`)) return;
 
             try {
-                const resp = await fetch(`/api/restore/${filename}`, {
+                const resp = await fetch(getApiPath('/api/restore') + `/${encodeURIComponent(filename)}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ machine_id: currentMachine, linux_user: currentLinuxUser || '_default_' })
+                    body: JSON.stringify({})
                 });
                 const data = await resp.json();
                 if (data.success) {
@@ -3181,15 +3181,18 @@
             const config = machines[currentMachine];
             if (!config) return;
 
-            const users = config.linux_users || [''];
+            // 默认用户列表为 ['root']
+            const users = config.linux_users || ['root'];
             select.innerHTML = '';
             users.forEach((user, idx) => {
                 const option = document.createElement('option');
-                option.value = user || '_default_';
-                option.textContent = user || '(default)';
+                // 用户名不能为空，默认为 root
+                const userName = user || 'root';
+                option.value = userName;
+                option.textContent = userName;
                 if (idx === 0) {
                     option.selected = true;
-                    currentLinuxUser = user;
+                    currentLinuxUser = userName;
                 }
                 select.appendChild(option);
             });
@@ -3206,7 +3209,7 @@
 
         // 切换 Linux 用户
         async function switchLinuxUser(user) {
-            currentLinuxUser = user === '_default_' ? '' : user;
+            currentLinuxUser = user || 'root';
             loadTasks();
             loadHistory();
         }
@@ -3235,7 +3238,7 @@
 
         // 获取 API 路径（带机器参数）
         function getApiPath(base) {
-            const user = currentLinuxUser || '_default_';
+            const user = currentLinuxUser || 'root';
             return `${base}/${encodeURIComponent(currentMachine)}/${encodeURIComponent(user)}`;
         }
 
@@ -3679,7 +3682,7 @@
             const resp = await fetch('/api/create_group', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ title, machine_id: currentMachine, linux_user: currentLinuxUser || '_default_' })
+                body: JSON.stringify({ title, machine_id: currentMachine, linux_user: currentLinuxUser || 'root' })
             });
             const result = await resp.json();
             if (result.success) {
@@ -3726,7 +3729,7 @@
             }
 
             const schedule = `${minute} ${hour} ${day} ${month} ${weekday}`;
-            const body = { schedule, command, machine_id: currentMachine, linux_user: currentLinuxUser || '_default_' };
+            const body = { schedule, command, machine_id: currentMachine, linux_user: currentLinuxUser || 'root' };
             if (name) body.name = name;
             const resp = await fetch(`/api/add_to_group/${groupId}`, {
                 method: 'POST',
@@ -3771,7 +3774,7 @@
                 const resp = await fetch(`/api/update_group_title/${groupId}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ title: newTitle, machine_id: currentMachine, linux_user: currentLinuxUser || '_default_' })
+                    body: JSON.stringify({ title: newTitle, machine_id: currentMachine, linux_user: currentLinuxUser || 'root' })
                 });
                 const result = await resp.json();
                 if (result.success) {
@@ -3821,7 +3824,7 @@
             const resp = await fetch(`/api/toggle_group/${groupId}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ enable, machine_id: currentMachine, linux_user: currentLinuxUser || '_default_' })
+                body: JSON.stringify({ enable, machine_id: currentMachine, linux_user: currentLinuxUser || 'root' })
             });
             const result = await resp.json();
             if (result.success) {
@@ -3875,7 +3878,7 @@
                 const resp = await fetch(`/api/update/${taskId}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ schedule, command, machine_id: currentMachine, linux_user: currentLinuxUser || '_default_' })
+                    body: JSON.stringify({ schedule, command, machine_id: currentMachine, linux_user: currentLinuxUser || 'root' })
                 });
                 const result = await resp.json();
                 if (result.success) {
@@ -3928,7 +3931,7 @@
                 const resp = await fetch(`/api/update_task_name/${taskId}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name: newName, machine_id: currentMachine, linux_user: currentLinuxUser || '_default_' })
+                    body: JSON.stringify({ name: newName, machine_id: currentMachine, linux_user: currentLinuxUser || 'root' })
                 });
                 const result = await resp.json();
 
@@ -3989,7 +3992,7 @@
             const resp = await fetch(`/api/run/${id}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ machine_id: currentMachine, linux_user: currentLinuxUser || '_default_' })
+                body: JSON.stringify({ machine_id: currentMachine, linux_user: currentLinuxUser || 'root' })
             });
             const result = await resp.json();
             if (result.success) {
@@ -4016,7 +4019,7 @@
             const resp = await fetch(`/api/delete/${id}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ machine_id: currentMachine, linux_user: currentLinuxUser || '_default_' })
+                body: JSON.stringify({ machine_id: currentMachine, linux_user: currentLinuxUser || 'root' })
             });
             const result = await resp.json();
             if (result.success) {
@@ -4052,7 +4055,7 @@
             const resp = await fetch(`/api/toggle/${id}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ machine_id: currentMachine, linux_user: currentLinuxUser || '_default_' })
+                body: JSON.stringify({ machine_id: currentMachine, linux_user: currentLinuxUser || 'root' })
             });
             const result = await resp.json();
             if (result.success) {
@@ -4442,7 +4445,7 @@
             const resp = await fetch('/api/reorder_groups', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ from_id: fromId, to_id: toId, insert_before: insertBefore, machine_id: currentMachine, linux_user: currentLinuxUser || '_default_' })
+                body: JSON.stringify({ from_id: fromId, to_id: toId, insert_before: insertBefore, machine_id: currentMachine, linux_user: currentLinuxUser || 'root' })
             });
             const result = await resp.json();
             if (result.success) {
@@ -4508,7 +4511,7 @@
                     to_group_id: toGroupId,
                     insert_before: insertBefore,
                     machine_id: currentMachine,
-                    linux_user: currentLinuxUser || '_default_'
+                    linux_user: currentLinuxUser || 'root'
                 })
             });
             const result = await resp.json();
@@ -4566,7 +4569,7 @@
                     from_group_id: fromGroupId,
                     to_group_id: toGroupId,
                     machine_id: currentMachine,
-                    linux_user: currentLinuxUser || '_default_'
+                    linux_user: currentLinuxUser || 'root'
                 })
             });
             const result = await resp.json();

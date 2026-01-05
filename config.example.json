@@ -7,7 +7,7 @@
         "local": {
             "name": "本机",
             "type": "local",
-            "linux_users": [""]
+            "linux_users": ["root"]
         },
         "server-1": {
             "name": "生产服务器",

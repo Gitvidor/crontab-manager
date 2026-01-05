@@ -31,9 +31,10 @@ USERS = json.loads(os.environ.get('CRONTAB_USERS', 'null')) or config.get('users
 
 # ===== 机器配置 =====
 MACHINES = config.get('machines', {
-    'local': {'name': '本机', 'type': 'local', 'linux_users': ['']}
+    'local': {'name': '本机', 'type': 'local', 'linux_users': ['root']}
 })
 DEFAULT_MACHINE = config.get('default_machine', 'local')
+DEFAULT_LINUX_USER = 'root'  # 默认 Linux 用户
 
 # 执行器缓存 (machine_id -> executor)
 _executors: Dict[str, CrontabExecutor] = {}
@@ -297,11 +298,13 @@ def cleanup_duplicate_backups(backup_subdir: str = None):
 
 def backup_crontab(username=None, machine_id: str = 'local', linux_user: str = ''):
     """备份当前crontab，按机器和 Linux 用户分目录"""
+    # 确保使用默认用户
+    if not linux_user:
+        linux_user = DEFAULT_LINUX_USER
     current = get_crontab_raw(machine_id, linux_user)
     if current:
         # 构建备份子目录
-        safe_linux_user = linux_user or '_default_'
-        backup_subdir = os.path.join(BACKUP_DIR, machine_id, safe_linux_user)
+        backup_subdir = os.path.join(BACKUP_DIR, machine_id, linux_user)
         os.makedirs(backup_subdir, exist_ok=True)
 
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
@@ -482,8 +485,8 @@ def get_cron_logs():
 @login_required
 def get_tasks(machine_id='local', linux_user=''):
     """获取所有任务"""
-    if linux_user == '_default_':
-        linux_user = ''
+    if not linux_user or linux_user == '_default_':
+        linux_user = DEFAULT_LINUX_USER
     tasks = parse_crontab(machine_id, linux_user)
     return jsonify(tasks)
 
@@ -493,8 +496,8 @@ def get_tasks(machine_id='local', linux_user=''):
 @login_required
 def get_raw(machine_id='local', linux_user=''):
     """获取原始crontab"""
-    if linux_user == '_default_':
-        linux_user = ''
+    if not linux_user or linux_user == '_default_':
+        linux_user = DEFAULT_LINUX_USER
     return jsonify({
         'content': get_crontab_raw(machine_id, linux_user),
         'machine_id': machine_id,
@@ -507,8 +510,8 @@ def get_raw(machine_id='local', linux_user=''):
 @login_required
 def save(machine_id='local', linux_user=''):
     """保存原始crontab"""
-    if linux_user == '_default_':
-        linux_user = ''
+    if not linux_user or linux_user == '_default_':
+        linux_user = DEFAULT_LINUX_USER
     content = request.json.get('content', '')
     success, error = save_crontab(content, current_user.id, machine_id, linux_user)
     if success:
@@ -521,10 +524,9 @@ def save(machine_id='local', linux_user=''):
 @login_required
 def get_backups(machine_id='local', linux_user=''):
     """获取所有备份列表，按时间倒序"""
-    if linux_user == '_default_':
-        linux_user = ''
-    safe_linux_user = linux_user or '_default_'
-    backup_subdir = os.path.join(BACKUP_DIR, machine_id, safe_linux_user)
+    if not linux_user or linux_user == '_default_':
+        linux_user = DEFAULT_LINUX_USER
+    backup_subdir = os.path.join(BACKUP_DIR, machine_id, linux_user)
 
     if not os.path.exists(backup_subdir):
         return jsonify({'backups': []})
@@ -553,14 +555,13 @@ def get_backups(machine_id='local', linux_user=''):
 @login_required
 def get_backup_content(filename, machine_id='local', linux_user=''):
     """获取指定备份的内容"""
-    if linux_user == '_default_':
-        linux_user = ''
+    if not linux_user or linux_user == '_default_':
+        linux_user = DEFAULT_LINUX_USER
     # 安全检查：只允许 .bak 文件且不含路径分隔符
     if not filename.endswith('.bak') or '/' in filename or '\\' in filename:
         return jsonify({'error': 'Invalid filename'}), 400
 
-    safe_linux_user = linux_user or '_default_'
-    filepath = os.path.join(BACKUP_DIR, machine_id, safe_linux_user, filename)
+    filepath = os.path.join(BACKUP_DIR, machine_id, linux_user, filename)
     if os.path.exists(filepath):
         with open(filepath, 'r') as f:
             return jsonify({'content': f.read()})
@@ -572,14 +573,13 @@ def get_backup_content(filename, machine_id='local', linux_user=''):
 @login_required
 def restore_backup(filename, machine_id='local', linux_user=''):
     """回滚到指定备份版本"""
-    if linux_user == '_default_':
-        linux_user = ''
+    if not linux_user or linux_user == '_default_':
+        linux_user = DEFAULT_LINUX_USER
     # 安全检查
     if not filename.endswith('.bak') or '/' in filename or '\\' in filename:
         return jsonify({'success': False, 'error': 'Invalid filename'}), 400
 
-    safe_linux_user = linux_user or '_default_'
-    filepath = os.path.join(BACKUP_DIR, machine_id, safe_linux_user, filename)
+    filepath = os.path.join(BACKUP_DIR, machine_id, linux_user, filename)
     if not os.path.exists(filepath):
         return jsonify({'success': False, 'error': 'Backup not found'}), 404
 
@@ -604,8 +604,9 @@ def get_machine_params():
     else:
         machine_id = request.args.get('machine_id', 'local')
         linux_user = request.args.get('linux_user', '')
-    if linux_user == '_default_':
-        linux_user = ''
+    # 空用户或 _default_ 都使用默认用户 root
+    if not linux_user or linux_user == '_default_':
+        linux_user = DEFAULT_LINUX_USER
     return machine_id, linux_user
 
 
