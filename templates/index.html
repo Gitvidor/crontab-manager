@@ -252,11 +252,11 @@
         }
 
         .log-item {
-            padding: var(--space-3) var(--space-4);
+            padding: var(--space-2) var(--space-4);
             border-bottom: 1px solid var(--border-light);
-            font-size: 13px;
+            font-size: 12px;
             display: flex;
-            gap: var(--space-4);
+            gap: var(--space-3);
         }
 
         .log-item:last-child {
@@ -2472,6 +2472,7 @@
         <div class="log-list" id="logList">
             <div class="log-empty">Loading...</div>
         </div>
+        <div class="pagination" id="auditPagination"></div>
     </div>
 
     <div id="message" class="message"></div>
@@ -2783,6 +2784,19 @@
         let historyCurrentPage = 1;
         const HISTORY_PAGE_SIZE = 50;
 
+        let auditLogs = [];
+        let auditCurrentPage = 1;
+        const AUDIT_ROW_HEIGHT = 33; // 每行高度(px): padding 8*2 + font 12 + border 1
+        const AUDIT_MIN_PAGE_SIZE = 10;
+        const AUDIT_HEADER_OFFSET = 180; // 页头+tabs+分页栏等固定高度
+
+        function getAuditPageSize() {
+            // 使用视口高度减去固定元素高度
+            const availableHeight = window.innerHeight - AUDIT_HEADER_OFFSET;
+            const rows = Math.floor(availableHeight / AUDIT_ROW_HEIGHT);
+            return Math.max(AUDIT_MIN_PAGE_SIZE, rows);
+        }
+
         async function loadHistory() {
             const list = document.getElementById('historyList');
             const pagination = document.getElementById('historyPagination');
@@ -3027,32 +3041,106 @@
 
         async function loadAuditLogs() {
             const logList = document.getElementById('logList');
+            const pagination = document.getElementById('auditPagination');
             try {
                 const resp = await fetch(`/api/audit_logs/${encodeURIComponent(currentMachine)}`);
                 const logs = await resp.json();
 
                 if (logs.length === 0) {
                     logList.innerHTML = '<div class="log-empty">No audit logs</div>';
+                    pagination.innerHTML = '';
                     return;
                 }
 
-                logList.innerHTML = logs.map(log => {
-                    const actionClass = getActionClass(log.action);
-                    const actionText = getActionText(log.action);
-                    const details = formatLogDetails(log.details);
-                    return `
-                        <div class="log-item">
-                            <span class="log-time">${log.timestamp}</span>
-                            <span class="log-user">${log.user}</span>
-                            <span class="log-action ${actionClass}">${actionText}</span>
-                            <span class="log-details">${details}</span>
-                        </div>
-                    `;
-                }).join('');
+                auditLogs = logs;
+                auditCurrentPage = 1;
+                renderAuditPage();
             } catch (e) {
                 logList.innerHTML = '<div class="log-empty">Failed to load</div>';
+                pagination.innerHTML = '';
             }
         }
+
+        function renderAuditPage() {
+            const logList = document.getElementById('logList');
+            const pageSize = getAuditPageSize();
+            const totalPages = Math.ceil(auditLogs.length / pageSize);
+            // 确保当前页在有效范围内
+            if (auditCurrentPage > totalPages) auditCurrentPage = Math.max(1, totalPages);
+            const start = (auditCurrentPage - 1) * pageSize;
+            const end = start + pageSize;
+            const pageLogs = auditLogs.slice(start, end);
+
+            logList.innerHTML = pageLogs.map(log => {
+                const actionClass = getActionClass(log.action);
+                const actionText = getActionText(log.action);
+                const details = formatLogDetails(log.details);
+                return `
+                    <div class="log-item">
+                        <span class="log-time">${log.timestamp}</span>
+                        <span class="log-user">${log.user}</span>
+                        <span class="log-action ${actionClass}">${actionText}</span>
+                        <span class="log-details">${details}</span>
+                    </div>
+                `;
+            }).join('');
+
+            renderAuditPagination(totalPages);
+        }
+
+        function renderAuditPagination(totalPages) {
+            const pagination = document.getElementById('auditPagination');
+            if (totalPages <= 1) {
+                pagination.innerHTML = '';
+                return;
+            }
+
+            let html = '';
+            html += `<button class="page-btn" onclick="goAuditPage(1)" ${auditCurrentPage === 1 ? 'disabled' : ''}>«</button>`;
+            html += `<button class="page-btn" onclick="goAuditPage(${auditCurrentPage - 1})" ${auditCurrentPage === 1 ? 'disabled' : ''}>‹</button>`;
+
+            const maxVisible = 5;
+            let startPage = Math.max(1, auditCurrentPage - Math.floor(maxVisible / 2));
+            let endPage = Math.min(totalPages, startPage + maxVisible - 1);
+            if (endPage - startPage < maxVisible - 1) {
+                startPage = Math.max(1, endPage - maxVisible + 1);
+            }
+
+            if (startPage > 1) {
+                html += `<button class="page-btn" onclick="goAuditPage(1)">1</button>`;
+                if (startPage > 2) html += `<span class="page-info">...</span>`;
+            }
+
+            for (let i = startPage; i <= endPage; i++) {
+                html += `<button class="page-btn ${i === auditCurrentPage ? 'active' : ''}" onclick="goAuditPage(${i})">${i}</button>`;
+            }
+
+            if (endPage < totalPages) {
+                if (endPage < totalPages - 1) html += `<span class="page-info">...</span>`;
+                html += `<button class="page-btn" onclick="goAuditPage(${totalPages})">${totalPages}</button>`;
+            }
+
+            html += `<button class="page-btn" onclick="goAuditPage(${auditCurrentPage + 1})" ${auditCurrentPage === totalPages ? 'disabled' : ''}>›</button>`;
+            html += `<button class="page-btn" onclick="goAuditPage(${totalPages})" ${auditCurrentPage === totalPages ? 'disabled' : ''}>»</button>`;
+            html += `<span class="page-info">${auditLogs.length} items</span>`;
+
+            pagination.innerHTML = html;
+        }
+
+        function goAuditPage(page) {
+            const pageSize = getAuditPageSize();
+            const totalPages = Math.ceil(auditLogs.length / pageSize);
+            if (page < 1 || page > totalPages) return;
+            auditCurrentPage = page;
+            renderAuditPage();
+        }
+
+        // 窗口大小变化时重新渲染审计日志
+        window.addEventListener('resize', () => {
+            if (auditLogs.length > 0 && document.getElementById('auditLogs').classList.contains('active')) {
+                renderAuditPage();
+            }
+        });
 
         function getActionClass(action) {
             if (action.includes('login')) return 'login';

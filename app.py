@@ -396,7 +396,7 @@ def get_audit_logs(machine_id=None):
                         if log_machine != machine_id:
                             continue
                     logs.append(log)
-                    if len(logs) >= 100:  # 最多返回100条
+                    if len(logs) >= 500:  # 最多返回500条
                         break
                 except json.JSONDecodeError:
                     continue
