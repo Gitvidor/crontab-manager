@@ -2350,12 +2350,45 @@
         }
 
         .diff-panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
             padding: var(--space-2) var(--space-3);
             background: var(--bg-tertiary);
             border-radius: var(--radius-sm) var(--radius-sm) 0 0;
             font-weight: 500;
             font-size: 13px;
             color: var(--text-secondary);
+        }
+
+        .diff-nav-btn {
+            background: var(--primary);
+            border: 1px solid var(--primary);
+            border-radius: var(--radius-sm);
+            width: 48px;
+            height: 24px;
+            font-size: 14px;
+            cursor: pointer;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.15s ease;
+        }
+
+        .diff-nav-btn:hover:not(:disabled) {
+            background: var(--primary-hover);
+            border-color: var(--primary-hover);
+        }
+
+        .diff-nav-btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        .diff-nav-placeholder {
+            width: 48px;
+            height: 24px;
         }
 
         .diff-content {
@@ -2623,11 +2656,19 @@
             </div>
             <div class="diff-modal-body">
                 <div class="diff-panel">
-                    <div class="diff-panel-header">Backup: <span id="diffBackupTime"></span></div>
+                    <div class="diff-panel-header">
+                        <button class="diff-nav-btn" id="diffPrevBtn" onclick="navigateDiff(-1)" title="Previous version">‹</button>
+                        <span>Backup: <span id="diffBackupTime"></span></span>
+                        <button class="diff-nav-btn" id="diffNextBtn" onclick="navigateDiff(1)" title="Next version">›</button>
+                    </div>
                     <pre class="diff-content" id="diffBackup"></pre>
                 </div>
                 <div class="diff-panel">
-                    <div class="diff-panel-header">Current</div>
+                    <div class="diff-panel-header">
+                        <span class="diff-nav-placeholder"></span>
+                        <span>Current</span>
+                        <span class="diff-nav-placeholder"></span>
+                    </div>
                     <pre class="diff-content" id="diffCurrent"></pre>
                 </div>
             </div>
@@ -2912,6 +2953,7 @@
         // 历史版本分页
         let historyBackups = [];
         let historyCurrentPage = 1;
+        let currentDiffBackupIndex = -1;  // 当前 diff 显示的备份索引
         const HISTORY_ROW_HEIGHT = 38; // 每行高度(px): padding 8 + content 24 + border 2 + gap 4
         const HISTORY_MIN_PAGE_SIZE = 10;
 
@@ -3104,6 +3146,9 @@
 
         async function showDiff(filename, timestamp) {
             try {
+                // 查找当前备份索引
+                currentDiffBackupIndex = historyBackups.findIndex(b => b.filename === filename);
+
                 // 获取当前版本和备份版本
                 const [currentResp, backupResp] = await Promise.all([
                     fetch(getApiPath('/api/raw')),
@@ -3137,11 +3182,36 @@
                 document.getElementById('diffBackupTime').textContent = timestamp;
                 document.getElementById('diffModal').classList.add('show');
 
+                // 更新导航按钮状态
+                updateDiffNavButtons();
+
                 // 设置同步滚动
                 setupSyncScroll();
             } catch (e) {
                 showMessage('Failed to load diff', 'error');
             }
+        }
+
+        // 更新 diff 导航按钮状态
+        function updateDiffNavButtons() {
+            const prevBtn = document.getElementById('diffPrevBtn');
+            const nextBtn = document.getElementById('diffNextBtn');
+            // 索引越小 = 越新，索引越大 = 越旧
+            // prev 按钮：切换到更旧的版本（索引+1）
+            // next 按钮：切换到更新的版本（索引-1）
+            prevBtn.disabled = currentDiffBackupIndex >= historyBackups.length - 1;
+            nextBtn.disabled = currentDiffBackupIndex <= 0;
+        }
+
+        // 导航到上一个/下一个备份版本
+        async function navigateDiff(direction) {
+            // direction: -1 = 更旧的版本（索引+1），1 = 更新的版本（索引-1）
+            const newIndex = currentDiffBackupIndex - direction;
+            if (newIndex < 0 || newIndex >= historyBackups.length) return;
+
+            const backup = historyBackups[newIndex];
+            const ts = backup.timestamp.replace(/_/, ' ').replace(/(\d{4})(\d{2})(\d{2}) (\d{2})(\d{2})(\d{2})/, '$1-$2-$3 $4:$5:$6');
+            await showDiff(backup.filename, ts);
         }
 
         function setupSyncScroll() {
