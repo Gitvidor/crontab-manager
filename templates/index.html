@@ -435,15 +435,21 @@
         }
 
         .tab {
-            padding: 8px 16px;
+            padding: 8px 18px;
             border: none;
             background: transparent;
             cursor: pointer;
-            font-size: 16px;
-            font-weight: 600;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+            font-size: 15px;
+            font-weight: 500;
+            letter-spacing: 0.3px;
             color: var(--text-secondary);
             transition: all var(--transition-fast);
             position: relative;
+        }
+
+        .tab:hover:not(.active) {
+            color: var(--text-primary);
         }
 
         .tab::after {
@@ -456,18 +462,16 @@
             height: 2px;
             background: var(--primary);
             transition: width var(--transition-fast);
+            border-radius: 1px;
         }
 
         .tab.active {
             color: var(--primary);
+            font-weight: 600;
         }
 
         .tab.active::after {
             width: 100%;
-        }
-
-        .tab:hover:not(.active) {
-            color: var(--text-primary);
         }
 
         .tab:hover:not(.active)::after {
@@ -490,49 +494,53 @@
             align-items: center;
             background: var(--bg-tertiary);
             border-radius: var(--radius-md);
-            padding: 5px;
-            gap: 2px;
+            padding: 4px;
+            gap: 4px;
         }
 
         .host-selector .selector-group label {
             display: flex;
             align-items: center;
-            gap: var(--space-1);
-            padding: 5px 10px;
-            font-size: 12px;
+            justify-content: center;
+            padding: 6px 8px;
             color: var(--text-muted);
-            white-space: nowrap;
+            border-radius: var(--radius-sm);
         }
 
         .host-selector .selector-group label svg {
-            width: 14px;
-            height: 14px;
-            opacity: 0.7;
+            width: 15px;
+            height: 15px;
+            opacity: 0.6;
         }
 
         .host-selector select {
-            padding: 5px 28px 5px 10px;
-            border: none;
+            padding: 6px 30px 6px 12px;
+            border: 1px solid transparent;
             border-radius: var(--radius-sm);
             background: var(--bg-primary);
             color: var(--text-primary);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
             font-size: 13px;
             font-weight: 500;
             cursor: pointer;
-            transition: all var(--transition-fast);
+            transition: all 0.2s ease;
             appearance: none;
-            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%234a90d9' stroke-width='2.5'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
             background-repeat: no-repeat;
-            background-position: right 6px center;
-            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+            background-position: right 8px center;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+            min-width: 100px;
         }
 
         .host-selector select:hover {
-            background: var(--bg-secondary);
+            background-color: var(--bg-secondary);
+            border-color: var(--border-color);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
         }
 
         .host-selector select:focus {
             outline: none;
+            border-color: var(--primary);
             box-shadow: 0 0 0 2px var(--primary-light);
         }
 
