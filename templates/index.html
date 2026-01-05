@@ -3028,7 +3028,7 @@
         async function loadAuditLogs() {
             const logList = document.getElementById('logList');
             try {
-                const resp = await fetch('/api/audit_logs');
+                const resp = await fetch(`/api/audit_logs/${encodeURIComponent(currentMachine)}`);
                 const logs = await resp.json();
 
                 if (logs.length === 0) {
@@ -3104,7 +3104,7 @@
             return parts.length > 0 ? parts.join(' | ') : JSON.stringify(details);
         }
 
-        // 加载Cron执行日志
+        // 加载Cron执行日志（支持远程机器）
         async function loadCronLogs() {
             const logList = document.getElementById('cronLogList');
             const sourceEl = document.getElementById('cronLogSource');
@@ -3117,7 +3117,7 @@
             }
 
             try {
-                const resp = await fetch('/api/cron_logs');
+                const resp = await fetch(`/api/cron_logs/${encodeURIComponent(currentMachine)}`);
                 const data = await resp.json();
 
                 sourceEl.textContent = data.source || '-';
@@ -3203,16 +3203,33 @@
             currentMachine = machineId;
             updateLinuxUserSelect();
             await checkMachineStatus();
-            loadTasks();
-            loadHistory();
+            refreshCurrentTab();
         }
 
         // 切换 Linux 用户
         async function switchLinuxUser(user) {
             currentLinuxUser = user || 'root';
-            loadTasks();
-            loadHistory();
+            refreshCurrentTab();
         }
+
+        // 刷新当前标签页内容
+        function refreshCurrentTab() {
+            const activeTab = document.querySelector('.tab.active');
+            if (!activeTab) return;
+
+            const tabText = activeTab.textContent.trim();
+            if (tabText === 'Task List') {
+                loadTasks();
+            } else if (tabText === 'Raw Version') {
+                loadRaw();
+                loadHistory();
+            } else if (tabText === 'Cron Logs') {
+                loadCronLogs();
+            } else if (tabText === 'Audit Logs') {
+                loadAuditLogs();
+            }
+        }
+
 
         // 检查机器连接状态
         async function checkMachineStatus() {

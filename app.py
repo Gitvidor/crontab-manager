@@ -379,16 +379,25 @@ def get_current_user():
 
 
 @app.route('/api/audit_logs')
+@app.route('/api/audit_logs/<machine_id>')
 @login_required
-def get_audit_logs():
-    """获取审计日志"""
+def get_audit_logs(machine_id=None):
+    """获取审计日志（可按机器筛选）"""
     logs = []
     if os.path.exists(AUDIT_LOG):
         with open(AUDIT_LOG, "r", encoding="utf-8") as f:
-            lines = f.readlines()[-100:]  # 最近 100 条
+            lines = f.readlines()[-500:]  # 读取更多行以便筛选
             for line in reversed(lines):
                 try:
-                    logs.append(json.loads(line.strip()))
+                    log = json.loads(line.strip())
+                    # 如果指定了机器，只返回该机器的日志
+                    if machine_id:
+                        log_machine = log.get('details', {}).get('machine', 'local') if log.get('details') else 'local'
+                        if log_machine != machine_id:
+                            continue
+                    logs.append(log)
+                    if len(logs) >= 100:  # 最多返回100条
+                        break
                 except json.JSONDecodeError:
                     continue
     return jsonify(logs)
@@ -436,48 +445,48 @@ def get_machine_status(machine_id):
 
 
 @app.route('/api/cron_logs')
+@app.route('/api/cron_logs/<machine_id>')
 @login_required
-def get_cron_logs():
-    """获取系统cron执行日志"""
-    logs = []
+def get_cron_logs(machine_id='local'):
+    """获取系统cron执行日志（支持远程机器）"""
     cron_log_paths = [
         '/var/log/cron',           # RHEL/CentOS
         '/var/log/cron.log',       # Some systems
         '/var/log/syslog',         # Debian/Ubuntu (需过滤CRON)
     ]
 
-    log_file = None
-    for path in cron_log_paths:
-        if os.path.exists(path):
-            log_file = path
-            break
-
-    if not log_file:
-        return jsonify({'logs': [], 'source': 'none', 'error': 'No cron log file found'})
-
     try:
-        # 读取最近500行
-        result = subprocess.run(
-            ['tail', '-n', '500', log_file],
-            capture_output=True, text=True, timeout=10
-        )
-        if result.returncode != 0:
-            return jsonify({'logs': [], 'source': log_file, 'error': result.stderr})
+        executor = get_machine_executor(machine_id)
+        machine_name = MACHINES.get(machine_id, {}).get('name', machine_id)
 
-        lines = result.stdout.strip().split('\n')
+        # 查找可用的日志文件
+        log_file = None
+        for path in cron_log_paths:
+            returncode, stdout, stderr = executor.run_command(f'test -f {path} && echo exists')
+            if 'exists' in stdout:
+                log_file = path
+                break
+
+        if not log_file:
+            return jsonify({'logs': [], 'source': f'{machine_name}: none', 'error': 'No cron log file found'})
+
+        # 读取最近500行
+        returncode, stdout, stderr = executor.run_command(f'tail -n 500 {log_file}')
+        if returncode != 0:
+            return jsonify({'logs': [], 'source': f'{machine_name}: {log_file}', 'error': stderr})
+
+        lines = stdout.strip().split('\n')
 
         # 如果是syslog，过滤CRON相关行
         if 'syslog' in log_file:
             lines = [l for l in lines if 'CRON' in l or 'cron' in l.lower()]
 
         # 取最近200条并倒序
-        logs = list(reversed(lines[-200:])) if lines else []
+        logs = list(reversed(lines[-200:])) if lines and lines[0] else []
 
-        return jsonify({'logs': logs, 'source': log_file, 'error': None})
-    except subprocess.TimeoutExpired:
-        return jsonify({'logs': [], 'source': log_file, 'error': 'Timeout reading log file'})
+        return jsonify({'logs': logs, 'source': f'{machine_name}: {log_file}', 'error': None})
     except Exception as e:
-        return jsonify({'logs': [], 'source': log_file, 'error': str(e)})
+        return jsonify({'logs': [], 'source': machine_id, 'error': str(e)})
 
 
 @app.route('/api/tasks')
