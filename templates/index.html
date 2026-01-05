@@ -2782,17 +2782,24 @@
         // 历史版本分页
         let historyBackups = [];
         let historyCurrentPage = 1;
-        const HISTORY_PAGE_SIZE = 50;
+        const HISTORY_ROW_HEIGHT = 38; // 每行高度(px): padding 8 + content 24 + border 2 + gap 4
+        const HISTORY_MIN_PAGE_SIZE = 10;
 
         let auditLogs = [];
         let auditCurrentPage = 1;
         const AUDIT_ROW_HEIGHT = 33; // 每行高度(px): padding 8*2 + font 12 + border 1
         const AUDIT_MIN_PAGE_SIZE = 10;
-        const AUDIT_HEADER_OFFSET = 180; // 页头+tabs+分页栏等固定高度
+
+        const PAGE_HEADER_OFFSET = 180; // 页头+tabs+分页栏等固定高度
+
+        function getHistoryPageSize() {
+            const availableHeight = window.innerHeight - PAGE_HEADER_OFFSET;
+            const rows = Math.floor(availableHeight / HISTORY_ROW_HEIGHT);
+            return Math.max(HISTORY_MIN_PAGE_SIZE, rows);
+        }
 
         function getAuditPageSize() {
-            // 使用视口高度减去固定元素高度
-            const availableHeight = window.innerHeight - AUDIT_HEADER_OFFSET;
+            const availableHeight = window.innerHeight - PAGE_HEADER_OFFSET;
             const rows = Math.floor(availableHeight / AUDIT_ROW_HEIGHT);
             return Math.max(AUDIT_MIN_PAGE_SIZE, rows);
         }
@@ -2821,9 +2828,11 @@
 
         function renderHistoryPage() {
             const list = document.getElementById('historyList');
-            const totalPages = Math.ceil(historyBackups.length / HISTORY_PAGE_SIZE);
-            const start = (historyCurrentPage - 1) * HISTORY_PAGE_SIZE;
-            const end = start + HISTORY_PAGE_SIZE;
+            const pageSize = getHistoryPageSize();
+            const totalPages = Math.ceil(historyBackups.length / pageSize);
+            if (historyCurrentPage > totalPages) historyCurrentPage = Math.max(1, totalPages);
+            const start = (historyCurrentPage - 1) * pageSize;
+            const end = start + pageSize;
             const pageBackups = historyBackups.slice(start, end);
 
             list.innerHTML = pageBackups.map(b => {
@@ -2885,7 +2894,8 @@
         }
 
         function goHistoryPage(page) {
-            const totalPages = Math.ceil(historyBackups.length / HISTORY_PAGE_SIZE);
+            const pageSize = getHistoryPageSize();
+            const totalPages = Math.ceil(historyBackups.length / pageSize);
             if (page < 1 || page > totalPages) return;
             historyCurrentPage = page;
             renderHistoryPage();
@@ -3135,8 +3145,11 @@
             renderAuditPage();
         }
 
-        // 窗口大小变化时重新渲染审计日志
+        // 窗口大小变化时重新渲染分页
         window.addEventListener('resize', () => {
+            if (historyBackups.length > 0 && document.getElementById('historyView').classList.contains('active')) {
+                renderHistoryPage();
+            }
             if (auditLogs.length > 0 && document.getElementById('auditLogs').classList.contains('active')) {
                 renderAuditPage();
             }
