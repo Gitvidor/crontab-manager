@@ -631,13 +631,17 @@
             font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
         }
 
+        .task-name-row {
+            display: flex;
+            align-items: center;
+            margin-bottom: 2px;
+        }
+
         .task-name {
             font-size: 11px;
             font-weight: 600;
             color: var(--primary);
-            margin-bottom: 2px;
             cursor: pointer;
-            width: fit-content;
         }
 
         .task-name:hover {
@@ -652,6 +656,19 @@
 
         .task-name-empty:hover {
             color: var(--primary);
+        }
+
+        .task-group-label {
+            color: var(--text-muted);
+            font-size: 11px;
+            font-weight: 600;
+            margin-left: var(--space-2);
+            display: none;
+        }
+
+        /* Active/Paused 模式下显示 group label */
+        .task-list.flat-view .task-group-label {
+            display: inline;
         }
 
         .task-command {
@@ -3796,6 +3813,7 @@
             const taskName = displayName
                 ? `<span class="task-name editable" ondblclick="editTaskName(${task.id},this)" title="Double-click to edit">${escapeHtml(displayName)}</span>`
                 : `<span class="task-name task-name-empty editable" onclick="editTaskName(${task.id},this)" title="Click to enter task name"> Task name</span>`;
+            const groupLabel = `<span class="task-group-label">| ${escapeHtml(group.title || 'Unnamed Group')}</span>`;
 
             return `
             <div class="task-card ${task.enabled ? '' : 'disabled'}" id="task-${task.id}"
@@ -3807,7 +3825,7 @@
                 <span class="drag-handle" title="Drag to reorder" onmousedown="enableDrag(this.parentElement)" onmouseup="disableDrag(this.parentElement)" ontouchstart="enableDrag(this.parentElement)" ontouchend="disableDrag(this.parentElement)">⋮⋮</span>
                 <div class="toggle ${task.enabled ? 'on' : ''}" onclick="toggleTask(${task.id})"></div>
                 <div class="task-info">
-                    ${taskName}
+                    <div class="task-name-row">${taskName}${groupLabel}</div>
                     <div class="task-schedule-wrapper">
                         <div class="cron-tooltip">${cronDescription}</div>
                         <div class="task-schedule">
