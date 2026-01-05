@@ -3742,10 +3742,32 @@
             renderCronPage();
         }
 
+        // 格式化 ISO 8601 时间：去掉 T 和时区
+        function formatCronTime(timeStr) {
+            // ISO 8601: 2026-01-05T21:04:02.768617+08:00 -> 2026-01-05 21:04:02
+            const isoMatch = timeStr.match(/^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2}:\d{2})/);
+            if (isoMatch) {
+                return `${isoMatch[1]} ${isoMatch[2]}`;
+            }
+            return timeStr;
+        }
+
         // 解析 cron log 行
         // 格式1 (syslog): Jan  5 10:30:01 hostname CRON[12345]: (root) CMD (/path/to/script.sh)
         // 格式2 (cron): Jan  5 10:30:01 (root) CMD (/path/to/script.sh)
+        // 格式3 (journald ISO): 2026-01-05T21:04:02.768617+08:00 hostname crontab[12345]: (root) LIST (root)
         function parseCronLogLine(line) {
+            // 格式3: journald ISO 8601 格式
+            const journaldMatch = line.match(/^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+[+-]\d{2}:\d{2})\s+(\S+)\s+cron(?:tab)?\[\d+\]:\s*\((\w+)\)\s+(.+)$/i);
+            if (journaldMatch) {
+                return {
+                    time: formatCronTime(journaldMatch[1]),
+                    host: journaldMatch[2],
+                    user: journaldMatch[3],
+                    cmd: journaldMatch[4]
+                };
+            }
+
             // 格式1: 带 hostname 的 syslog 格式
             const syslogMatch = line.match(/^(\w{3}\s+\d+\s+\d+:\d+:\d+)\s+(\S+)\s+CRON\[\d+\]:\s*\((\w+)\)\s+CMD\s+\((.+)\)$/);
             if (syslogMatch) {
