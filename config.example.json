@@ -2,5 +2,22 @@
     "secret_key": "your-secret-key-change-in-production",
     "users": {
         "admin": "admin123"
-    }
+    },
+    "machines": {
+        "local": {
+            "name": "本机",
+            "type": "local",
+            "linux_users": [""]
+        },
+        "server-1": {
+            "name": "生产服务器",
+            "type": "ssh",
+            "host": "192.168.1.100",
+            "port": 22,
+            "ssh_user": "root",
+            "ssh_key": "/root/.ssh/id_rsa",
+            "linux_users": ["root", "www"]
+        }
+    },
+    "default_machine": "local"
 }

@@ -368,6 +368,80 @@
             background: var(--border-color);
         }
 
+        /* 机器选择器 */
+        .machine-selector {
+            display: flex;
+            align-items: center;
+            gap: var(--space-2);
+            margin-left: var(--space-4);
+            padding-left: var(--space-4);
+            border-left: 1px solid var(--border-color);
+        }
+
+        .machine-selector select {
+            padding: 6px 28px 6px 10px;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            font-size: 13px;
+            cursor: pointer;
+            transition: all var(--transition-fast);
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 8px center;
+        }
+
+        .machine-selector select:hover {
+            border-color: var(--primary);
+        }
+
+        .machine-selector select:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 2px rgba(74, 144, 217, 0.15);
+        }
+
+        .machine-selector label {
+            font-size: 12px;
+            color: var(--text-secondary);
+            white-space: nowrap;
+        }
+
+        .connection-status {
+            display: flex;
+            align-items: center;
+            gap: var(--space-1);
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--text-muted);
+            transition: background var(--transition-fast);
+        }
+
+        .status-dot.connected {
+            background: var(--success);
+            box-shadow: 0 0 4px var(--success);
+        }
+
+        .status-dot.disconnected {
+            background: var(--danger);
+        }
+
+        .status-dot.checking {
+            background: var(--warning);
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
         /* 任务列表视图 */
         .task-list {
             display: none;
@@ -1643,6 +1717,16 @@
                 width: 100%;
             }
 
+            .machine-selector {
+                order: 2;
+                width: 100%;
+                margin-left: 0;
+                padding-left: 0;
+                border-left: none;
+                padding-top: var(--space-2);
+                border-top: 1px solid var(--border-color);
+            }
+
             .collapse-controls {
                 flex-wrap: wrap;
                 gap: var(--space-2);
@@ -2286,6 +2370,17 @@
             <button class="tab" onclick="switchTab('cron')">Cron Logs</button>
             <button class="tab" onclick="switchTab('logs')">Audit Logs</button>
         </div>
+        <div class="machine-selector">
+            <label>Machine:</label>
+            <select id="machineSelect" onchange="switchMachine(this.value)">
+            </select>
+            <label>User:</label>
+            <select id="linuxUserSelect" onchange="switchLinuxUser(this.value)">
+            </select>
+            <div class="connection-status" title="Connection status">
+                <span class="status-dot" id="connectionStatus"></span>
+            </div>
+        </div>
         <div class="user-info">
             <span class="user-name"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                     stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -2421,6 +2516,10 @@
         let lastDragOverTarget = null;
         let isDragging = false;
         let dragPlaceholder = null;  // 拖拽占位符元素
+        // 机器管理
+        let machines = {};           // 机器配置
+        let currentMachine = 'local';
+        let currentLinuxUser = '';
 
         // ========== 工具函数 ==========
         // Cron 时间解析为人类可读描述
@@ -2509,10 +2608,14 @@
 
         // 通用 API 调用封装
         async function apiCall(url, options = {}) {
+            // 自动添加机器参数
+            const bodyData = options.body || {};
+            bodyData.machine_id = currentMachine;
+            bodyData.linux_user = currentLinuxUser || '_default_';
             const resp = await fetch(url, {
                 method: options.method || 'POST',
-                headers: options.body ? { 'Content-Type': 'application/json' } : undefined,
-                body: options.body ? JSON.stringify(options.body) : undefined
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(bodyData)
             });
             const result = await resp.json();
             if (result.success) {
@@ -2574,7 +2677,9 @@
                     body: JSON.stringify({
                         schedule: undoData.schedule,
                         command: undoData.command,
-                        enabled: undoData.enabled
+                        enabled: undoData.enabled,
+                        machine_id: currentMachine,
+                        linux_user: currentLinuxUser || '_default_'
                     })
                 });
                 const result = await resp.json();
@@ -2682,7 +2787,7 @@
             const list = document.getElementById('historyList');
             const pagination = document.getElementById('historyPagination');
             try {
-                const resp = await fetch('/api/backups');
+                const resp = await fetch(getApiPath('/api/backups'));
                 const data = await resp.json();
 
                 if (!data.backups?.length) {
@@ -2780,7 +2885,7 @@
             }
 
             try {
-                const resp = await fetch(`/api/backup/${filename}`);
+                const resp = await fetch(getApiPath(`/api/backup/${filename}`));
                 const data = await resp.json();
                 if (data.content) {
                     el.classList.add('expanded');
@@ -2832,8 +2937,8 @@
             try {
                 // 获取当前版本和备份版本
                 const [currentResp, backupResp] = await Promise.all([
-                    fetch('/api/raw'),
-                    fetch(`/api/backup/${filename}`)
+                    fetch(getApiPath('/api/raw')),
+                    fetch(getApiPath(`/api/backup/${filename}`))
                 ]);
                 const currentData = await currentResp.json();
                 const backupData = await backupResp.json();
@@ -2895,7 +3000,11 @@
             if (!confirm(`Restore to backup: ${timestamp}?`)) return;
 
             try {
-                const resp = await fetch(`/api/restore/${filename}`, { method: 'POST' });
+                const resp = await fetch(`/api/restore/${filename}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ machine_id: currentMachine, linux_user: currentLinuxUser || '_default_' })
+                });
                 const data = await resp.json();
                 if (data.success) {
                     showMessage('Restored successfully', 'success');
@@ -3032,10 +3141,108 @@
             }
         }
 
+        // ========== 机器管理 ==========
+
+        // 加载机器列表
+        async function loadMachines() {
+            try {
+                const res = await fetch('/api/machines');
+                const data = await res.json();
+                // 将数组转换为以 id 为 key 的对象
+                machines = {};
+                data.machines.forEach(m => {
+                    machines[m.id] = m;
+                });
+                currentMachine = data.default || 'local';
+
+                // 填充机器选择器
+                const select = document.getElementById('machineSelect');
+                select.innerHTML = '';
+                for (const [id, config] of Object.entries(machines)) {
+                    const option = document.createElement('option');
+                    option.value = id;
+                    option.textContent = config.name || id;
+                    if (id === currentMachine) option.selected = true;
+                    select.appendChild(option);
+                }
+
+                // 更新 Linux 用户选择器
+                updateLinuxUserSelect();
+                // 检查连接状态
+                checkMachineStatus();
+            } catch (e) {
+                console.error('Failed to load machines:', e);
+            }
+        }
+
+        // 更新 Linux 用户选择器
+        function updateLinuxUserSelect() {
+            const select = document.getElementById('linuxUserSelect');
+            const config = machines[currentMachine];
+            if (!config) return;
+
+            const users = config.linux_users || [''];
+            select.innerHTML = '';
+            users.forEach((user, idx) => {
+                const option = document.createElement('option');
+                option.value = user || '_default_';
+                option.textContent = user || '(default)';
+                if (idx === 0) {
+                    option.selected = true;
+                    currentLinuxUser = user;
+                }
+                select.appendChild(option);
+            });
+        }
+
+        // 切换机器
+        async function switchMachine(machineId) {
+            currentMachine = machineId;
+            updateLinuxUserSelect();
+            await checkMachineStatus();
+            loadTasks();
+            loadHistory();
+        }
+
+        // 切换 Linux 用户
+        async function switchLinuxUser(user) {
+            currentLinuxUser = user === '_default_' ? '' : user;
+            loadTasks();
+            loadHistory();
+        }
+
+        // 检查机器连接状态
+        async function checkMachineStatus() {
+            const dot = document.getElementById('connectionStatus');
+            dot.className = 'status-dot checking';
+            dot.title = 'Checking connection...';
+
+            try {
+                const res = await fetch(`/api/machine/${currentMachine}/status`);
+                const data = await res.json();
+                if (data.success) {
+                    dot.className = 'status-dot connected';
+                    dot.title = `Connected: ${data.message}`;
+                } else {
+                    dot.className = 'status-dot disconnected';
+                    dot.title = `Disconnected: ${data.error || data.message}`;
+                }
+            } catch (e) {
+                dot.className = 'status-dot disconnected';
+                dot.title = 'Connection error';
+            }
+        }
+
+        // 获取 API 路径（带机器参数）
+        function getApiPath(base) {
+            const user = currentLinuxUser || '_default_';
+            return `${base}/${encodeURIComponent(currentMachine)}/${encodeURIComponent(user)}`;
+        }
+
         // ========== 数据加载与渲染 ==========
 
         async function loadTasks() {
-            const resp = await fetch('/api/tasks');
+            const resp = await fetch(getApiPath('/api/tasks'));
             groups = await resp.json();
             renderTasks();
         }
@@ -3472,7 +3679,7 @@
             const resp = await fetch('/api/create_group', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ title })
+                body: JSON.stringify({ title, machine_id: currentMachine, linux_user: currentLinuxUser || '_default_' })
             });
             const result = await resp.json();
             if (result.success) {
@@ -3519,7 +3726,7 @@
             }
 
             const schedule = `${minute} ${hour} ${day} ${month} ${weekday}`;
-            const body = { schedule, command };
+            const body = { schedule, command, machine_id: currentMachine, linux_user: currentLinuxUser || '_default_' };
             if (name) body.name = name;
             const resp = await fetch(`/api/add_to_group/${groupId}`, {
                 method: 'POST',
@@ -3564,7 +3771,7 @@
                 const resp = await fetch(`/api/update_group_title/${groupId}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ title: newTitle })
+                    body: JSON.stringify({ title: newTitle, machine_id: currentMachine, linux_user: currentLinuxUser || '_default_' })
                 });
                 const result = await resp.json();
                 if (result.success) {
@@ -3614,7 +3821,7 @@
             const resp = await fetch(`/api/toggle_group/${groupId}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ enable })
+                body: JSON.stringify({ enable, machine_id: currentMachine, linux_user: currentLinuxUser || '_default_' })
             });
             const result = await resp.json();
             if (result.success) {
@@ -3668,7 +3875,7 @@
                 const resp = await fetch(`/api/update/${taskId}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ schedule, command })
+                    body: JSON.stringify({ schedule, command, machine_id: currentMachine, linux_user: currentLinuxUser || '_default_' })
                 });
                 const result = await resp.json();
                 if (result.success) {
@@ -3721,7 +3928,7 @@
                 const resp = await fetch(`/api/update_task_name/${taskId}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name: newName })
+                    body: JSON.stringify({ name: newName, machine_id: currentMachine, linux_user: currentLinuxUser || '_default_' })
                 });
                 const result = await resp.json();
 
@@ -3779,10 +3986,14 @@
                 return;
             }
 
-            const resp = await fetch(`/api/run/${id}`, { method: 'POST' });
+            const resp = await fetch(`/api/run/${id}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ machine_id: currentMachine, linux_user: currentLinuxUser || '_default_' })
+            });
             const result = await resp.json();
             if (result.success) {
-                showMessage(`Task started (PID: ${result.pid})`, 'success');
+                showMessage(`Task completed (code: ${result.returncode})`, 'success');
             } else {
                 showMessage('Run failed: ' + result.error, 'error');
             }
@@ -3802,7 +4013,11 @@
             const enabled = card.querySelector('.toggle').classList.contains('on');
             const schedule = `${minute} ${hour} ${day} ${month} ${weekday}`;
 
-            const resp = await fetch(`/api/delete/${id}`, { method: 'POST' });
+            const resp = await fetch(`/api/delete/${id}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ machine_id: currentMachine, linux_user: currentLinuxUser || '_default_' })
+            });
             const result = await resp.json();
             if (result.success) {
                 // 显示撤销提示
@@ -3834,7 +4049,11 @@
                 updateGroupSwitchState(groupEl);
             }
 
-            const resp = await fetch(`/api/toggle/${id}`, { method: 'POST' });
+            const resp = await fetch(`/api/toggle/${id}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ machine_id: currentMachine, linux_user: currentLinuxUser || '_default_' })
+            });
             const result = await resp.json();
             if (result.success) {
                 showMessage('Status updated', 'success');
@@ -3875,7 +4094,7 @@
         // ========== 原始编辑器 ==========
 
         async function loadRaw() {
-            const resp = await fetch('/api/raw');
+            const resp = await fetch(getApiPath('/api/raw'));
             const data = await resp.json();
             document.getElementById('rawContent').value = data.content;
             updateHighlight();
@@ -4223,7 +4442,7 @@
             const resp = await fetch('/api/reorder_groups', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ from_id: fromId, to_id: toId, insert_before: insertBefore })
+                body: JSON.stringify({ from_id: fromId, to_id: toId, insert_before: insertBefore, machine_id: currentMachine, linux_user: currentLinuxUser || '_default_' })
             });
             const result = await resp.json();
             if (result.success) {
@@ -4287,7 +4506,9 @@
                     from_group_id: fromGroupId,
                     to_task_id: toTaskId,
                     to_group_id: toGroupId,
-                    insert_before: insertBefore
+                    insert_before: insertBefore,
+                    machine_id: currentMachine,
+                    linux_user: currentLinuxUser || '_default_'
                 })
             });
             const result = await resp.json();
@@ -4343,7 +4564,9 @@
                 body: JSON.stringify({
                     task_id: fromTaskId,
                     from_group_id: fromGroupId,
-                    to_group_id: toGroupId
+                    to_group_id: toGroupId,
+                    machine_id: currentMachine,
+                    linux_user: currentLinuxUser || '_default_'
                 })
             });
             const result = await resp.json();
@@ -4364,9 +4587,11 @@
         }
 
         // ========== 初始化 ==========
-        // 首次加载并折叠所有组
-        loadTasks().then(() => {
-            collapseAll();
+        // 首先加载机器列表，然后加载任务并折叠所有组
+        loadMachines().then(() => {
+            loadTasks().then(() => {
+                collapseAll();
+            });
         });
     </script>
 </body>

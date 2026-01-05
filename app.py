@@ -1,6 +1,7 @@
 # app.py - Crontab Web 管理工具
 # 功能: 通过 Web 界面查看、编辑、启用/禁用 crontab 任务
 # 认证: Flask-Login 多用户认证 + 审计日志
+# 多机器: 支持本地多用户和远程 SSH 管理
 # 启动: python app.py, 访问 http://localhost:5100
 
 # ===== 配置和初始化 =====
@@ -12,6 +13,8 @@ import re
 import os
 import json
 from datetime import datetime
+from typing import Dict
+from executor import CrontabExecutor, get_executor
 
 app = Flask(__name__)
 
@@ -25,6 +28,24 @@ else:
 
 app.secret_key = os.environ.get('SECRET_KEY', config.get('secret_key', 'change-me'))
 USERS = json.loads(os.environ.get('CRONTAB_USERS', 'null')) or config.get('users', {})
+
+# ===== 机器配置 =====
+MACHINES = config.get('machines', {
+    'local': {'name': '本机', 'type': 'local', 'linux_users': ['']}
+})
+DEFAULT_MACHINE = config.get('default_machine', 'local')
+
+# 执行器缓存 (machine_id -> executor)
+_executors: Dict[str, CrontabExecutor] = {}
+
+
+def get_machine_executor(machine_id: str) -> CrontabExecutor:
+    """获取或创建机器执行器"""
+    if machine_id not in _executors:
+        if machine_id not in MACHINES:
+            raise ValueError(f'Machine not found: {machine_id}')
+        _executors[machine_id] = get_executor(MACHINES[machine_id])
+    return _executors[machine_id]
 
 # ===== 用户认证 =====
 login_manager = LoginManager()
@@ -90,7 +111,7 @@ def is_cron_task_line(line):
     return False
 
 
-def parse_crontab():
+def parse_crontab(machine_id: str = 'local', linux_user: str = ''):
     """
     解析 crontab，返回按新规则分组的任务列表
 
@@ -101,12 +122,12 @@ def parse_crontab():
     组名识别: 1行注释=组名，多行注释=倒数第二行为组名
     任务名识别: 任务行上方的注释行，若未被选为组名则作为任务名
     """
-    result = subprocess.run(['crontab', '-l'], capture_output=True, text=True)
-    if result.returncode != 0:
+    raw = get_crontab_raw(machine_id, linux_user)
+    if not raw:
         return []
 
     groups = []
-    lines = result.stdout.split('\n')
+    lines = raw.split('\n')
 
     # 初始化状态
     comment_buffer = []  # [(line_num, text), ...]
@@ -240,29 +261,32 @@ def parse_crontab():
     return groups
 
 
-def get_all_tasks():
+def get_all_tasks(machine_id: str = 'local', linux_user: str = ''):
     """获取所有任务的扁平列表（用于ID查找）"""
-    groups = parse_crontab()
+    groups = parse_crontab(machine_id, linux_user)
     tasks = []
     for group in groups:
         tasks.extend(group['tasks'])
     return tasks
 
 
-def get_crontab_raw():
+def get_crontab_raw(machine_id: str = 'local', linux_user: str = ''):
     """获取原始crontab内容"""
-    result = subprocess.run(['crontab', '-l'], capture_output=True, text=True)
-    return result.stdout if result.returncode == 0 else ""
+    executor = get_machine_executor(machine_id)
+    return executor.get_crontab(linux_user)
 
 
-def cleanup_duplicate_backups():
+def cleanup_duplicate_backups(backup_subdir: str = None):
     """清理连续且完全相同的备份，仅保留最早的一个"""
-    backups = sorted([f for f in os.listdir(BACKUP_DIR) if f.endswith('.bak')])
+    target_dir = backup_subdir or BACKUP_DIR
+    if not os.path.exists(target_dir):
+        return
+    backups = sorted([f for f in os.listdir(target_dir) if f.endswith('.bak')])
     if len(backups) < 2:
         return
     prev_content = None
     for bak in backups:
-        filepath = os.path.join(BACKUP_DIR, bak)
+        filepath = os.path.join(target_dir, bak)
         with open(filepath, 'r') as f:
             content = f.read()
         if prev_content is not None and content == prev_content:
@@ -271,40 +295,37 @@ def cleanup_duplicate_backups():
             prev_content = content
 
 
-def backup_crontab(username=None):
-    """备份当前crontab，记录操作用户"""
-    current = get_crontab_raw()
+def backup_crontab(username=None, machine_id: str = 'local', linux_user: str = ''):
+    """备份当前crontab，按机器和 Linux 用户分目录"""
+    current = get_crontab_raw(machine_id, linux_user)
     if current:
+        # 构建备份子目录
+        safe_linux_user = linux_user or '_default_'
+        backup_subdir = os.path.join(BACKUP_DIR, machine_id, safe_linux_user)
+        os.makedirs(backup_subdir, exist_ok=True)
+
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        # 清理用户名：只保留字母数字下划线
         safe_user = re.sub(r'[^a-zA-Z0-9_]', '', username or 'unknown')
-        backup_file = os.path.join(BACKUP_DIR, f'crontab_{timestamp}_{safe_user}.bak')
+        backup_file = os.path.join(backup_subdir, f'crontab_{timestamp}_{safe_user}.bak')
         with open(backup_file, 'w') as f:
             f.write(current)
         # 清理连续相同的备份
-        cleanup_duplicate_backups()
-        # 只保留最近500个备份
-        backups = sorted(os.listdir(BACKUP_DIR), reverse=True)
-        for old in backups[500:]:
-            os.remove(os.path.join(BACKUP_DIR, old))
+        cleanup_duplicate_backups(backup_subdir)
+        # 只保留最近100个备份（每个机器/用户组合）
+        backups = sorted(os.listdir(backup_subdir), reverse=True)
+        for old in backups[100:]:
+            os.remove(os.path.join(backup_subdir, old))
         return backup_file
     return None
 
 
-def save_crontab(content, username=None):
+def save_crontab(content, username=None, machine_id: str = 'local', linux_user: str = ''):
     """保存crontab内容（自动备份）"""
-    backup_crontab(username)  # 保存前备份
+    backup_crontab(username, machine_id, linux_user)  # 保存前备份
     # 清理连续空行，保留单个空行
     content = re.sub(r'\n{3,}', '\n\n', content)
-    process = subprocess.Popen(
-        ['crontab', '-'],
-        stdin=subprocess.PIPE,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True
-    )
-    stdout, stderr = process.communicate(content)
-    return process.returncode == 0, stderr
+    executor = get_machine_executor(machine_id)
+    return executor.save_crontab(content, linux_user)
 
 
 # ===== 认证路由 =====
@@ -370,6 +391,47 @@ def get_audit_logs():
     return jsonify(logs)
 
 
+# ===== 机器管理 API =====
+
+
+@app.route('/api/machines')
+@login_required
+def get_machines():
+    """获取所有机器列表"""
+    machines = []
+    for mid, mconfig in MACHINES.items():
+        machines.append({
+            'id': mid,
+            'name': mconfig.get('name', mid),
+            'type': mconfig.get('type', 'local'),
+            'linux_users': mconfig.get('linux_users', ['']),
+            'host': mconfig.get('host', 'localhost')
+        })
+    return jsonify({
+        'machines': machines,
+        'default': DEFAULT_MACHINE
+    })
+
+
+@app.route('/api/machine/<machine_id>/status')
+@login_required
+def get_machine_status(machine_id):
+    """测试机器连接状态"""
+    if machine_id not in MACHINES:
+        return jsonify({'success': False, 'error': 'Machine not found'}), 404
+
+    try:
+        executor = get_machine_executor(machine_id)
+        ok, msg = executor.test_connection()
+        return jsonify({
+            'success': ok,
+            'message': msg,
+            'machine_id': machine_id
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+
 @app.route('/api/cron_logs')
 @login_required
 def get_cron_logs():
@@ -416,37 +478,59 @@ def get_cron_logs():
 
 
 @app.route('/api/tasks')
+@app.route('/api/tasks/<machine_id>/<linux_user>')
 @login_required
-def get_tasks():
+def get_tasks(machine_id='local', linux_user=''):
     """获取所有任务"""
-    tasks = parse_crontab()
+    if linux_user == '_default_':
+        linux_user = ''
+    tasks = parse_crontab(machine_id, linux_user)
     return jsonify(tasks)
 
 
 @app.route('/api/raw')
+@app.route('/api/raw/<machine_id>/<linux_user>')
 @login_required
-def get_raw():
+def get_raw(machine_id='local', linux_user=''):
     """获取原始crontab"""
-    return jsonify({'content': get_crontab_raw()})
+    if linux_user == '_default_':
+        linux_user = ''
+    return jsonify({
+        'content': get_crontab_raw(machine_id, linux_user),
+        'machine_id': machine_id,
+        'linux_user': linux_user
+    })
 
 
 @app.route('/api/save', methods=['POST'])
+@app.route('/api/save/<machine_id>/<linux_user>', methods=['POST'])
 @login_required
-def save():
+def save(machine_id='local', linux_user=''):
     """保存原始crontab"""
+    if linux_user == '_default_':
+        linux_user = ''
     content = request.json.get('content', '')
-    success, error = save_crontab(content, current_user.id)
+    success, error = save_crontab(content, current_user.id, machine_id, linux_user)
     if success:
-        log_action('save_raw', {'length': len(content)})
+        log_action('save_raw', {'machine': machine_id, 'linux_user': linux_user, 'length': len(content)})
     return jsonify({'success': success, 'error': error})
 
 
 @app.route('/api/backups')
+@app.route('/api/backups/<machine_id>/<linux_user>')
 @login_required
-def get_backups():
+def get_backups(machine_id='local', linux_user=''):
     """获取所有备份列表，按时间倒序"""
+    if linux_user == '_default_':
+        linux_user = ''
+    safe_linux_user = linux_user or '_default_'
+    backup_subdir = os.path.join(BACKUP_DIR, machine_id, safe_linux_user)
+
+    if not os.path.exists(backup_subdir):
+        return jsonify({'backups': []})
+
     backups = sorted(
-        [f for f in os.listdir(BACKUP_DIR) if f.endswith('.bak')],
+        [f for f in os.listdir(backup_subdir) if f.endswith('.bak')],
         reverse=True
     )
     result = []
@@ -455,11 +539,9 @@ def get_backups():
         name = bak.replace('crontab_', '').replace('.bak', '')
         parts = name.split('_')
         if len(parts) >= 3:
-            # 新格式：时间_时间_用户名
             timestamp = f'{parts[0]}_{parts[1]}'
-            username = '_'.join(parts[2:])  # 用户名可能包含下划线
+            username = '_'.join(parts[2:])
         else:
-            # 旧格式：时间_时间（无用户名）
             timestamp = name
             username = ''
         result.append({'filename': bak, 'timestamp': timestamp, 'username': username})
@@ -467,13 +549,18 @@ def get_backups():
 
 
 @app.route('/api/backup/<filename>')
+@app.route('/api/backup/<machine_id>/<linux_user>/<filename>')
 @login_required
-def get_backup_content(filename):
+def get_backup_content(filename, machine_id='local', linux_user=''):
     """获取指定备份的内容"""
+    if linux_user == '_default_':
+        linux_user = ''
     # 安全检查：只允许 .bak 文件且不含路径分隔符
     if not filename.endswith('.bak') or '/' in filename or '\\' in filename:
         return jsonify({'error': 'Invalid filename'}), 400
-    filepath = os.path.join(BACKUP_DIR, filename)
+
+    safe_linux_user = linux_user or '_default_'
+    filepath = os.path.join(BACKUP_DIR, machine_id, safe_linux_user, filename)
     if os.path.exists(filepath):
         with open(filepath, 'r') as f:
             return jsonify({'content': f.read()})
@@ -481,22 +568,27 @@ def get_backup_content(filename):
 
 
 @app.route('/api/restore/<filename>', methods=['POST'])
+@app.route('/api/restore/<machine_id>/<linux_user>/<filename>', methods=['POST'])
 @login_required
-def restore_backup(filename):
+def restore_backup(filename, machine_id='local', linux_user=''):
     """回滚到指定备份版本"""
+    if linux_user == '_default_':
+        linux_user = ''
     # 安全检查
     if not filename.endswith('.bak') or '/' in filename or '\\' in filename:
         return jsonify({'success': False, 'error': 'Invalid filename'}), 400
-    filepath = os.path.join(BACKUP_DIR, filename)
+
+    safe_linux_user = linux_user or '_default_'
+    filepath = os.path.join(BACKUP_DIR, machine_id, safe_linux_user, filename)
     if not os.path.exists(filepath):
         return jsonify({'success': False, 'error': 'Backup not found'}), 404
 
     with open(filepath, 'r') as f:
         content = f.read()
 
-    success, error = save_crontab(content, current_user.id)
+    success, error = save_crontab(content, current_user.id, machine_id, linux_user)
     if success:
-        log_action('restore_backup', {'filename': filename})
+        log_action('restore_backup', {'machine': machine_id, 'linux_user': linux_user, 'filename': filename})
         return jsonify({'success': True})
     return jsonify({'success': False, 'error': error})
 
@@ -504,13 +596,27 @@ def restore_backup(filename):
 # ===== 任务操作 API =====
 
 
+def get_machine_params():
+    """从请求中获取机器参数"""
+    if request.json:
+        machine_id = request.json.get('machine_id', 'local')
+        linux_user = request.json.get('linux_user', '')
+    else:
+        machine_id = request.args.get('machine_id', 'local')
+        linux_user = request.args.get('linux_user', '')
+    if linux_user == '_default_':
+        linux_user = ''
+    return machine_id, linux_user
+
+
 @app.route('/api/toggle/<int:task_id>', methods=['POST'])
 @login_required
 def toggle_task(task_id):
     """启用/禁用任务"""
-    raw = get_crontab_raw()
+    machine_id, linux_user = get_machine_params()
+    raw = get_crontab_raw(machine_id, linux_user)
     lines = raw.split('\n')
-    tasks = get_all_tasks()
+    tasks = get_all_tasks(machine_id, linux_user)
     action_detail = None
 
     for task in tasks:
@@ -518,14 +624,14 @@ def toggle_task(task_id):
             line_num = task['line']
             if task['enabled']:
                 lines[line_num] = '#' + lines[line_num]
-                action_detail = {'task_id': task_id, 'action': 'disable', 'command': task['command'][:50]}
+                action_detail = {'task_id': task_id, 'action': 'disable', 'command': task['command'][:50], 'machine': machine_id}
             else:
                 lines[line_num] = lines[line_num].lstrip('#')
-                action_detail = {'task_id': task_id, 'action': 'enable', 'command': task['command'][:50]}
+                action_detail = {'task_id': task_id, 'action': 'enable', 'command': task['command'][:50], 'machine': machine_id}
             break
 
     new_content = '\n'.join(lines)
-    success, error = save_crontab(new_content, current_user.id)
+    success, error = save_crontab(new_content, current_user.id, machine_id, linux_user)
     if success and action_detail:
         log_action('toggle_task', action_detail)
     return jsonify({'success': success, 'error': error})
@@ -535,6 +641,7 @@ def toggle_task(task_id):
 @login_required
 def add_task():
     """添加新任务"""
+    machine_id, linux_user = get_machine_params()
     schedule = request.json.get('schedule', '')
     command = request.json.get('command', '')
 
@@ -544,7 +651,7 @@ def add_task():
     if not validate_cron_schedule(schedule):
         return jsonify({'success': False, 'error': 'Invalid cron expression'})
 
-    raw = get_crontab_raw()
+    raw = get_crontab_raw(machine_id, linux_user)
     # 新任务默认禁用
     new_line = f"#{schedule} {command}"
 
@@ -552,9 +659,9 @@ def add_task():
         raw += '\n'
     raw += new_line + '\n'
 
-    success, error = save_crontab(raw, current_user.id)
+    success, error = save_crontab(raw, current_user.id, machine_id, linux_user)
     if success:
-        log_action('add_task', {'schedule': schedule, 'command': command[:50], 'enabled': False})
+        log_action('add_task', {'schedule': schedule, 'command': command[:50], 'enabled': False, 'machine': machine_id})
     return jsonify({'success': success, 'error': error})
 
 
@@ -562,6 +669,7 @@ def add_task():
 @login_required
 def update_task(task_id):
     """更新任务"""
+    machine_id, linux_user = get_machine_params()
     schedule = request.json.get('schedule', '')
     command = request.json.get('command', '')
 
@@ -571,9 +679,9 @@ def update_task(task_id):
     if not validate_cron_schedule(schedule):
         return jsonify({'success': False, 'error': 'Invalid cron expression'})
 
-    raw = get_crontab_raw()
+    raw = get_crontab_raw(machine_id, linux_user)
     lines = raw.split('\n')
-    tasks = get_all_tasks()
+    tasks = get_all_tasks(machine_id, linux_user)
     old_task = None
 
     for task in tasks:
@@ -587,13 +695,14 @@ def update_task(task_id):
             break
 
     new_content = '\n'.join(lines)
-    success, error = save_crontab(new_content, current_user.id)
+    success, error = save_crontab(new_content, current_user.id, machine_id, linux_user)
     if success and old_task:
         log_action('update_task', {
             'task_id': task_id,
             'old_schedule': old_task['schedule'],
             'new_schedule': schedule,
-            'command': command[:50]
+            'command': command[:50],
+            'machine': machine_id
         })
     return jsonify({'success': success, 'error': error})
 
@@ -602,11 +711,12 @@ def update_task(task_id):
 @login_required
 def update_task_name(task_id):
     """更新任务名称"""
+    machine_id, linux_user = get_machine_params()
     new_name = request.json.get('name', '').strip()
 
-    raw = get_crontab_raw()
+    raw = get_crontab_raw(machine_id, linux_user)
     lines = raw.split('\n')
-    tasks = get_all_tasks()
+    tasks = get_all_tasks(machine_id, linux_user)
     target_task = find_task_by_id(task_id, tasks)
 
     if not target_task:
@@ -633,13 +743,14 @@ def update_task_name(task_id):
     # 过滤掉 None
     new_lines = [l for l in lines if l is not None]
     new_content = '\n'.join(new_lines)
-    success, error = save_crontab(new_content, current_user.id)
+    success, error = save_crontab(new_content, current_user.id, machine_id, linux_user)
 
     if success:
         log_action('update_task_name', {
             'task_id': task_id,
             'old_name': old_name,
-            'new_name': new_name
+            'new_name': new_name,
+            'machine': machine_id
         })
     return jsonify({'success': success, 'error': error})
 
@@ -648,23 +759,25 @@ def update_task_name(task_id):
 @login_required
 def run_task(task_id):
     """手动运行任务"""
-    tasks = get_all_tasks()
+    machine_id, linux_user = get_machine_params()
+    tasks = get_all_tasks(machine_id, linux_user)
     target_task = find_task_by_id(task_id, tasks)
     if not target_task:
         return jsonify({'success': False, 'error': 'Task not found'})
 
     command = target_task['command']
     try:
-        # 后台运行命令，不等待结果
-        result = subprocess.Popen(
-            command,
-            shell=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            start_new_session=True
-        )
-        log_action('run_task', {'task_id': task_id, 'command': command[:50], 'pid': result.pid})
-        return jsonify({'success': True, 'pid': result.pid, 'command': command[:50]})
+        # 使用执行器运行命令
+        executor = get_machine_executor(machine_id)
+        returncode, stdout, stderr = executor.run_command(command)
+        log_action('run_task', {'task_id': task_id, 'command': command[:50], 'machine': machine_id, 'returncode': returncode})
+        return jsonify({
+            'success': True,
+            'returncode': returncode,
+            'stdout': stdout,
+            'stderr': stderr,
+            'command': command[:50]
+        })
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
 
@@ -673,9 +786,10 @@ def run_task(task_id):
 @login_required
 def delete_task(task_id):
     """删除任务，如果是组内最后一个任务则同时删除组标题"""
-    raw = get_crontab_raw()
+    machine_id, linux_user = get_machine_params()
+    raw = get_crontab_raw(machine_id, linux_user)
     lines = raw.split('\n')
-    groups = parse_crontab()
+    groups = parse_crontab(machine_id, linux_user)
     deleted_task = None
     deleted_group_title = None
 
@@ -699,9 +813,9 @@ def delete_task(task_id):
 
     new_lines = [l for l in lines if l is not None]
     new_content = '\n'.join(new_lines)
-    success, error = save_crontab(new_content, current_user.id)
+    success, error = save_crontab(new_content, current_user.id, machine_id, linux_user)
     if success and deleted_task:
-        details = {'task_id': task_id, 'command': deleted_task['command'][:50]}
+        details = {'task_id': task_id, 'command': deleted_task['command'][:50], 'machine': machine_id}
         if deleted_group_title:
             details['group_deleted'] = deleted_group_title
         log_action('delete_task', details)
@@ -715,10 +829,11 @@ def delete_task(task_id):
 @login_required
 def toggle_group(group_id):
     """启用/禁用整个任务组"""
+    machine_id, linux_user = get_machine_params()
     enable = request.json.get('enable', True)
-    raw = get_crontab_raw()
+    raw = get_crontab_raw(machine_id, linux_user)
     lines = raw.split('\n')
-    groups = parse_crontab()
+    groups = parse_crontab(machine_id, linux_user)
     group_title = None
 
     for group in groups:
@@ -733,9 +848,9 @@ def toggle_group(group_id):
             break
 
     new_content = '\n'.join(lines)
-    success, error = save_crontab(new_content, current_user.id)
+    success, error = save_crontab(new_content, current_user.id, machine_id, linux_user)
     if success:
-        log_action('toggle_group', {'group_id': group_id, 'title': group_title, 'enable': enable})
+        log_action('toggle_group', {'group_id': group_id, 'title': group_title, 'enable': enable, 'machine': machine_id})
     return jsonify({'success': success, 'error': error})
 
 
@@ -743,13 +858,14 @@ def toggle_group(group_id):
 @login_required
 def update_group_title(group_id):
     """更新任务组名称"""
+    machine_id, linux_user = get_machine_params()
     new_title = request.json.get('title', '').strip()
     if not new_title:
         return jsonify({'success': False, 'error': 'Group name cannot be empty'})
 
-    raw = get_crontab_raw()
+    raw = get_crontab_raw(machine_id, linux_user)
     lines = raw.split('\n')
-    groups = parse_crontab()
+    groups = parse_crontab(machine_id, linux_user)
     old_title = None
 
     for group in groups:
@@ -766,9 +882,9 @@ def update_group_title(group_id):
         return jsonify({'success': False, 'error': 'Task group not found'})
 
     new_content = '\n'.join(lines)
-    success, error = save_crontab(new_content, current_user.id)
+    success, error = save_crontab(new_content, current_user.id, machine_id, linux_user)
     if success:
-        log_action('update_group_title', {'group_id': group_id, 'old_title': old_title, 'new_title': new_title})
+        log_action('update_group_title', {'group_id': group_id, 'old_title': old_title, 'new_title': new_title, 'machine': machine_id})
     return jsonify({'success': success, 'error': error})
 
 
@@ -776,6 +892,7 @@ def update_group_title(group_id):
 @login_required
 def add_task_to_group(group_id):
     """在指定组内添加新任务"""
+    machine_id, linux_user = get_machine_params()
     schedule = request.json.get('schedule', '')
     command = request.json.get('command', '')
     name = request.json.get('name', '').strip()  # 可选的任务名
@@ -787,9 +904,9 @@ def add_task_to_group(group_id):
     if not validate_cron_schedule(schedule):
         return jsonify({'success': False, 'error': 'Invalid cron expression'})
 
-    raw = get_crontab_raw()
+    raw = get_crontab_raw(machine_id, linux_user)
     lines = raw.split('\n')
-    groups = parse_crontab()
+    groups = parse_crontab(machine_id, linux_user)
     group_title = None
 
     for group in groups:
@@ -813,9 +930,9 @@ def add_task_to_group(group_id):
         return jsonify({'success': False, 'error': 'Task group not found'})
 
     new_content = '\n'.join(lines)
-    success, error = save_crontab(new_content, current_user.id)
+    success, error = save_crontab(new_content, current_user.id, machine_id, linux_user)
     if success:
-        details = {'group_id': group_id, 'group_title': group_title, 'schedule': schedule, 'command': command[:50]}
+        details = {'group_id': group_id, 'group_title': group_title, 'schedule': schedule, 'command': command[:50], 'machine': machine_id}
         if name:
             details['name'] = name
         log_action('add_to_group', details)
@@ -826,11 +943,12 @@ def add_task_to_group(group_id):
 @login_required
 def create_group():
     """创建新的任务组（仅包含组名称）"""
+    machine_id, linux_user = get_machine_params()
     title = request.json.get('title', '').strip()
     if not title:
         return jsonify({'success': False, 'error': 'Group name cannot be empty'})
 
-    raw = get_crontab_raw()
+    raw = get_crontab_raw(machine_id, linux_user)
 
     if raw and not raw.endswith('\n'):
         raw += '\n'
@@ -839,9 +957,9 @@ def create_group():
     raw += f"# {title}\n"
     raw += "#* * * * * echo 'placeholder - please edit'\n"
 
-    success, error = save_crontab(raw, current_user.id)
+    success, error = save_crontab(raw, current_user.id, machine_id, linux_user)
     if success:
-        log_action('create_group', {'title': title})
+        log_action('create_group', {'title': title, 'machine': machine_id})
     return jsonify({'success': success, 'error': error})
 
 
@@ -849,9 +967,10 @@ def create_group():
 @login_required
 def delete_group(group_id):
     """删除整个任务组"""
-    raw = get_crontab_raw()
+    machine_id, linux_user = get_machine_params()
+    raw = get_crontab_raw(machine_id, linux_user)
     lines = raw.split('\n')
-    groups = parse_crontab()
+    groups = parse_crontab(machine_id, linux_user)
     deleted_title = None
 
     for group in groups:
@@ -870,9 +989,9 @@ def delete_group(group_id):
 
     new_lines = [l for l in lines if l is not None]
     new_content = '\n'.join(new_lines)
-    success, error = save_crontab(new_content, current_user.id)
+    success, error = save_crontab(new_content, current_user.id, machine_id, linux_user)
     if success:
-        log_action('delete_group', {'group_id': group_id, 'title': deleted_title})
+        log_action('delete_group', {'group_id': group_id, 'title': deleted_title, 'machine': machine_id})
     return jsonify({'success': success, 'error': error})
 
 
@@ -883,6 +1002,7 @@ def delete_group(group_id):
 @login_required
 def reorder_groups():
     """重新排序任务组"""
+    machine_id, linux_user = get_machine_params()
     from_id = request.json.get('from_id')
     to_id = request.json.get('to_id')
     insert_before = request.json.get('insert_before', True)  # 默认插入到目标之前
@@ -890,9 +1010,9 @@ def reorder_groups():
     if from_id is None or to_id is None:
         return jsonify({'success': False, 'error': 'Invalid parameters'})
 
-    raw = get_crontab_raw()
+    raw = get_crontab_raw(machine_id, linux_user)
     lines = raw.split('\n')
-    groups = parse_crontab()
+    groups = parse_crontab(machine_id, linux_user)
 
     # 找到两个组
     from_group = None
@@ -963,12 +1083,13 @@ def reorder_groups():
         new_lines.insert(insert_pos, '')
 
     new_content = '\n'.join(new_lines)
-    success, error = save_crontab(new_content, current_user.id)
+    success, error = save_crontab(new_content, current_user.id, machine_id, linux_user)
     if success:
         log_action('reorder_group', {
             'group_id': from_id,
             'title': from_group.get('title', ''),
-            'to_group_id': to_id
+            'to_group_id': to_id,
+            'machine': machine_id
         })
     return jsonify({'success': success, 'error': error})
 
@@ -977,6 +1098,7 @@ def reorder_groups():
 @login_required
 def move_task_to_end():
     """将任务移动到指定组的末尾"""
+    machine_id, linux_user = get_machine_params()
     task_id = request.json.get('task_id')
     from_group_id = request.json.get('from_group_id')
     to_group_id = request.json.get('to_group_id')
@@ -984,10 +1106,10 @@ def move_task_to_end():
     if None in [task_id, from_group_id, to_group_id]:
         return jsonify({'success': False, 'error': 'Invalid parameters'})
 
-    raw = get_crontab_raw()
+    raw = get_crontab_raw(machine_id, linux_user)
     lines = raw.split('\n')
-    tasks = get_all_tasks()
-    groups = parse_crontab()
+    tasks = get_all_tasks(machine_id, linux_user)
+    groups = parse_crontab(machine_id, linux_user)
 
     # 找到要移动的任务
     from_task = None
@@ -1052,13 +1174,14 @@ def move_task_to_end():
     new_lines.insert(insert_pos, content)
 
     new_content = '\n'.join(new_lines)
-    success, error = save_crontab(new_content, current_user.id)
+    success, error = save_crontab(new_content, current_user.id, machine_id, linux_user)
     if success:
         log_action('move_task_to_end', {
             'task_id': task_id,
             'from_group': from_group_id,
             'to_group': to_group_id,
-            'command': from_task['command'][:50]
+            'command': from_task['command'][:50],
+            'machine': machine_id
         })
     return jsonify({'success': success, 'error': error})
 
@@ -1067,6 +1190,7 @@ def move_task_to_end():
 @login_required
 def reorder_tasks():
     """重新排序任务（组内或跨组）"""
+    machine_id, linux_user = get_machine_params()
     from_task_id = request.json.get('from_task_id')
     from_group_id = request.json.get('from_group_id')
     to_task_id = request.json.get('to_task_id')
@@ -1076,10 +1200,10 @@ def reorder_tasks():
     if None in [from_task_id, from_group_id, to_task_id, to_group_id]:
         return jsonify({'success': False, 'error': 'Invalid parameters'})
 
-    raw = get_crontab_raw()
+    raw = get_crontab_raw(machine_id, linux_user)
     lines = raw.split('\n')
-    tasks = get_all_tasks()
-    groups = parse_crontab()
+    tasks = get_all_tasks(machine_id, linux_user)
+    groups = parse_crontab(machine_id, linux_user)
 
     # 找到两个任务
     from_task = None
@@ -1145,13 +1269,15 @@ def reorder_tasks():
         new_lines.insert(insert_pos + i, content)
 
     new_content = '\n'.join(new_lines)
-    success, error = save_crontab(new_content, current_user.id)
+    success, error = save_crontab(new_content, current_user.id, machine_id, linux_user)
     if success:
         log_action('reorder_task', {
             'task_id': from_task_id,
             'from_group': from_group_id,
             'to_group': to_group_id,
-            'command': from_task['command'][:50]
+            'command': from_task['command'][:50],
+            'machine': machine_id,
+            'linux_user': linux_user
         })
     return jsonify({'success': success, 'error': error})
 
