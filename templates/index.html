@@ -2397,22 +2397,26 @@
         .diff-panel-header {
             display: flex;
             justify-content: space-between;
-            align-items: center;
-            padding: var(--space-2) var(--space-3);
+            align-items: stretch;
             background: var(--bg-tertiary);
             border-radius: var(--radius-sm) var(--radius-sm) 0 0;
             font-weight: 500;
             font-size: 13px;
             color: var(--text-secondary);
+            overflow: hidden;
+        }
+
+        .diff-panel-header > span {
+            display: flex;
+            align-items: center;
+            padding: var(--space-2) var(--space-3);
         }
 
         .diff-nav-btn {
             background: var(--primary);
-            border: 1px solid var(--primary);
-            border-radius: var(--radius-sm);
+            border: none;
             width: 48px;
-            height: 24px;
-            font-size: 14px;
+            font-size: 16px;
             cursor: pointer;
             color: white;
             display: flex;
@@ -2423,7 +2427,6 @@
 
         .diff-nav-btn:hover:not(:disabled) {
             background: var(--primary-hover);
-            border-color: var(--primary-hover);
         }
 
         .diff-nav-btn:disabled {
@@ -2433,7 +2436,30 @@
 
         .diff-nav-placeholder {
             width: 48px;
-            height: 24px;
+        }
+
+        /* Diff 标题切换动画 */
+        .diff-title-slide {
+            display: inline-block;
+            transition: transform 0.2s ease, opacity 0.2s ease;
+        }
+
+        .diff-title-slide.slide-left {
+            animation: slideLeft 0.3s ease;
+        }
+
+        .diff-title-slide.slide-right {
+            animation: slideRight 0.3s ease;
+        }
+
+        @keyframes slideLeft {
+            0% { transform: translateX(20px); opacity: 0; }
+            100% { transform: translateX(0); opacity: 1; }
+        }
+
+        @keyframes slideRight {
+            0% { transform: translateX(-20px); opacity: 0; }
+            100% { transform: translateX(0); opacity: 1; }
         }
 
         .diff-content {
@@ -2707,7 +2733,7 @@
                 <div class="diff-panel">
                     <div class="diff-panel-header">
                         <button class="diff-nav-btn" id="diffPrevBtn" onclick="navigateDiff(-1)" title="Previous version">‹</button>
-                        <span>Backup: <span id="diffBackupTime"></span></span>
+                        <span>Backup: <span id="diffBackupTime" class="diff-title-slide"></span></span>
                         <button class="diff-nav-btn" id="diffNextBtn" onclick="navigateDiff(1)" title="Next version">›</button>
                     </div>
                     <pre class="diff-content" id="diffBackup"></pre>
@@ -3258,6 +3284,13 @@
             // direction: -1 = 更旧的版本（索引+1），1 = 更新的版本（索引-1）
             const newIndex = currentDiffBackupIndex - direction;
             if (newIndex < 0 || newIndex >= historyBackups.length) return;
+
+            // 添加滑动动画
+            const titleEl = document.getElementById('diffBackupTime');
+            titleEl.classList.remove('slide-left', 'slide-right');
+            // 触发重排以重新启动动画
+            void titleEl.offsetWidth;
+            titleEl.classList.add(direction === 1 ? 'slide-left' : 'slide-right');
 
             const backup = historyBackups[newIndex];
             const ts = backup.timestamp.replace(/_/, ' ').replace(/(\d{4})(\d{2})(\d{2}) (\d{2})(\d{2})(\d{2})/, '$1-$2-$3 $4:$5:$6');
