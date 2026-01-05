@@ -517,8 +517,13 @@ def get_raw(machine_id='local', linux_user=''):
 @app.route('/api/save', methods=['POST'])
 @app.route('/api/save/<machine_id>/<linux_user>', methods=['POST'])
 @login_required
-def save(machine_id='local', linux_user=''):
+def save(machine_id=None, linux_user=None):
     """保存原始crontab"""
+    # 优先从 JSON body 读取，其次使用路由参数
+    if machine_id is None:
+        machine_id = request.json.get('machine_id', 'local')
+    if linux_user is None:
+        linux_user = request.json.get('linux_user', '')
     if not linux_user or linux_user == '_default_':
         linux_user = DEFAULT_LINUX_USER
     content = request.json.get('content', '')
