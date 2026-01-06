@@ -14,6 +14,8 @@ import subprocess
 import re
 import os
 import json
+import threading
+import time
 from datetime import datetime
 from typing import Dict
 from executor import CrontabExecutor, get_executor
@@ -412,6 +414,58 @@ def save_crontab(content, username=None, machine_id: str = 'local', linux_user: 
     content = re.sub(r'\n{3,}', '\n\n', content)
     executor = get_machine_executor(machine_id)
     return executor.save_crontab(content, linux_user)
+
+
+# ===== Crontab 变化检测 =====
+
+
+def check_single_crontab(machine_id: str, linux_user: str):
+    """检测单个 crontab 是否变化，如有则备份"""
+    if not linux_user:
+        linux_user = DEFAULT_LINUX_USER
+    current = get_crontab_raw(machine_id, linux_user)
+    if not current:
+        return False
+
+    backup_subdir = os.path.join(BACKUP_DIR, machine_id, linux_user)
+    if not os.path.exists(backup_subdir):
+        backup_crontab('system', machine_id, linux_user)
+        return True
+
+    backups = sorted([f for f in os.listdir(backup_subdir) if f.endswith('.bak')], reverse=True)
+    if not backups:
+        backup_crontab('system', machine_id, linux_user)
+        return True
+
+    with open(os.path.join(backup_subdir, backups[0]), 'r') as f:
+        last_backup = f.read()
+
+    if current != last_backup:
+        backup_crontab('system', machine_id, linux_user)
+        log_action('external_change_detected', {
+            'machine': machine_id,
+            'linux_user': linux_user
+        })
+        return True
+    return False
+
+
+def start_crontab_watcher():
+    """启动后台线程定时检测 crontab 变化"""
+    def watch_loop():
+        while True:
+            try:
+                for machine_id, config in MACHINES.items():
+                    users = config.get('users', [DEFAULT_LINUX_USER])
+                    for linux_user in users:
+                        check_single_crontab(machine_id, linux_user)
+            except Exception as e:
+                print(f"[crontab-watch] Error: {e}")
+            time.sleep(60)  # 每分钟检查一次
+
+    thread = threading.Thread(target=watch_loop, daemon=True, name='crontab-watcher')
+    thread.start()
+    print("[crontab-watch] Watcher thread started")
 
 
 # ===== 认证路由 =====
@@ -1553,7 +1607,9 @@ def reorder_tasks():
     return jsonify({'success': success, 'error': error})
 
 
+# 启动 crontab 变化检测线程
+start_crontab_watcher()
+
 if __name__ == '__main__':
-    import os
     debug = os.environ.get('FLASK_DEBUG', '0') == '1'
     app.run(host='0.0.0.0', port=5100, debug=debug)
