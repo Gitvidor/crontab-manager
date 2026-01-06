@@ -39,16 +39,22 @@
                 if (val.startsWith('*/')) {
                     return `every ${val.slice(2)}`;
                 }
+                // 辅助函数：获取名称，处理 weekday 7 = Sunday 的情况
+                const getName = (v) => {
+                    const idx = parseInt(v, 10);
+                    if (names === weekdayNames && idx === 7) return names[0]; // 7 也表示周日
+                    return names[idx] || v;
+                };
                 if (val.includes(',')) {
-                    const vals = val.split(',').map(v => names ? (names[parseInt(v)] || v) : v);
+                    const vals = val.split(',').map(v => names ? getName(v) : v);
                     return vals.join(', ');
                 }
                 if (val.includes('-')) {
                     const [start, end] = val.split('-');
-                    if (names) return `${names[parseInt(start)] || start}-${names[parseInt(end)] || end}`;
+                    if (names) return `${getName(start)}-${getName(end)}`;
                     return `${start}-${end}`;
                 }
-                return names ? (names[parseInt(val)] || val) : val;
+                return names ? getName(val) : val;
             }
 
             // 格式化时间
@@ -765,13 +771,16 @@
 
             logList.innerHTML = pageLogs.map(log => {
                 const actionClass = getActionClass(log.action);
-                const details = formatLogDetails(log.details);
+                const safeTime = escapeHtml(log.timestamp || '');
+                const safeUser = escapeHtml(log.user || '');
+                const safeAction = escapeHtml(log.action || '');
+                const safeDetails = escapeHtml(formatLogDetails(log.details));
                 return `
                     <div class="log-item">
-                        <span class="log-time">${log.timestamp}</span>
-                        <span class="log-user">${ICON.USER}${log.user}</span>
-                        <span class="log-action ${actionClass}">${log.action}</span>
-                        <span class="log-details">${details}</span>
+                        <span class="log-time">${safeTime}</span>
+                        <span class="log-user">${ICON.USER}${safeUser}</span>
+                        <span class="log-action ${actionClass}">${safeAction}</span>
+                        <span class="log-details">${safeDetails}</span>
                     </div>
                 `;
             }).join('');
@@ -1434,9 +1443,14 @@
                     const month = decodeURIComponent(taskEl.dataset.month);
                     const weekday = decodeURIComponent(taskEl.dataset.weekday);
                     const command = decodeURIComponent(taskEl.dataset.command);
+                    const taskName = decodeURIComponent(taskEl.dataset.name || '');
 
                     const scheduleText = `${minute} ${hour} ${day} ${month} ${weekday}`;
-                    const taskMatch = matchText(scheduleText, keyword) || matchText(command, keyword);
+                    // 搜索：schedule, command, task name, group title (flat view)
+                    const taskMatch = matchText(scheduleText, keyword)
+                                   || matchText(command, keyword)
+                                   || matchText(taskName, keyword)
+                                   || (isFlatView && matchText(originalGroupTitle, keyword));
 
                     let statusMatch = true;
                     const isEnabled = taskEl.querySelector('.toggle').classList.contains('on');
@@ -2521,17 +2535,31 @@
             container.innerHTML = users.map(u => `
                 <div class="user-item" data-username="${escapeHtml(u.username)}">
                     <span class="user-item-name">${escapeHtml(u.username)}</span>
-                    <select class="user-role-select ${u.role}" onchange="changeUserRole('${escapeHtml(u.username)}', this.value)">
+                    <select class="user-role-select ${escapeHtml(u.role)}">
                         <option value="viewer" ${u.role === 'viewer' ? 'selected' : ''}>Viewer</option>
                         <option value="editor" ${u.role === 'editor' ? 'selected' : ''}>Editor</option>
                         <option value="admin" ${u.role === 'admin' ? 'selected' : ''}>Admin</option>
                     </select>
-                    <span class="user-item-machines">${u.machines.join(', ')}</span>
+                    <span class="user-item-machines">${escapeHtml(u.machines.join(', '))}</span>
                     <div class="user-item-actions">
-                        <button class="delete btn-delete-circle" onclick="deleteUser('${escapeHtml(u.username)}')">Delete</button>
+                        <button class="delete btn-delete-circle">Delete</button>
                     </div>
                 </div>
             `).join('');
+
+            // 绑定事件（避免 inline handler 注入问题）
+            container.querySelectorAll('.user-role-select').forEach(select => {
+                select.addEventListener('change', () => {
+                    const username = select.closest('.user-item').dataset.username;
+                    changeUserRole(username, select.value);
+                });
+            });
+            container.querySelectorAll('button.delete').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const username = btn.closest('.user-item').dataset.username;
+                    deleteUser(username);
+                });
+            });
         }
 
         async function createUser() {
