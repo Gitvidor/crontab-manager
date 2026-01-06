@@ -908,7 +908,7 @@
         }
 
         .task-name-empty {
-            color: var(--text-muted);
+            color: #c8d1da;
             font-style: italic;
             font-weight: 400;
         }
@@ -933,6 +933,11 @@
         /* Active/Paused 模式下显示 group label */
         .task-list.flat-view .task-group-label {
             display: inline;
+            font-size: 14px;
+            color: #81C784;
+        }
+        .task-list.flat-view .task-group-label:hover {
+            color: var(--success);
         }
 
         .task-command {
