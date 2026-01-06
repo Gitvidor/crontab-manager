@@ -289,26 +289,33 @@
             color: var(--text-primary);
         }
 
-        .user-item-role {
-            padding: 2px 8px;
+        .user-role-select {
+            padding: 4px 8px;
             border-radius: var(--radius-sm);
             font-size: 12px;
             margin-right: var(--space-3);
+            border: 1px solid var(--border);
+            cursor: pointer;
+            background: var(--bg-primary);
+            color: var(--text-primary);
         }
 
-        .user-item-role.admin {
+        .user-role-select.admin {
             background: var(--danger-light);
             color: var(--danger);
+            border-color: var(--danger);
         }
 
-        .user-item-role.editor {
+        .user-role-select.editor {
             background: var(--warning-light);
             color: var(--warning);
+            border-color: var(--warning);
         }
 
-        .user-item-role.viewer {
+        .user-role-select.viewer {
             background: var(--success-light);
             color: var(--success);
+            border-color: var(--success);
         }
 
         .user-item-machines {
@@ -3066,16 +3073,16 @@
     {% if user_role == 'admin' %}
     <div id="settingsPanel" class="settings-panel">
         <div class="settings-section">
-            <h3>用户管理</h3>
+            <h3>User Management</h3>
             <div class="user-form">
-                <input type="text" id="newUsername" placeholder="用户名">
-                <input type="password" id="newPassword" placeholder="密码">
+                <input type="text" id="newUsername" placeholder="Username">
+                <input type="password" id="newPassword" placeholder="Password">
                 <select id="newRole">
-                    <option value="viewer">Viewer (只读)</option>
-                    <option value="editor">Editor (可编辑)</option>
-                    <option value="admin">Admin (管理员)</option>
+                    <option value="viewer">Viewer</option>
+                    <option value="editor">Editor</option>
+                    <option value="admin">Admin</option>
                 </select>
-                <button class="add-user-btn" onclick="createUser()">添加用户</button>
+                <button class="add-user-btn" onclick="createUser()">Add User</button>
             </div>
             <div class="user-list" id="userList">
                 <div class="log-empty">Loading...</div>
@@ -5628,10 +5635,13 @@
             container.innerHTML = users.map(u => `
                 <div class="user-item" data-username="${escapeHtml(u.username)}">
                     <span class="user-item-name">${escapeHtml(u.username)}</span>
-                    <span class="user-item-role ${u.role}">${u.role}</span>
+                    <select class="user-role-select ${u.role}" onchange="changeUserRole('${escapeHtml(u.username)}', this.value)">
+                        <option value="viewer" ${u.role === 'viewer' ? 'selected' : ''}>Viewer</option>
+                        <option value="editor" ${u.role === 'editor' ? 'selected' : ''}>Editor</option>
+                        <option value="admin" ${u.role === 'admin' ? 'selected' : ''}>Admin</option>
+                    </select>
                     <span class="user-item-machines">${u.machines.join(', ')}</span>
                     <div class="user-item-actions">
-                        <button onclick="editUser('${escapeHtml(u.username)}')">Edit</button>
                         <button class="delete" onclick="deleteUser('${escapeHtml(u.username)}')">Delete</button>
                     </div>
                 </div>
@@ -5669,13 +5679,7 @@
             }
         }
 
-        async function editUser(username) {
-            const newRole = prompt('Enter new role (viewer/editor/admin):');
-            if (!newRole || !['viewer', 'editor', 'admin'].includes(newRole)) {
-                if (newRole !== null) showMessage('Invalid role', 'error');
-                return;
-            }
-
+        async function changeUserRole(username, newRole) {
             try {
                 const resp = await fetch(`/api/users/${encodeURIComponent(username)}`, {
                     method: 'PUT',
@@ -5684,13 +5688,15 @@
                 });
                 const result = await resp.json();
                 if (result.success) {
-                    showMessage('User updated', 'success');
+                    showMessage(`Role updated to ${newRole}`, 'success');
                     loadUsers();
                 } else {
                     showMessage(result.error || 'Failed', 'error');
+                    loadUsers(); // 重新加载以恢复原状态
                 }
             } catch (e) {
                 showMessage('Error: ' + e.message, 'error');
+                loadUsers();
             }
         }
 
