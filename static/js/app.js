@@ -1184,7 +1184,7 @@
                         </svg>
                     </button>
                     <button class="run-btn${noPerm}" ${USER_CAN_EDIT ? `onclick="runTask(${task.id})"` : ''} title="Run Now">▶</button>
-                    <button class="delete-btn${noPerm}" ${USER_CAN_EDIT ? `onclick="deleteTask(${task.id})"` : ''} title="Delete">×</button>
+                    <button class="delete-btn btn-delete-circle${noPerm}" ${USER_CAN_EDIT ? `onclick="deleteTask(${task.id})"` : ''} title="Delete">×</button>
                 </div>
             </div>`;
         }
@@ -1212,7 +1212,7 @@
                         <div class="group-toggle-switch ${switchClass}${noPerm}" ${USER_CAN_EDIT ? `onclick="event.stopPropagation();toggleGroupSwitch(${group.id},${!allEnabled})"` : 'onclick="event.stopPropagation()"'}></div>
                         <span class="group-title" onclick="event.stopPropagation()" ${USER_CAN_EDIT ? `ondblclick="event.stopPropagation();editGroupTitle(${group.id},this)" title="Double-click to edit"` : ''}>${group.title ? escapeHtml(group.title) : 'Unnamed Group'}</span>
                         <span class="group-count">${enabledCount}/${group.tasks.length}</span>
-                        <button class="group-delete-btn${noPerm}" ${USER_CAN_EDIT ? `onclick="event.stopPropagation();deleteGroup(${group.id})"` : 'onclick="event.stopPropagation()"'} title="Delete group"></button>
+                        <button class="group-delete-btn btn-delete-circle${noPerm}" ${USER_CAN_EDIT ? `onclick="event.stopPropagation();deleteGroup(${group.id})"` : 'onclick="event.stopPropagation()"'} title="Delete group"></button>
                     </div>
                     <div class="group-tasks">
                         ${group.tasks.map(task => renderTask(task, group.id, group)).join('')}
@@ -2510,7 +2510,7 @@
                     </select>
                     <span class="user-item-machines">${u.machines.join(', ')}</span>
                     <div class="user-item-actions">
-                        <button class="delete" onclick="deleteUser('${escapeHtml(u.username)}')">Delete</button>
+                        <button class="delete btn-delete-circle" onclick="deleteUser('${escapeHtml(u.username)}')">Delete</button>
                     </div>
                 </div>
             `).join('');
