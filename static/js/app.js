@@ -190,7 +190,7 @@
 
         // 显示撤销提示
         function showUndoToast(message, undoData) {
-            undoStack.push(undoData);
+            undoStack = [undoData]; // 只保留最后一次撤销
             const toast = document.getElementById('undoToast');
             toast.querySelector('.undo-text').textContent = message;
             toast.classList.add('show');
@@ -1030,7 +1030,7 @@
                     users.forEach((user, idx) => {
                         const option = document.createElement('option');
                         const userName = user || 'root';
-                        option.value = `${userName}@${id}`;
+                        option.value = JSON.stringify({ user: userName, machineId: id });
                         option.textContent = `${userName}@${config.name || id}`;
                         if (id === currentMachine && idx === 0) option.selected = true;
                         select.appendChild(option);
@@ -1081,14 +1081,14 @@
             updateCollapseToggleBtn();
         }
 
-        // 切换机器（解析 user@machineId 格式）
+        // 切换机器（解析 JSON 格式）
         async function switchMachine(value) {
             // 保存当前折叠状态
             saveCurrentCollapsedState();
-            // 解析 user@machineId 格式
-            const [user, machineId] = value.split('@');
-            currentLinuxUser = user || 'root';
-            currentMachine = machineId;
+            // 解析 JSON 格式
+            const parsed = JSON.parse(value);
+            currentLinuxUser = parsed.user || 'root';
+            currentMachine = parsed.machineId;
             await checkMachineStatus();
             refreshCurrentTab();
         }
@@ -2277,8 +2277,14 @@
 
                 const isTopHalf = clientY < midY;
 
-                // 占位符已在 dragTaskStart 中创建，这里只处理移动
-                if (!dragPlaceholder) return;
+                // 如果占位符被删除（如从 drop-end 区域返回），重新创建
+                if (!dragPlaceholder) {
+                    dragPlaceholder = document.createElement('div');
+                    dragPlaceholder.className = 'drag-placeholder';
+                    dragPlaceholder.style.height = rect.height + 'px';
+                    dragPlaceholder.addEventListener('dragover', (ev) => ev.preventDefault());
+                    dragPlaceholder.addEventListener('drop', dropTask);
+                }
 
                 // 确定插入位置
                 const targetParent = target.parentNode;
