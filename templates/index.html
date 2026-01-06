@@ -900,14 +900,15 @@
         }
 
         .task-name {
+            font-size: 14px;
             font-weight: 600;
             color: var(--primary);
-            cursor: pointer;
         }
 
         .task-name.editable {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-            font-size: 13px;
+            font-family: inherit;
+            font-size: 14px;
+            cursor: pointer;
         }
 
         .task-name:hover {
@@ -1408,6 +1409,17 @@
         .delete-btn:hover::before,
         .delete-btn:hover::after {
             background: #4D0000;
+        }
+
+        /* 无权限元素样式 */
+        .no-permission {
+            opacity: 0.3 !important;
+            pointer-events: none !important;
+            cursor: not-allowed !important;
+        }
+        .no-permission .toggle,
+        .no-permission .group-toggle-switch {
+            pointer-events: none !important;
         }
 
         /* 任务分组卡片 */
@@ -2281,7 +2293,7 @@
             }
 
             .task-name {
-                font-size: 13px;
+                font-size: 14px;
             }
 
             .task-schedule {
@@ -2967,7 +2979,7 @@
             <button class="case-toggle" id="caseToggle" onclick="toggleCaseSensitive()"
                 title="Case Sensitive">Aa</button>
         </div>
-        <button class="new-group-btn" onclick="showNewGroupForm()"><span class="plus-icon">+</span> New Group</button>
+        <button class="new-group-btn{% if user_role == 'viewer' %} no-permission{% endif %}" {% if user_role != 'viewer' %}onclick="showNewGroupForm()"{% endif %}><span class="plus-icon">+</span> New Group</button>
     </div>
 
     <div id="newGroupForm" class="new-group-form">
@@ -2983,9 +2995,9 @@
         <div class="history-header">
             <span>Current Version</span>
             <div class="history-header-btns">
-                <button class="help-toggle-btn" onclick="toggleEditHelp()" id="editHelpBtn" title="Syntax Help">?</button>
-                <button class="history-btn diff-btn" onclick="toggleEditMode()" id="editToggleBtn">Edit</button>
-                <button class="history-btn cancel-edit-btn" onclick="cancelEditMode()" id="cancelEditBtn"
+                <button class="help-toggle-btn{% if user_role == 'viewer' %} no-permission{% endif %}" {% if user_role != 'viewer' %}onclick="toggleEditHelp()"{% endif %} id="editHelpBtn" title="Syntax Help">?</button>
+                <button class="history-btn diff-btn{% if user_role == 'viewer' %} no-permission{% endif %}" {% if user_role != 'viewer' %}onclick="toggleEditMode()"{% endif %} id="editToggleBtn">Edit</button>
+                <button class="history-btn cancel-edit-btn{% if user_role == 'viewer' %} no-permission{% endif %}" {% if user_role != 'viewer' %}onclick="cancelEditMode()"{% endif %} id="cancelEditBtn"
                     style="display: none;">Cancel</button>
             </div>
         </div>
@@ -4279,9 +4291,10 @@
             const cronDescription = parseCronToHuman(minute, hour, day, month, weekday);
             // 直接使用任务名
             const displayName = task.name;
+            const noPerm = USER_CAN_EDIT ? '' : ' no-permission';
             const taskName = displayName
-                ? `<span class="task-name${USER_CAN_EDIT ? ' editable' : ''}" ${USER_CAN_EDIT ? `ondblclick="editTaskName(${task.id},this)" title="Double-click to edit"` : ''}>${escapeHtml(displayName)}</span>`
-                : (USER_CAN_EDIT ? `<span class="task-name task-name-empty editable" onclick="editTaskName(${task.id},this)" title="Click to enter task name"> Task name</span>` : `<span class="task-name"></span>`);
+                ? `<span class="task-name editable" ${USER_CAN_EDIT ? `ondblclick="editTaskName(${task.id},this)" title="Double-click to edit"` : ''}>${escapeHtml(displayName)}</span>`
+                : `<span class="task-name task-name-empty editable" ${USER_CAN_EDIT ? `ondblclick="editTaskName(${task.id},this)" title="Double-click to edit"` : ''}>Unnamed Task</span>`;
             const groupLabel = `<span class="task-group-label" onclick="goToGroup(${groupId})" title="Click to jump to group">${escapeHtml(group.title || 'Unnamed Group')}</span>`;
 
             return `
@@ -4291,8 +4304,8 @@
                  data-month="${encodeURIComponent(month)}" data-weekday="${encodeURIComponent(weekday)}" data-command="${encodeURIComponent(task.command)}"
                  data-name="${encodeURIComponent(task.name || '')}"
                  draggable="false" ondragstart="dragTaskStart(event)" ondragend="dragEnd(event)" ondragover="dragTaskOver(event)" ondragleave="dragTaskLeave(event)" ondrop="dropTask(event)">
-                ${USER_CAN_EDIT ? `<span class="drag-handle" title="Drag to reorder" onmousedown="enableDrag(this.parentElement)" onmouseup="disableDrag(this.parentElement)" ontouchstart="enableDrag(this.parentElement)" ontouchend="disableDrag(this.parentElement)">⋮⋮</span>` : ''}
-                <div class="toggle ${task.enabled ? 'on' : ''}" ${USER_CAN_EDIT ? `onclick="toggleTask(${task.id})"` : 'style="pointer-events:none"'}></div>
+                <span class="drag-handle${noPerm}" title="Drag to reorder" ${USER_CAN_EDIT ? `onmousedown="enableDrag(this.parentElement)" onmouseup="disableDrag(this.parentElement)" ontouchstart="enableDrag(this.parentElement)" ontouchend="disableDrag(this.parentElement)"` : ''}>⋮⋮</span>
+                <div class="toggle ${task.enabled ? 'on' : ''}${noPerm}" ${USER_CAN_EDIT ? `onclick="toggleTask(${task.id})"` : ''}></div>
                 <div class="task-info">
                     <div class="task-name-row">${taskName}${groupLabel}</div>
                     <div class="task-schedule-wrapper">
@@ -4316,8 +4329,8 @@
                             <path d="M12 16v-4M12 8h.01"/>
                         </svg>
                     </button>
-                    ${USER_CAN_EDIT ? `<button class="run-btn" onclick="runTask(${task.id})" title="Run Now">▶</button>
-                    <button class="delete-btn" onclick="deleteTask(${task.id})" title="Delete">×</button>` : ''}
+                    <button class="run-btn${noPerm}" ${USER_CAN_EDIT ? `onclick="runTask(${task.id})"` : ''} title="Run Now">▶</button>
+                    <button class="delete-btn${noPerm}" ${USER_CAN_EDIT ? `onclick="deleteTask(${task.id})"` : ''} title="Delete">×</button>
                 </div>
             </div>`;
         }
@@ -4330,6 +4343,7 @@
                 return;
             }
 
+            const noPerm = USER_CAN_EDIT ? '' : ' no-permission';
             container.innerHTML = groups.map(group => {
                 const enabledCount = group.tasks.filter(t => t.enabled).length;
                 const allEnabled = enabledCount === group.tasks.length;
@@ -4340,16 +4354,16 @@
                 <div class="task-group${allDisabled ? ' disabled' : ''}" id="group-${group.id}" data-group-id="${group.id}" data-title="${escapeHtml(group.title || '')}"
                      draggable="false" ondragstart="dragGroupStart(event)" ondragend="dragEnd(event)" ondragover="dragGroupOver(event)" ondrop="dropGroup(event)">
                     <div class="group-header" onclick="toggleGroupCollapse(${group.id})">
-                        ${USER_CAN_EDIT ? `<span class="drag-handle group-drag-handle" title="Drag to reorder" onclick="event.stopPropagation()" onmousedown="enableDrag(this.closest('.task-group'))" onmouseup="disableDrag(this.closest('.task-group'))" ontouchstart="enableDrag(this.closest('.task-group'))" ontouchend="disableDrag(this.closest('.task-group'))">⋮⋮</span>` : ''}
-                        ${USER_CAN_EDIT ? `<div class="group-toggle-switch ${switchClass}" onclick="event.stopPropagation();toggleGroupSwitch(${group.id},${!allEnabled})"></div>` : `<div class="group-toggle-switch ${switchClass}" style="pointer-events:none"></div>`}
+                        <span class="drag-handle group-drag-handle${noPerm}" title="Drag to reorder" onclick="event.stopPropagation()" ${USER_CAN_EDIT ? `onmousedown="enableDrag(this.closest('.task-group'))" onmouseup="disableDrag(this.closest('.task-group'))" ontouchstart="enableDrag(this.closest('.task-group'))" ontouchend="disableDrag(this.closest('.task-group'))"` : ''}>⋮⋮</span>
+                        <div class="group-toggle-switch ${switchClass}${noPerm}" ${USER_CAN_EDIT ? `onclick="event.stopPropagation();toggleGroupSwitch(${group.id},${!allEnabled})"` : 'onclick="event.stopPropagation()"'}></div>
                         <span class="group-title" onclick="event.stopPropagation()" ${USER_CAN_EDIT ? `ondblclick="event.stopPropagation();editGroupTitle(${group.id},this)" title="Double-click to edit"` : ''}>${group.title ? escapeHtml(group.title) : 'Unnamed Group'}</span>
                         <span class="group-count">${enabledCount}/${group.tasks.length}</span>
-                        ${USER_CAN_EDIT ? `<button class="group-delete-btn" onclick="event.stopPropagation();deleteGroup(${group.id})" title="Delete group"></button>` : ''}
+                        <button class="group-delete-btn${noPerm}" ${USER_CAN_EDIT ? `onclick="event.stopPropagation();deleteGroup(${group.id})"` : 'onclick="event.stopPropagation()"'} title="Delete group"></button>
                     </div>
                     <div class="group-tasks">
                         ${group.tasks.map(task => renderTask(task, group.id, group)).join('')}
-                        ${USER_CAN_EDIT ? `<div class="group-drop-end" data-group-id="${group.id}" ondragover="dragDropEndOver(event)" ondragleave="dragDropEndLeave(event)" ondrop="dropToEnd(event)"></div>
-                        <div class="group-add-task-btn" onclick="showGroupAddForm(${group.id})"><span class="plus-icon">+</span> New Task</div>` : ''}
+                        <div class="group-drop-end${noPerm}" data-group-id="${group.id}" ${USER_CAN_EDIT ? `ondragover="dragDropEndOver(event)" ondragleave="dragDropEndLeave(event)" ondrop="dropToEnd(event)"` : ''}></div>
+                        <div class="group-add-task-btn${noPerm}" ${USER_CAN_EDIT ? `onclick="showGroupAddForm(${group.id})"` : ''}><span class="plus-icon">+</span> New Task</div>
                         <div class="group-add-form" id="group-add-form-${group.id}">
                             <input type="text" id="g${group.id}-name" class="mini-name-input" placeholder="Task name (optional)">
                             <div class="mini-cron-inputs">
@@ -4961,7 +4975,7 @@
                         element.textContent = newName;
                         element.classList.remove('task-name-empty');
                     } else {
-                        element.textContent = 'Task name';
+                        element.textContent = 'Unnamed Task';
                         element.classList.add('task-name-empty');
                     }
                 } else {
@@ -5722,20 +5736,11 @@
         // ========== 权限控制 ==========
 
         function applyPermissions() {
-            // Viewer 模式: 隐藏编辑相关按钮
+            // Viewer 模式: 无权限元素已通过 no-permission 类处理
+            // 这里只需确保 Raw Editor 保持只读
             if (!USER_CAN_EDIT) {
-                // 隐藏新建组按钮
-                const newGroupBtn = document.getElementById('newGroupBtn');
-                if (newGroupBtn) newGroupBtn.style.display = 'none';
-                // Raw Version: 设置编辑器只读
                 const rawContent = document.getElementById('rawContent');
                 if (rawContent) rawContent.readOnly = true;
-                // 隐藏 Raw 编辑区的保存按钮
-                document.querySelectorAll('.raw-editor-actions button').forEach(btn => {
-                    if (btn.textContent.includes('Save') || btn.textContent.includes('Edit')) {
-                        btn.style.display = 'none';
-                    }
-                });
             }
         }
 
