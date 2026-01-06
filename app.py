@@ -6,8 +6,10 @@
 
 # ===== 配置和初始化 =====
 
-from flask import Flask, render_template, request, jsonify, redirect, url_for
+from flask import Flask, render_template, request, jsonify, redirect, url_for, abort
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
+from werkzeug.security import generate_password_hash, check_password_hash
+from functools import wraps
 import subprocess
 import re
 import os
@@ -27,7 +29,24 @@ else:
     config = {"secret_key": "change-me", "users": {"admin": "admin123"}}
 
 app.secret_key = os.environ.get('SECRET_KEY', config.get('secret_key', 'change-me'))
-USERS = json.loads(os.environ.get('CRONTAB_USERS', 'null')) or config.get('users', {})
+_raw_users = json.loads(os.environ.get('CRONTAB_USERS', 'null')) or config.get('users', {})
+
+# 规范化用户配置（兼容旧版纯字符串密码格式）
+USERS = {}
+for username, user_config in _raw_users.items():
+    if isinstance(user_config, str):
+        # 旧版格式: "admin": "password"
+        USERS[username] = {'password': user_config, 'role': 'admin', 'machines': ['*']}
+    else:
+        # 新版格式: "admin": {"password": "...", "role": "admin", "machines": ["*"]}
+        USERS[username] = {
+            'password': user_config.get('password', ''),
+            'role': user_config.get('role', 'viewer'),
+            'machines': user_config.get('machines', ['*'])
+        }
+
+# SSO 配置（预留）
+AUTH_CONFIG = config.get('auth', {'type': 'local', 'sso': {'enabled': False}})
 
 # ===== 机器配置 =====
 MACHINES = config.get('machines', {
@@ -55,16 +74,80 @@ login_manager.login_view = 'login'
 
 
 class User(UserMixin):
-    """用户类"""
-    def __init__(self, username):
+    """用户类（支持角色和机器权限）"""
+    def __init__(self, username, role='viewer', machines=None, auth_type='local'):
         self.id = username
+        self.role = role
+        self.machines = machines or ['*']
+        self.auth_type = auth_type  # 'local' | 'sso'
+
+    def can_view(self):
+        return True
+
+    def can_edit(self):
+        return self.role in ('editor', 'admin')
+
+    def can_admin(self):
+        return self.role == 'admin'
+
+    def can_access_machine(self, machine_id):
+        """检查用户是否有权限访问指定机器"""
+        return '*' in self.machines or machine_id in self.machines
+
+
+def verify_password(stored, provided):
+    """验证密码（兼容旧版纯文本和新版哈希）"""
+    if stored.startswith('pbkdf2:') or stored.startswith('scrypt:'):
+        return check_password_hash(stored, provided)
+    return stored == provided
 
 
 @login_manager.user_loader
 def load_user(user_id):
     if user_id in USERS:
-        return User(user_id)
+        user_config = USERS[user_id]
+        return User(
+            user_id,
+            role=user_config.get('role', 'viewer'),
+            machines=user_config.get('machines', ['*'])
+        )
     return None
+
+
+# ===== 权限装饰器 =====
+
+
+def require_role(*roles):
+    """要求指定角色的装饰器"""
+    def decorator(f):
+        @wraps(f)
+        @login_required
+        def decorated(*args, **kwargs):
+            if current_user.role not in roles:
+                return jsonify({'success': False, 'error': 'Permission denied'}), 403
+            return f(*args, **kwargs)
+        return decorated
+    return decorator
+
+
+def require_machine_access(f):
+    """要求机器访问权限的装饰器"""
+    @wraps(f)
+    @login_required
+    def decorated(*args, **kwargs):
+        # 从路由参数或请求体获取 machine_id
+        machine_id = kwargs.get('machine_id')
+        if not machine_id and request.json:
+            machine_id = request.json.get('machine_id', 'local')
+        if not machine_id:
+            machine_id = request.args.get('machine_id', 'local')
+        if not machine_id:
+            machine_id = 'local'
+
+        if not current_user.can_access_machine(machine_id):
+            return jsonify({'success': False, 'error': 'No access to this machine'}), 403
+        return f(*args, **kwargs)
+    return decorated
 
 
 # 目录配置
@@ -344,8 +427,13 @@ def login():
     if request.method == 'POST':
         username = request.form.get('username', '')
         password = request.form.get('password', '')
-        if username in USERS and USERS[username] == password:
-            login_user(User(username))
+        if username in USERS and verify_password(USERS[username]['password'], password):
+            user_config = USERS[username]
+            login_user(User(
+                username,
+                role=user_config.get('role', 'viewer'),
+                machines=user_config.get('machines', ['*'])
+            ))
             log_action('login')
             next_page = request.args.get('next')
             return redirect(next_page or '/')
@@ -362,10 +450,148 @@ def logout():
     return redirect('/login')
 
 
+# ===== SSO 预留接口 =====
+
+
+@app.route('/auth/login')
+def sso_login():
+    """SSO 登录入口（预留）"""
+    if not AUTH_CONFIG.get('sso', {}).get('enabled'):
+        return redirect('/login')
+    # TODO: 重定向到 SSO provider
+    # authorize_url = AUTH_CONFIG['sso']['authorize_url']
+    # client_id = AUTH_CONFIG['sso']['client_id']
+    # redirect_uri = url_for('sso_callback', _external=True)
+    # return redirect(f'{authorize_url}?client_id={client_id}&redirect_uri={redirect_uri}')
+    return redirect('/login')
+
+
+@app.route('/auth/callback')
+def sso_callback():
+    """SSO 回调（预留）"""
+    if not AUTH_CONFIG.get('sso', {}).get('enabled'):
+        abort(404)
+    # TODO: 实现 OIDC/OAuth2 token 交换
+    # code = request.args.get('code')
+    # token = exchange_code_for_token(code)
+    # user_info = get_user_info(token)
+    # return create_session(user_info)
+    return redirect('/login')
+
+
+# ===== 用户管理 API =====
+
+
+def save_config():
+    """保存配置文件"""
+    # 将 USERS 转回配置格式
+    config['users'] = USERS
+    with open(CONFIG_FILE, 'w', encoding='utf-8') as f:
+        json.dump(config, f, ensure_ascii=False, indent=4)
+
+
+@app.route('/api/users')
+@require_role('admin')
+def get_users():
+    """获取所有用户列表（仅 admin）"""
+    users = []
+    for username, user_config in USERS.items():
+        users.append({
+            'username': username,
+            'role': user_config.get('role', 'viewer'),
+            'machines': user_config.get('machines', ['*'])
+        })
+    return jsonify({'users': users})
+
+
+@app.route('/api/users', methods=['POST'])
+@require_role('admin')
+def create_user():
+    """创建新用户（仅 admin）"""
+    data = request.json
+    username = data.get('username', '').strip()
+    password = data.get('password', '')
+    role = data.get('role', 'viewer')
+    machines = data.get('machines', ['*'])
+
+    if not username or not password:
+        return jsonify({'success': False, 'error': 'Username and password required'}), 400
+
+    if username in USERS:
+        return jsonify({'success': False, 'error': 'User already exists'}), 400
+
+    if role not in ('viewer', 'editor', 'admin'):
+        return jsonify({'success': False, 'error': 'Invalid role'}), 400
+
+    # 存储哈希密码
+    USERS[username] = {
+        'password': generate_password_hash(password),
+        'role': role,
+        'machines': machines
+    }
+    save_config()
+    log_action('create_user', {'username': username, 'role': role})
+    return jsonify({'success': True})
+
+
+@app.route('/api/users/<username>', methods=['PUT'])
+@require_role('admin')
+def update_user(username):
+    """更新用户（仅 admin）"""
+    if username not in USERS:
+        return jsonify({'success': False, 'error': 'User not found'}), 404
+
+    data = request.json
+    user_config = USERS[username]
+
+    # 更新密码（如果提供）
+    if data.get('password'):
+        user_config['password'] = generate_password_hash(data['password'])
+
+    # 更新角色
+    if 'role' in data:
+        if data['role'] not in ('viewer', 'editor', 'admin'):
+            return jsonify({'success': False, 'error': 'Invalid role'}), 400
+        user_config['role'] = data['role']
+
+    # 更新机器权限
+    if 'machines' in data:
+        user_config['machines'] = data['machines']
+
+    save_config()
+    log_action('update_user', {'username': username, 'role': user_config.get('role')})
+    return jsonify({'success': True})
+
+
+@app.route('/api/users/<username>', methods=['DELETE'])
+@require_role('admin')
+def delete_user(username):
+    """删除用户（仅 admin）"""
+    if username not in USERS:
+        return jsonify({'success': False, 'error': 'User not found'}), 404
+
+    # 不能删除自己
+    if username == current_user.id:
+        return jsonify({'success': False, 'error': 'Cannot delete yourself'}), 400
+
+    # 确保至少保留一个 admin
+    admin_count = sum(1 for u in USERS.values() if u.get('role') == 'admin')
+    if USERS[username].get('role') == 'admin' and admin_count <= 1:
+        return jsonify({'success': False, 'error': 'Cannot delete last admin'}), 400
+
+    del USERS[username]
+    save_config()
+    log_action('delete_user', {'username': username})
+    return jsonify({'success': True})
+
+
 @app.route('/')
 @login_required
 def index():
-    return render_template('index.html', username=current_user.id)
+    return render_template('index.html',
+                           username=current_user.id,
+                           user_role=current_user.role,
+                           user_machines=current_user.machines)
 
 
 # ===== 查询 API =====
@@ -375,7 +601,13 @@ def index():
 @login_required
 def get_current_user():
     """获取当前用户信息"""
-    return jsonify({'username': current_user.id})
+    return jsonify({
+        'username': current_user.id,
+        'role': current_user.role,
+        'machines': current_user.machines,
+        'can_edit': current_user.can_edit(),
+        'can_admin': current_user.can_admin()
+    })
 
 
 @app.route('/api/audit_logs')
@@ -412,9 +644,12 @@ def get_audit_logs(machine_id=None):
 @app.route('/api/machines')
 @login_required
 def get_machines():
-    """获取所有机器列表"""
+    """获取当前用户可访问的机器列表"""
     machines = []
     for mid, mconfig in MACHINES.items():
+        # 只返回用户有权限访问的机器
+        if not current_user.can_access_machine(mid):
+            continue
         machines.append({
             'id': mid,
             'name': mconfig.get('name', mid),
@@ -422,9 +657,11 @@ def get_machines():
             'linux_users': mconfig.get('linux_users', ['']),
             'host': mconfig.get('host', 'localhost')
         })
+    # 确保默认机器是用户可访问的
+    default = DEFAULT_MACHINE if current_user.can_access_machine(DEFAULT_MACHINE) else (machines[0]['id'] if machines else 'local')
     return jsonify({
         'machines': machines,
-        'default': DEFAULT_MACHINE
+        'default': default
     })
 
 
@@ -519,7 +756,8 @@ def get_raw(machine_id='local', linux_user=''):
 
 @app.route('/api/save', methods=['POST'])
 @app.route('/api/save/<machine_id>/<linux_user>', methods=['POST'])
-@login_required
+@require_role('editor', 'admin')
+@require_machine_access
 def save(machine_id=None, linux_user=None):
     """保存原始crontab"""
     # 优先从 JSON body 读取，其次使用路由参数
@@ -587,7 +825,8 @@ def get_backup_content(filename, machine_id='local', linux_user=''):
 
 @app.route('/api/restore/<filename>', methods=['POST'])
 @app.route('/api/restore/<machine_id>/<linux_user>/<filename>', methods=['POST'])
-@login_required
+@require_role('editor', 'admin')
+@require_machine_access
 def restore_backup(filename, machine_id='local', linux_user=''):
     """回滚到指定备份版本"""
     if not linux_user or linux_user == '_default_':
@@ -628,7 +867,8 @@ def get_machine_params():
 
 
 @app.route('/api/toggle/<int:task_id>', methods=['POST'])
-@login_required
+@require_role('editor', 'admin')
+@require_machine_access
 def toggle_task(task_id):
     """启用/禁用任务"""
     machine_id, linux_user = get_machine_params()
@@ -656,7 +896,8 @@ def toggle_task(task_id):
 
 
 @app.route('/api/add', methods=['POST'])
-@login_required
+@require_role('editor', 'admin')
+@require_machine_access
 def add_task():
     """添加新任务"""
     machine_id, linux_user = get_machine_params()
@@ -684,7 +925,8 @@ def add_task():
 
 
 @app.route('/api/update/<int:task_id>', methods=['POST'])
-@login_required
+@require_role('editor', 'admin')
+@require_machine_access
 def update_task(task_id):
     """更新任务"""
     machine_id, linux_user = get_machine_params()
@@ -726,7 +968,8 @@ def update_task(task_id):
 
 
 @app.route('/api/update_task_name/<int:task_id>', methods=['POST'])
-@login_required
+@require_role('editor', 'admin')
+@require_machine_access
 def update_task_name(task_id):
     """更新任务名称"""
     machine_id, linux_user = get_machine_params()
@@ -774,7 +1017,8 @@ def update_task_name(task_id):
 
 
 @app.route('/api/run/<int:task_id>', methods=['POST'])
-@login_required
+@require_role('editor', 'admin')
+@require_machine_access
 def run_task(task_id):
     """手动运行任务"""
     machine_id, linux_user = get_machine_params()
@@ -801,7 +1045,8 @@ def run_task(task_id):
 
 
 @app.route('/api/delete/<int:task_id>', methods=['POST'])
-@login_required
+@require_role('editor', 'admin')
+@require_machine_access
 def delete_task(task_id):
     """删除任务，如果是组内最后一个任务则同时删除组标题"""
     machine_id, linux_user = get_machine_params()
@@ -844,7 +1089,8 @@ def delete_task(task_id):
 
 
 @app.route('/api/toggle_group/<int:group_id>', methods=['POST'])
-@login_required
+@require_role('editor', 'admin')
+@require_machine_access
 def toggle_group(group_id):
     """启用/禁用整个任务组"""
     machine_id, linux_user = get_machine_params()
@@ -873,7 +1119,8 @@ def toggle_group(group_id):
 
 
 @app.route('/api/update_group_title/<int:group_id>', methods=['POST'])
-@login_required
+@require_role('editor', 'admin')
+@require_machine_access
 def update_group_title(group_id):
     """更新任务组名称"""
     machine_id, linux_user = get_machine_params()
@@ -907,7 +1154,8 @@ def update_group_title(group_id):
 
 
 @app.route('/api/add_to_group/<int:group_id>', methods=['POST'])
-@login_required
+@require_role('editor', 'admin')
+@require_machine_access
 def add_task_to_group(group_id):
     """在指定组内添加新任务"""
     machine_id, linux_user = get_machine_params()
@@ -958,7 +1206,8 @@ def add_task_to_group(group_id):
 
 
 @app.route('/api/create_group', methods=['POST'])
-@login_required
+@require_role('editor', 'admin')
+@require_machine_access
 def create_group():
     """创建新的任务组（仅包含组名称）"""
     machine_id, linux_user = get_machine_params()
@@ -982,7 +1231,8 @@ def create_group():
 
 
 @app.route('/api/delete_group/<int:group_id>', methods=['POST'])
-@login_required
+@require_role('editor', 'admin')
+@require_machine_access
 def delete_group(group_id):
     """删除整个任务组"""
     machine_id, linux_user = get_machine_params()
@@ -1017,7 +1267,8 @@ def delete_group(group_id):
 
 
 @app.route('/api/reorder_groups', methods=['POST'])
-@login_required
+@require_role('editor', 'admin')
+@require_machine_access
 def reorder_groups():
     """重新排序任务组"""
     machine_id, linux_user = get_machine_params()
@@ -1113,7 +1364,8 @@ def reorder_groups():
 
 
 @app.route('/api/move_task_to_end', methods=['POST'])
-@login_required
+@require_role('editor', 'admin')
+@require_machine_access
 def move_task_to_end():
     """将任务移动到指定组的末尾"""
     machine_id, linux_user = get_machine_params()
@@ -1205,7 +1457,8 @@ def move_task_to_end():
 
 
 @app.route('/api/reorder_tasks', methods=['POST'])
-@login_required
+@require_role('editor', 'admin')
+@require_machine_access
 def reorder_tasks():
     """重新排序任务（组内或跨组）"""
     machine_id, linux_user = get_machine_params()

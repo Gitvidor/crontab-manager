@@ -132,6 +132,150 @@
             display: block;
         }
 
+        /* Settings 用户管理视图 */
+        .settings-panel {
+            display: none;
+        }
+
+        .settings-panel.active {
+            display: block;
+        }
+
+        .settings-section {
+            background: var(--bg-secondary);
+            border-radius: var(--radius-md);
+            padding: var(--space-4);
+        }
+
+        .settings-section h3 {
+            margin: 0 0 var(--space-4);
+            font-size: 16px;
+            color: var(--text-primary);
+        }
+
+        .user-form {
+            display: flex;
+            gap: var(--space-2);
+            margin-bottom: var(--space-4);
+            flex-wrap: wrap;
+        }
+
+        .user-form input,
+        .user-form select {
+            padding: var(--space-2) var(--space-3);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            font-size: 13px;
+        }
+
+        .user-form input {
+            flex: 1;
+            min-width: 120px;
+        }
+
+        .user-form select {
+            min-width: 150px;
+        }
+
+        .add-user-btn {
+            padding: var(--space-2) var(--space-4);
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            font-size: 13px;
+            white-space: nowrap;
+        }
+
+        .add-user-btn:hover {
+            background: var(--primary-hover);
+        }
+
+        .user-list {
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            overflow: hidden;
+        }
+
+        .user-item {
+            display: flex;
+            align-items: center;
+            padding: var(--space-3);
+            border-bottom: 1px solid var(--border);
+            background: var(--bg-primary);
+        }
+
+        .user-item:last-child {
+            border-bottom: none;
+        }
+
+        .user-item:hover {
+            background: var(--bg-hover);
+        }
+
+        .user-item-name {
+            flex: 1;
+            font-weight: 500;
+            color: var(--text-primary);
+        }
+
+        .user-item-role {
+            padding: 2px 8px;
+            border-radius: var(--radius-sm);
+            font-size: 12px;
+            margin-right: var(--space-3);
+        }
+
+        .user-item-role.admin {
+            background: var(--danger-light);
+            color: var(--danger);
+        }
+
+        .user-item-role.editor {
+            background: var(--warning-light);
+            color: var(--warning);
+        }
+
+        .user-item-role.viewer {
+            background: var(--success-light);
+            color: var(--success);
+        }
+
+        .user-item-machines {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-right: var(--space-3);
+        }
+
+        .user-item-actions {
+            display: flex;
+            gap: var(--space-2);
+        }
+
+        .user-item-actions button {
+            padding: 4px 8px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            background: var(--bg-secondary);
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        .user-item-actions button:hover {
+            background: var(--bg-hover);
+            color: var(--text-primary);
+        }
+
+        .user-item-actions button.delete:hover {
+            background: var(--danger-light);
+            color: var(--danger);
+            border-color: var(--danger);
+        }
+
         /* Cron执行日志视图 */
         .cron-logs {
             display: none;
@@ -2680,6 +2824,9 @@
             <button class="tab" onclick="switchTab('history')">Raw Version</button>
             <button class="tab" onclick="switchTab('cron')">Cron Logs</button>
             <button class="tab" onclick="switchTab('logs')">Audit Logs</button>
+            {% if user_role == 'admin' %}
+            <button class="tab" onclick="switchTab('settings')">Settings</button>
+            {% endif %}
         </div>
         <div class="host-selector">
             <div class="selector-group">
@@ -2831,6 +2978,28 @@
         <div class="pagination" id="auditPagination"></div>
     </div>
 
+    <!-- Settings Tab (仅 admin 可见) -->
+    {% if user_role == 'admin' %}
+    <div id="settingsPanel" class="settings-panel">
+        <div class="settings-section">
+            <h3>用户管理</h3>
+            <div class="user-form">
+                <input type="text" id="newUsername" placeholder="用户名">
+                <input type="password" id="newPassword" placeholder="密码">
+                <select id="newRole">
+                    <option value="viewer">Viewer (只读)</option>
+                    <option value="editor">Editor (可编辑)</option>
+                    <option value="admin">Admin (管理员)</option>
+                </select>
+                <button class="add-user-btn" onclick="createUser()">添加用户</button>
+            </div>
+            <div class="user-list" id="userList">
+                <div class="log-empty">Loading...</div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
     <div id="message" class="message"></div>
 
     <!-- Undo 撤销提示条 -->
@@ -2886,6 +3055,10 @@
         let currentMachine = 'local';
         let currentLinuxUser = 'root';  // 默认用户为 root
         const collapsedStateMap = new Map();  // 保存每个 machine+user 的折叠状态
+        // 权限管理（服务端渲染）
+        const USER_ROLE = '{{ user_role }}';
+        const USER_CAN_EDIT = USER_ROLE === 'editor' || USER_ROLE === 'admin';
+        const USER_CAN_ADMIN = USER_ROLE === 'admin';
 
         // ========== SVG 图标常量 ==========
         const ICON = {
@@ -3123,13 +3296,15 @@
             }
 
             document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-            const tabMap = { 'list': 1, 'history': 2, 'cron': 3, 'logs': 4 };
+            const tabMap = { 'list': 1, 'history': 2, 'cron': 3, 'logs': 4, 'settings': 5 };
             document.querySelector(`.tab:nth-child(${tabMap[tab]})`).classList.add('active');
 
             document.getElementById('taskList').classList.toggle('active', tab === 'list');
             document.getElementById('historyView').classList.toggle('active', tab === 'history');
             document.getElementById('cronLogs').classList.toggle('active', tab === 'cron');
             document.getElementById('auditLogs').classList.toggle('active', tab === 'logs');
+            const settingsPanel = document.getElementById('settingsPanel');
+            if (settingsPanel) settingsPanel.classList.toggle('active', tab === 'settings');
             document.querySelector('.collapse-controls').style.display = tab === 'list' ? 'flex' : 'none';
             // 非 Task list 时隐藏分页栏；Task list 时由 renderTaskPagination 控制显示
             if (tab !== 'list') {
@@ -3147,6 +3322,8 @@
                 loadCronLogs();
             } else if (tab === 'logs') {
                 loadAuditLogs();
+            } else if (tab === 'settings') {
+                loadUsers();
             }
         }
 
@@ -4009,8 +4186,8 @@
             // 直接使用任务名
             const displayName = task.name;
             const taskName = displayName
-                ? `<span class="task-name editable" ondblclick="editTaskName(${task.id},this)" title="Double-click to edit">${escapeHtml(displayName)}</span>`
-                : `<span class="task-name task-name-empty editable" onclick="editTaskName(${task.id},this)" title="Click to enter task name"> Task name</span>`;
+                ? `<span class="task-name${USER_CAN_EDIT ? ' editable' : ''}" ${USER_CAN_EDIT ? `ondblclick="editTaskName(${task.id},this)" title="Double-click to edit"` : ''}>${escapeHtml(displayName)}</span>`
+                : (USER_CAN_EDIT ? `<span class="task-name task-name-empty editable" onclick="editTaskName(${task.id},this)" title="Click to enter task name"> Task name</span>` : `<span class="task-name"></span>`);
             const groupLabel = `<span class="task-group-label" onclick="goToGroup(${groupId})" title="Click to jump to group">${escapeHtml(group.title || 'Unnamed Group')}</span>`;
 
             return `
@@ -4020,22 +4197,22 @@
                  data-month="${encodeURIComponent(month)}" data-weekday="${encodeURIComponent(weekday)}" data-command="${encodeURIComponent(task.command)}"
                  data-name="${encodeURIComponent(task.name || '')}"
                  draggable="false" ondragstart="dragTaskStart(event)" ondragend="dragEnd(event)" ondragover="dragTaskOver(event)" ondragleave="dragTaskLeave(event)" ondrop="dropTask(event)">
-                <span class="drag-handle" title="Drag to reorder" onmousedown="enableDrag(this.parentElement)" onmouseup="disableDrag(this.parentElement)" ontouchstart="enableDrag(this.parentElement)" ontouchend="disableDrag(this.parentElement)">⋮⋮</span>
-                <div class="toggle ${task.enabled ? 'on' : ''}" onclick="toggleTask(${task.id})"></div>
+                ${USER_CAN_EDIT ? `<span class="drag-handle" title="Drag to reorder" onmousedown="enableDrag(this.parentElement)" onmouseup="disableDrag(this.parentElement)" ontouchstart="enableDrag(this.parentElement)" ontouchend="disableDrag(this.parentElement)">⋮⋮</span>` : ''}
+                <div class="toggle ${task.enabled ? 'on' : ''}" ${USER_CAN_EDIT ? `onclick="toggleTask(${task.id})"` : 'style="pointer-events:none"'}></div>
                 <div class="task-info">
                     <div class="task-name-row">${taskName}${groupLabel}</div>
                     <div class="task-schedule-wrapper">
                         <div class="cron-tooltip">${cronDescription}</div>
                         <div class="task-schedule">
-                            <span class="editable time-field" ondblclick="editField(${task.id},'minute',this)" title="Minute">${minute}</span>
-                            <span class="editable time-field" ondblclick="editField(${task.id},'hour',this)" title="Hour">${hour}</span>
-                            <span class="editable time-field" ondblclick="editField(${task.id},'day',this)" title="Day">${day}</span>
-                            <span class="editable time-field" ondblclick="editField(${task.id},'month',this)" title="Month">${month}</span>
-                            <span class="editable time-field" ondblclick="editField(${task.id},'weekday',this)" title="Weekday">${weekday}</span>
+                            <span class="${USER_CAN_EDIT ? 'editable ' : ''}time-field" ${USER_CAN_EDIT ? `ondblclick="editField(${task.id},'minute',this)"` : ''} title="Minute">${minute}</span>
+                            <span class="${USER_CAN_EDIT ? 'editable ' : ''}time-field" ${USER_CAN_EDIT ? `ondblclick="editField(${task.id},'hour',this)"` : ''} title="Hour">${hour}</span>
+                            <span class="${USER_CAN_EDIT ? 'editable ' : ''}time-field" ${USER_CAN_EDIT ? `ondblclick="editField(${task.id},'day',this)"` : ''} title="Day">${day}</span>
+                            <span class="${USER_CAN_EDIT ? 'editable ' : ''}time-field" ${USER_CAN_EDIT ? `ondblclick="editField(${task.id},'month',this)"` : ''} title="Month">${month}</span>
+                            <span class="${USER_CAN_EDIT ? 'editable ' : ''}time-field" ${USER_CAN_EDIT ? `ondblclick="editField(${task.id},'weekday',this)"` : ''} title="Weekday">${weekday}</span>
                         </div>
                     </div>
                     <div class="task-command">
-                        <span class="editable cmd-field" ondblclick="editField(${task.id},'command',this)">${escapeHtml(task.command)}</span>
+                        <span class="${USER_CAN_EDIT ? 'editable ' : ''}cmd-field" ${USER_CAN_EDIT ? `ondblclick="editField(${task.id},'command',this)"` : ''}>${escapeHtml(task.command)}</span>
                     </div>
                 </div>
                 <div class="task-actions">
@@ -4045,8 +4222,8 @@
                             <path d="M12 16v-4M12 8h.01"/>
                         </svg>
                     </button>
-                    <button class="run-btn" onclick="runTask(${task.id})" title="Run Now">▶</button>
-                    <button class="delete-btn" onclick="deleteTask(${task.id})" title="Delete">×</button>
+                    ${USER_CAN_EDIT ? `<button class="run-btn" onclick="runTask(${task.id})" title="Run Now">▶</button>
+                    <button class="delete-btn" onclick="deleteTask(${task.id})" title="Delete">×</button>` : ''}
                 </div>
             </div>`;
         }
@@ -4069,16 +4246,16 @@
                 <div class="task-group${allDisabled ? ' disabled' : ''}" id="group-${group.id}" data-group-id="${group.id}" data-title="${escapeHtml(group.title || '')}"
                      draggable="false" ondragstart="dragGroupStart(event)" ondragend="dragEnd(event)" ondragover="dragGroupOver(event)" ondrop="dropGroup(event)">
                     <div class="group-header" onclick="toggleGroupCollapse(${group.id})">
-                        <span class="drag-handle group-drag-handle" title="Drag to reorder" onclick="event.stopPropagation()" onmousedown="enableDrag(this.closest('.task-group'))" onmouseup="disableDrag(this.closest('.task-group'))" ontouchstart="enableDrag(this.closest('.task-group'))" ontouchend="disableDrag(this.closest('.task-group'))">⋮⋮</span>
-                        <div class="group-toggle-switch ${switchClass}" onclick="event.stopPropagation();toggleGroupSwitch(${group.id},${!allEnabled})"></div>
-                        <span class="group-title" onclick="event.stopPropagation()" ondblclick="event.stopPropagation();editGroupTitle(${group.id},this)" title="Double-click to edit">${group.title ? escapeHtml(group.title) : 'Unnamed Group'}</span>
+                        ${USER_CAN_EDIT ? `<span class="drag-handle group-drag-handle" title="Drag to reorder" onclick="event.stopPropagation()" onmousedown="enableDrag(this.closest('.task-group'))" onmouseup="disableDrag(this.closest('.task-group'))" ontouchstart="enableDrag(this.closest('.task-group'))" ontouchend="disableDrag(this.closest('.task-group'))">⋮⋮</span>` : ''}
+                        ${USER_CAN_EDIT ? `<div class="group-toggle-switch ${switchClass}" onclick="event.stopPropagation();toggleGroupSwitch(${group.id},${!allEnabled})"></div>` : `<div class="group-toggle-switch ${switchClass}" style="pointer-events:none"></div>`}
+                        <span class="group-title" onclick="event.stopPropagation()" ${USER_CAN_EDIT ? `ondblclick="event.stopPropagation();editGroupTitle(${group.id},this)" title="Double-click to edit"` : ''}>${group.title ? escapeHtml(group.title) : 'Unnamed Group'}</span>
                         <span class="group-count">${enabledCount}/${group.tasks.length}</span>
-                        <button class="group-delete-btn" onclick="event.stopPropagation();deleteGroup(${group.id})" title="Delete group"></button>
+                        ${USER_CAN_EDIT ? `<button class="group-delete-btn" onclick="event.stopPropagation();deleteGroup(${group.id})" title="Delete group"></button>` : ''}
                     </div>
                     <div class="group-tasks">
                         ${group.tasks.map(task => renderTask(task, group.id, group)).join('')}
-                        <div class="group-drop-end" data-group-id="${group.id}" ondragover="dragDropEndOver(event)" ondragleave="dragDropEndLeave(event)" ondrop="dropToEnd(event)"></div>
-                        <div class="group-add-task-btn" onclick="showGroupAddForm(${group.id})"><span class="plus-icon">+</span> New Task</div>
+                        ${USER_CAN_EDIT ? `<div class="group-drop-end" data-group-id="${group.id}" ondragover="dragDropEndOver(event)" ondragleave="dragDropEndLeave(event)" ondrop="dropToEnd(event)"></div>
+                        <div class="group-add-task-btn" onclick="showGroupAddForm(${group.id})"><span class="plus-icon">+</span> New Task</div>` : ''}
                         <div class="group-add-form" id="group-add-form-${group.id}">
                             <input type="text" id="g${group.id}-name" class="mini-name-input" placeholder="Task name (optional)">
                             <div class="mini-cron-inputs">
@@ -5338,11 +5515,143 @@
             }
         }
 
+        // ========== 用户管理 (仅 admin) ==========
+
+        async function loadUsers() {
+            if (!USER_CAN_ADMIN) return;
+            try {
+                const resp = await fetch('/api/users');
+                if (!resp.ok) {
+                    document.getElementById('userList').innerHTML = '<div class="log-empty">Permission denied</div>';
+                    return;
+                }
+                const data = await resp.json();
+                renderUserList(data.users);
+            } catch (e) {
+                document.getElementById('userList').innerHTML = `<div class="log-empty">Error: ${e.message}</div>`;
+            }
+        }
+
+        function renderUserList(users) {
+            const container = document.getElementById('userList');
+            if (!users || users.length === 0) {
+                container.innerHTML = '<div class="log-empty">No users</div>';
+                return;
+            }
+            container.innerHTML = users.map(u => `
+                <div class="user-item" data-username="${escapeHtml(u.username)}">
+                    <span class="user-item-name">${escapeHtml(u.username)}</span>
+                    <span class="user-item-role ${u.role}">${u.role}</span>
+                    <span class="user-item-machines">${u.machines.join(', ')}</span>
+                    <div class="user-item-actions">
+                        <button onclick="editUser('${escapeHtml(u.username)}')">Edit</button>
+                        <button class="delete" onclick="deleteUser('${escapeHtml(u.username)}')">Delete</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        async function createUser() {
+            const username = document.getElementById('newUsername').value.trim();
+            const password = document.getElementById('newPassword').value;
+            const role = document.getElementById('newRole').value;
+
+            if (!username || !password) {
+                showMessage('Username and password required', 'error');
+                return;
+            }
+
+            try {
+                const resp = await fetch('/api/users', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password, role, machines: ['*'] })
+                });
+                const result = await resp.json();
+                if (result.success) {
+                    showMessage('User created', 'success');
+                    document.getElementById('newUsername').value = '';
+                    document.getElementById('newPassword').value = '';
+                    document.getElementById('newRole').value = 'viewer';
+                    loadUsers();
+                } else {
+                    showMessage(result.error || 'Failed', 'error');
+                }
+            } catch (e) {
+                showMessage('Error: ' + e.message, 'error');
+            }
+        }
+
+        async function editUser(username) {
+            const newRole = prompt('Enter new role (viewer/editor/admin):');
+            if (!newRole || !['viewer', 'editor', 'admin'].includes(newRole)) {
+                if (newRole !== null) showMessage('Invalid role', 'error');
+                return;
+            }
+
+            try {
+                const resp = await fetch(`/api/users/${encodeURIComponent(username)}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ role: newRole })
+                });
+                const result = await resp.json();
+                if (result.success) {
+                    showMessage('User updated', 'success');
+                    loadUsers();
+                } else {
+                    showMessage(result.error || 'Failed', 'error');
+                }
+            } catch (e) {
+                showMessage('Error: ' + e.message, 'error');
+            }
+        }
+
+        async function deleteUser(username) {
+            if (!confirm(`Delete user "${username}"?`)) return;
+
+            try {
+                const resp = await fetch(`/api/users/${encodeURIComponent(username)}`, {
+                    method: 'DELETE'
+                });
+                const result = await resp.json();
+                if (result.success) {
+                    showMessage('User deleted', 'success');
+                    loadUsers();
+                } else {
+                    showMessage(result.error || 'Failed', 'error');
+                }
+            } catch (e) {
+                showMessage('Error: ' + e.message, 'error');
+            }
+        }
+
+        // ========== 权限控制 ==========
+
+        function applyPermissions() {
+            // Viewer 模式: 隐藏编辑相关按钮
+            if (!USER_CAN_EDIT) {
+                // 隐藏新建组按钮
+                const newGroupBtn = document.getElementById('newGroupBtn');
+                if (newGroupBtn) newGroupBtn.style.display = 'none';
+                // Raw Version: 设置编辑器只读
+                const rawContent = document.getElementById('rawContent');
+                if (rawContent) rawContent.readOnly = true;
+                // 隐藏 Raw 编辑区的保存按钮
+                document.querySelectorAll('.raw-editor-actions button').forEach(btn => {
+                    if (btn.textContent.includes('Save') || btn.textContent.includes('Edit')) {
+                        btn.style.display = 'none';
+                    }
+                });
+            }
+        }
+
         // ========== 初始化 ==========
         // 首先加载机器列表，然后加载任务并折叠所有组
         loadMachines().then(() => {
             loadTasks().then(() => {
                 collapseAll();
+                applyPermissions();
             });
         });
     </script>
