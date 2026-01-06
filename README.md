@@ -119,8 +119,8 @@ crontab-manager/
 
 | Tab | 功能 |
 |-----|------|
-| Task List | 可视化任务列表，支持分组、拖拽、编辑 |
-| Raw Version | 历史版本浏览，Diff 对比，一键回滚 |
+| Tasks | 可视化任务列表，支持分组、拖拽、编辑 |
+| History | 历史版本浏览，Diff 对比，一键回滚 |
 | Cron Logs | 系统 cron 执行日志查看 |
 | Audit Logs | 操作审计日志，支持用户/操作过滤 |
 

@@ -157,13 +157,13 @@
 
             if (startPage > 1) {
                 html += `<button class="page-btn" onclick="${goPageFn}(1)">1</button>`;
-                if (startPage > 2) html += `<span class="page-info">...</span>`;
+                if (startPage > 2) html += `<button class="page-btn page-ellipsis" onclick="showPageJumpInput(this, ${totalPages}, '${goPageFn}')" title="Jump to page">...</button>`;
             }
             for (let i = startPage; i <= endPage; i++) {
                 html += `<button class="page-btn ${i === currentPage ? 'active' : ''}" onclick="${goPageFn}(${i})">${i}</button>`;
             }
             if (endPage < totalPages) {
-                if (endPage < totalPages - 1) html += `<span class="page-info">...</span>`;
+                if (endPage < totalPages - 1) html += `<button class="page-btn page-ellipsis" onclick="showPageJumpInput(this, ${totalPages}, '${goPageFn}')" title="Jump to page">...</button>`;
                 html += `<button class="page-btn" onclick="${goPageFn}(${totalPages})">${totalPages}</button>`;
             }
 
@@ -172,6 +172,18 @@
             if (totalItems !== undefined) html += `<span class="page-info">${totalItems} ${itemType || 'items'}</span>`;
 
             pagination.innerHTML = html;
+        }
+
+        // 显示页码跳转输入框
+        function showPageJumpInput(_, totalPages, goPageFn) {
+            const page = prompt(`Jump to page (1-${totalPages}):`);
+            if (page === null) return;
+            const pageNum = parseInt(page, 10);
+            if (isNaN(pageNum) || pageNum < 1 || pageNum > totalPages) {
+                showMessage(`Invalid page number (1-${totalPages})`, 'error');
+                return;
+            }
+            window[goPageFn](pageNum);
         }
 
         // ========== UI 反馈（消息提示、撤销） ==========
@@ -1087,11 +1099,11 @@
             if (!activeTab) return;
 
             const tabText = activeTab.textContent.trim();
-            if (tabText === 'Task List') {
+            if (tabText === 'Tasks') {
                 await loadTasks();
                 restoreOrCollapseAll();
                 filterTasks();
-            } else if (tabText === 'Raw Version') {
+            } else if (tabText === 'History') {
                 loadRaw();
                 loadHistory();
             } else if (tabText === 'Cron Logs') {
