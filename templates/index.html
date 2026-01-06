@@ -387,12 +387,22 @@
         }
 
         .log-user {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
             color: var(--primary);
             font-weight: 500;
             font-size: 11px;
-            padding: 0 6px;
+            padding: 2px 8px 2px 4px;
             background: var(--bg-tertiary);
-            border-radius: var(--radius-sm);
+            border-radius: var(--radius-md);
+        }
+
+        .log-user svg {
+            width: 12px;
+            height: 12px;
+            opacity: 0.7;
+            flex-shrink: 0;
         }
 
         .log-action {
@@ -905,14 +915,24 @@
         }
 
         .history-user {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
             margin-left: var(--space-2);
-            padding: 2px 6px;
+            padding: 2px 8px 2px 4px;
             background: var(--bg-tertiary);
-            border-radius: var(--radius-sm);
+            border-radius: var(--radius-md);
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
             font-size: 11px;
             font-weight: 500;
             color: var(--primary);
+        }
+
+        .history-user svg {
+            width: 12px;
+            height: 12px;
+            opacity: 0.7;
+            flex-shrink: 0;
         }
 
         .pagination {
@@ -2672,10 +2692,9 @@
             </div>
         </div>
         <div class="user-info">
-            <span class="user-name"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+            <span class="user-name"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                     <circle cx="12" cy="7" r="4" />
+                    <path d="M5.5 21a6.5 6.5 0 0 1 13 0z" />
                 </svg><strong>{{ username }}</strong></span>
             <a href="/logout" class="logout-btn" title="Logout"><svg width="16" height="16" viewBox="0 0 24 24"
                     fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -3149,13 +3168,13 @@
         let auditCurrentPage = 1;
         let activeUserFilter = null;
         let activeActionFilter = null;
-        const AUDIT_ROW_HEIGHT = 39; // 每行高度(px)
+        const AUDIT_ROW_HEIGHT = 35; // 每行高度(px)
         const AUDIT_MIN_PAGE_SIZE = 10;
 
         let allCronLogs = [];   // 原始日志数据
         let cronLogs = [];      // 过滤后的日志
         let cronCurrentPage = 1;
-        const CRON_ROW_HEIGHT = 39; // 每行高度(px)
+        const CRON_ROW_HEIGHT = 35; // 每行高度(px)
         const CRON_MIN_PAGE_SIZE = 15;
 
         const PAGE_HEADER_OFFSET = 320; // 页头+tabs+搜索框+表头+分页栏等固定高度
@@ -3212,7 +3231,7 @@
             list.innerHTML = pageBackups.map(b => {
                 // 格式化时间：20251231_151544 -> 2025-12-31 15:15:44
                 const ts = b.timestamp.replace(/_/, ' ').replace(/(\d{4})(\d{2})(\d{2}) (\d{2})(\d{2})(\d{2})/, '$1-$2-$3 $4:$5:$6');
-                const userLabel = b.username ? `<span class="history-user">${escapeHtml(b.username)}</span>` : '';
+                const userLabel = b.username ? `<span class="history-user"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="7" r="4"/><path d="M5.5 21a6.5 6.5 0 0 1 13 0z"/></svg>${escapeHtml(b.username)}</span>` : '';
                 return `<div class="history-item">
                     <div class="history-item-header" onclick="toggleHistoryItem(this.parentElement, '${b.filename}')">
                         <span class="history-time">${ts}${userLabel}</span>
@@ -3580,7 +3599,7 @@
                 return `
                     <div class="log-item">
                         <span class="log-time">${log.timestamp}</span>
-                        <span class="log-user">${log.user}</span>
+                        <span class="log-user"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="7" r="4"/><path d="M5.5 21a6.5 6.5 0 0 1 13 0z"/></svg>${log.user}</span>
                         <span class="log-action ${actionClass}">${log.action}</span>
                         <span class="log-details">${details}</span>
                     </div>
