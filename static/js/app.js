@@ -28,6 +28,29 @@
         };
 
         // ========== 工具函数 ==========
+
+        // 带超时的 fetch 包装（防止 UI 假死）
+        const API_TIMEOUT = 10000; // 10秒超时
+        const nativeFetch = window.fetch.bind(window); // 保留原生 fetch 引用
+        async function fetchWithTimeout(url, options = {}) {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT);
+            try {
+                const response = await nativeFetch(url, { ...options, signal: controller.signal });
+                clearTimeout(timeoutId);
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                return response;
+            } catch (error) {
+                clearTimeout(timeoutId);
+                if (error.name === 'AbortError') {
+                    throw new Error('Request timeout - server not responding');
+                }
+                throw error;
+            }
+        }
+
         // Cron 时间解析为人类可读描述
         function parseCronToHuman(minute, hour, day, month, weekday) {
             const weekdayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -124,7 +147,7 @@
             const bodyData = options.body || {};
             bodyData.machine_id = currentMachine;
             bodyData.linux_user = currentLinuxUser || 'root';
-            const resp = await fetch(url, {
+            const resp = await fetchWithTimeout(url, {
                 method: options.method || 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(bodyData)
@@ -139,6 +162,14 @@
             return result;
         }
 
+        // 分页处理器映射（避免 window[fn] 动态调用）
+        const pageHandlers = {
+            goTaskPage: (page) => { taskCurrentPage = page; filterTasks(); },
+            goHistoryPage: (page) => { historyCurrentPage = page; renderHistoryPage(); },
+            goAuditPage: (page) => { auditCurrentPage = page; renderAuditPage(); },
+            goCronPage: (page) => { cronCurrentPage = page; renderCronPage(); }
+        };
+
         // 通用分页渲染函数
         function renderPagination(config) {
             const { elementId, currentPage, totalPages, goPageFn, totalItems, itemType, showDisplay } = config;
@@ -151,8 +182,8 @@
             if (showDisplay !== undefined) pagination.style.display = 'flex';
 
             let html = '';
-            html += `<button class="page-btn" onclick="${goPageFn}(1)" ${currentPage === 1 ? 'disabled' : ''}>«</button>`;
-            html += `<button class="page-btn" onclick="${goPageFn}(${currentPage - 1})" ${currentPage === 1 ? 'disabled' : ''}>‹</button>`;
+            html += `<button class="page-btn" data-handler="${goPageFn}" data-page="1" ${currentPage === 1 ? 'disabled' : ''}>«</button>`;
+            html += `<button class="page-btn" data-handler="${goPageFn}" data-page="${currentPage - 1}" ${currentPage === 1 ? 'disabled' : ''}>‹</button>`;
 
             const maxVisible = 5;
             let startPage = Math.max(1, currentPage - Math.floor(maxVisible / 2));
@@ -162,34 +193,53 @@
             }
 
             if (startPage > 1) {
-                html += `<button class="page-btn" onclick="${goPageFn}(1)">1</button>`;
-                if (startPage > 2) html += `<button class="page-btn page-ellipsis" onclick="showPageJumpInput(this, ${totalPages}, '${goPageFn}')" title="Jump to page">...</button>`;
+                html += `<button class="page-btn" data-handler="${goPageFn}" data-page="1">1</button>`;
+                if (startPage > 2) html += `<button class="page-btn page-ellipsis" data-handler="${goPageFn}" data-total="${totalPages}" data-jump="true" title="Jump to page">...</button>`;
             }
             for (let i = startPage; i <= endPage; i++) {
-                html += `<button class="page-btn ${i === currentPage ? 'active' : ''}" onclick="${goPageFn}(${i})">${i}</button>`;
+                html += `<button class="page-btn ${i === currentPage ? 'active' : ''}" data-handler="${goPageFn}" data-page="${i}">${i}</button>`;
             }
             if (endPage < totalPages) {
-                if (endPage < totalPages - 1) html += `<button class="page-btn page-ellipsis" onclick="showPageJumpInput(this, ${totalPages}, '${goPageFn}')" title="Jump to page">...</button>`;
-                html += `<button class="page-btn" onclick="${goPageFn}(${totalPages})">${totalPages}</button>`;
+                if (endPage < totalPages - 1) html += `<button class="page-btn page-ellipsis" data-handler="${goPageFn}" data-total="${totalPages}" data-jump="true" title="Jump to page">...</button>`;
+                html += `<button class="page-btn" data-handler="${goPageFn}" data-page="${totalPages}">${totalPages}</button>`;
             }
 
-            html += `<button class="page-btn" onclick="${goPageFn}(${currentPage + 1})" ${currentPage === totalPages ? 'disabled' : ''}>›</button>`;
-            html += `<button class="page-btn" onclick="${goPageFn}(${totalPages})" ${currentPage === totalPages ? 'disabled' : ''}>»</button>`;
+            html += `<button class="page-btn" data-handler="${goPageFn}" data-page="${currentPage + 1}" ${currentPage === totalPages ? 'disabled' : ''}>›</button>`;
+            html += `<button class="page-btn" data-handler="${goPageFn}" data-page="${totalPages}" ${currentPage === totalPages ? 'disabled' : ''}>»</button>`;
             if (totalItems !== undefined) html += `<span class="page-info">${totalItems} ${itemType || 'items'}</span>`;
 
             pagination.innerHTML = html;
         }
 
-        // 显示页码跳转输入框
-        function showPageJumpInput(_, totalPages, goPageFn) {
-            const page = prompt(`Jump to page (1-${totalPages}):`);
-            if (page === null) return;
-            const pageNum = parseInt(page, 10);
-            if (isNaN(pageNum) || pageNum < 1 || pageNum > totalPages) {
-                showMessage(`Invalid page number (1-${totalPages})`, 'error');
-                return;
-            }
-            window[goPageFn](pageNum);
+        // 分页事件委托（统一处理所有分页点击）
+        function setupPaginationDelegation() {
+            document.addEventListener('click', (e) => {
+                const btn = e.target.closest('.page-btn');
+                if (!btn || btn.disabled) return;
+
+                const handler = btn.dataset.handler;
+                if (!handler || !pageHandlers[handler]) return;
+
+                // 跳转输入框
+                if (btn.dataset.jump === 'true') {
+                    const totalPages = parseInt(btn.dataset.total, 10);
+                    const page = prompt(`Jump to page (1-${totalPages}):`);
+                    if (page === null) return;
+                    const pageNum = parseInt(page, 10);
+                    if (isNaN(pageNum) || pageNum < 1 || pageNum > totalPages) {
+                        showMessage(`Invalid page number (1-${totalPages})`, 'error');
+                        return;
+                    }
+                    pageHandlers[handler](pageNum);
+                    return;
+                }
+
+                // 普通页码点击
+                const page = parseInt(btn.dataset.page, 10);
+                if (!isNaN(page)) {
+                    pageHandlers[handler](page);
+                }
+            });
         }
 
         // ========== UI 反馈（消息提示、撤销） ==========
@@ -236,7 +286,7 @@
 
             if (undoData.type === 'delete_task') {
                 // 恢复删除的任务
-                const resp = await fetch(`/api/add_to_group/${undoData.groupId}`, {
+                const resp = await fetchWithTimeout(`/api/add_to_group/${undoData.groupId}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -407,7 +457,7 @@
             const list = document.getElementById('historyList');
             const pagination = document.getElementById('historyPagination');
             try {
-                const resp = await fetch(getApiPath('/api/backups'));
+                const resp = await fetchWithTimeout(getApiPath('/api/backups'));
                 const data = await resp.json();
 
                 if (!data.backups?.length) {
@@ -462,14 +512,6 @@
             });
         }
 
-        function goHistoryPage(page) {
-            const pageSize = getHistoryPageSize();
-            const totalPages = Math.ceil(historyBackups.length / pageSize);
-            if (page < 1 || page > totalPages) return;
-            historyCurrentPage = page;
-            renderHistoryPage();
-        }
-
         async function toggleHistoryItem(el, filename) {
             if (el.classList.contains('expanded')) {
                 el.classList.remove('expanded');
@@ -478,7 +520,7 @@
             }
 
             try {
-                const resp = await fetch(getApiPath('/api/backup') + `/${encodeURIComponent(filename)}`);
+                const resp = await fetchWithTimeout(getApiPath('/api/backup') + `/${encodeURIComponent(filename)}`);
                 const data = await resp.json();
                 if (data.content) {
                     el.classList.add('expanded');
@@ -628,7 +670,7 @@
             if (!confirm(`Restore to backup: ${timestamp}?`)) return;
 
             try {
-                const resp = await fetch(getApiPath('/api/restore') + `/${encodeURIComponent(filename)}`, {
+                const resp = await fetchWithTimeout(getApiPath('/api/restore') + `/${encodeURIComponent(filename)}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({})
@@ -662,7 +704,7 @@
             activeActionFilter = null;
 
             try {
-                const resp = await fetch(`/api/audit_logs/${encodeURIComponent(currentMachine)}`);
+                const resp = await fetchWithTimeout(`/api/audit_logs/${encodeURIComponent(currentMachine)}`);
                 const data = await resp.json();
                 const logs = data.logs || [];
 
@@ -798,14 +840,6 @@
             });
         }
 
-        function goAuditPage(page) {
-            const pageSize = getAuditPageSize();
-            const totalPages = Math.ceil(auditLogs.length / pageSize);
-            if (page < 1 || page > totalPages) return;
-            auditCurrentPage = page;
-            renderAuditPage();
-        }
-
         // 窗口大小变化时重新渲染分页
         window.addEventListener('resize', () => {
             if (historyBackups.length > 0 && document.getElementById('historyView').classList.contains('active')) {
@@ -866,7 +900,7 @@
             }
 
             try {
-                const resp = await fetch(`/api/cron_logs/${encodeURIComponent(currentMachine)}`);
+                const resp = await fetchWithTimeout(`/api/cron_logs/${encodeURIComponent(currentMachine)}`);
                 const data = await resp.json();
 
                 sourceEl.textContent = data.source || '-';
@@ -925,7 +959,11 @@
             if (syslogMatch) {
                 const month = months[syslogMatch[1]] || '01';
                 const day = syslogMatch[2].padStart(2, '0');
-                const year = new Date().getFullYear();
+                const now = new Date();
+                let year = now.getFullYear();
+                // 跨年修正：如果解析的日期 > 今天，说明是去年的日志
+                const logDate = new Date(year, parseInt(month) - 1, parseInt(day));
+                if (logDate > now) year--;
                 return `${year}-${month}-${day} ${syslogMatch[3]}`;
             }
             return timeStr;
@@ -1007,20 +1045,12 @@
             });
         }
 
-        function goCronPage(page) {
-            const pageSize = getCronPageSize();
-            const totalPages = Math.ceil(cronLogs.length / pageSize);
-            if (page < 1 || page > totalPages) return;
-            cronCurrentPage = page;
-            renderCronPage();
-        }
-
         // ========== 机器管理 ==========
 
         // 加载机器列表
         async function loadMachines() {
             try {
-                const res = await fetch('/api/machines');
+                const res = await fetchWithTimeout('/api/machines');
                 const data = await res.json();
                 // 将数组转换为以 id 为 key 的对象
                 machines = {};
@@ -1130,7 +1160,7 @@
             dot.title = 'Checking connection...';
 
             try {
-                const res = await fetch(`/api/machine/${currentMachine}/status`);
+                const res = await fetchWithTimeout(`/api/machine/${currentMachine}/status`);
                 const data = await res.json();
                 if (data.success) {
                     dot.className = 'status-dot connected';
@@ -1154,7 +1184,7 @@
         // ========== 数据加载与渲染 ==========
 
         async function loadTasks() {
-            const resp = await fetch(getApiPath('/api/tasks'));
+            const resp = await fetchWithTimeout(getApiPath('/api/tasks'));
             groups = await resp.json();
             renderTasks();
         }
@@ -1565,14 +1595,6 @@
             });
         }
 
-        // 跳转到指定页
-        function goTaskPage(page) {
-            const isFlatView = currentFilter !== 'all';
-            // 需要重新计算总页数
-            taskCurrentPage = page;
-            filterTasks();
-        }
-
         // 显示新建任务组表单
         function showNewGroupForm() {
             document.getElementById('newGroupForm').classList.add('active');
@@ -1593,7 +1615,7 @@
                 return;
             }
 
-            const resp = await fetch('/api/create_group', {
+            const resp = await fetchWithTimeout('/api/create_group', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ title, machine_id: currentMachine, linux_user: currentLinuxUser || 'root' })
@@ -1648,7 +1670,7 @@
             const schedule = `${minute} ${hour} ${day} ${month} ${weekday}`;
             const body = { schedule, command, machine_id: currentMachine, linux_user: currentLinuxUser || 'root' };
             if (name) body.name = name;
-            const resp = await fetch(`/api/add_to_group/${groupId}`, {
+            const resp = await fetchWithTimeout(`/api/add_to_group/${groupId}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(body)
@@ -1688,7 +1710,7 @@
                     return;
                 }
 
-                const resp = await fetch(`/api/update_group_title/${groupId}`, {
+                const resp = await fetchWithTimeout(`/api/update_group_title/${groupId}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ title: newTitle, machine_id: currentMachine, linux_user: currentLinuxUser || 'root' })
@@ -1738,7 +1760,7 @@
                 }
             });
 
-            const resp = await fetch(`/api/toggle_group/${groupId}`, {
+            const resp = await fetchWithTimeout(`/api/toggle_group/${groupId}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ enable, machine_id: currentMachine, linux_user: currentLinuxUser || 'root' })
@@ -1792,7 +1814,7 @@
                 const schedule = `${decodeURIComponent(card.dataset.minute)} ${decodeURIComponent(card.dataset.hour)} ${decodeURIComponent(card.dataset.day)} ${decodeURIComponent(card.dataset.month)} ${decodeURIComponent(card.dataset.weekday)}`;
                 const command = decodeURIComponent(card.dataset.command);
 
-                const resp = await fetch(`/api/update/${taskId}`, {
+                const resp = await fetchWithTimeout(`/api/update/${taskId}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ schedule, command, machine_id: currentMachine, linux_user: currentLinuxUser || 'root' })
@@ -1845,7 +1867,7 @@
             const save = async () => {
                 const newName = input.value.trim();
 
-                const resp = await fetch(`/api/update_task_name/${taskId}`, {
+                const resp = await fetchWithTimeout(`/api/update_task_name/${taskId}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ name: newName, machine_id: currentMachine, linux_user: currentLinuxUser || 'root' })
@@ -1906,7 +1928,7 @@
                 return;
             }
 
-            const resp = await fetch(`/api/run/${id}`, {
+            const resp = await fetchWithTimeout(`/api/run/${id}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ machine_id: currentMachine, linux_user: currentLinuxUser || 'root' })
@@ -1933,7 +1955,7 @@
             const enabled = card.querySelector('.toggle').classList.contains('on');
             const schedule = `${minute} ${hour} ${day} ${month} ${weekday}`;
 
-            const resp = await fetch(`/api/delete/${id}`, {
+            const resp = await fetchWithTimeout(`/api/delete/${id}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ machine_id: currentMachine, linux_user: currentLinuxUser || 'root' })
@@ -1969,7 +1991,7 @@
                 updateGroupSwitchState(groupEl);
             }
 
-            const resp = await fetch(`/api/toggle/${id}`, {
+            const resp = await fetchWithTimeout(`/api/toggle/${id}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ machine_id: currentMachine, linux_user: currentLinuxUser || 'root' })
@@ -2014,7 +2036,7 @@
         // ========== 原始编辑器 ==========
 
         async function loadRaw() {
-            const resp = await fetch(getApiPath('/api/raw'));
+            const resp = await fetchWithTimeout(getApiPath('/api/raw'));
             const data = await resp.json();
             document.getElementById('rawContent').value = data.content;
             updateHighlight();
@@ -2365,7 +2387,7 @@
             cleanupDragState();
 
             // 调用后端 API 重新排序
-            const resp = await fetch('/api/reorder_groups', {
+            const resp = await fetchWithTimeout('/api/reorder_groups', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ from_id: fromId, to_id: toId, insert_before: insertBefore, machine_id: currentMachine, linux_user: currentLinuxUser || 'root' })
@@ -2424,7 +2446,7 @@
             cleanupDragState();
 
             // 调用后端 API 重新排序
-            const resp = await fetch('/api/reorder_tasks', {
+            const resp = await fetchWithTimeout('/api/reorder_tasks', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -2484,7 +2506,7 @@
             cleanupDragState();
 
             // 调用后端 API 移动到末尾
-            const resp = await fetch('/api/move_task_to_end', {
+            const resp = await fetchWithTimeout('/api/move_task_to_end', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -2517,11 +2539,7 @@
         async function loadUsers() {
             if (!USER_CAN_ADMIN) return;
             try {
-                const resp = await fetch('/api/users');
-                if (!resp.ok) {
-                    document.getElementById('userList').innerHTML = '<div class="log-empty">Permission denied</div>';
-                    return;
-                }
+                const resp = await fetchWithTimeout('/api/users');
                 const data = await resp.json();
                 renderUserList(data.users);
             } catch (e) {
@@ -2576,7 +2594,7 @@
             }
 
             try {
-                const resp = await fetch('/api/users', {
+                const resp = await fetchWithTimeout('/api/users', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ username, password, role, machines: ['*'] })
@@ -2598,7 +2616,7 @@
 
         async function changeUserRole(username, newRole) {
             try {
-                const resp = await fetch(`/api/users/${encodeURIComponent(username)}`, {
+                const resp = await fetchWithTimeout(`/api/users/${encodeURIComponent(username)}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ role: newRole })
@@ -2621,7 +2639,7 @@
             if (!confirm(`Delete user "${username}"?`)) return;
 
             try {
-                const resp = await fetch(`/api/users/${encodeURIComponent(username)}`, {
+                const resp = await fetchWithTimeout(`/api/users/${encodeURIComponent(username)}`, {
                     method: 'DELETE'
                 });
                 const result = await resp.json();
@@ -2855,6 +2873,7 @@
         // ========== 初始化 ==========
         // 设置事件委托
         setupTaskListEventDelegation();
+        setupPaginationDelegation();
 
         // 首先加载机器列表，然后加载任务并折叠所有组
         loadMachines().then(() => {
