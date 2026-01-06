@@ -2828,6 +2828,28 @@
                     dropGroup(e);
                 }
             });
+
+            // Tooltip hover fallback（兼容不支持 :has() 的浏览器）
+            taskList.addEventListener('mouseover', (e) => {
+                const wrapper = e.target.closest('.task-schedule-wrapper');
+                if (!wrapper) return;
+                const card = wrapper.closest('.task-card');
+                const group = wrapper.closest('.task-group');
+                const groupTasks = wrapper.closest('.group-tasks');
+                if (card) card.classList.add('has-tooltip-hover');
+                if (group) group.classList.add('has-tooltip-hover');
+                if (groupTasks) groupTasks.classList.add('has-tooltip-hover');
+            });
+            taskList.addEventListener('mouseout', (e) => {
+                const wrapper = e.target.closest('.task-schedule-wrapper');
+                if (!wrapper) return;
+                const card = wrapper.closest('.task-card');
+                const group = wrapper.closest('.task-group');
+                const groupTasks = wrapper.closest('.group-tasks');
+                if (card) card.classList.remove('has-tooltip-hover');
+                if (group) group.classList.remove('has-tooltip-hover');
+                if (groupTasks) groupTasks.classList.remove('has-tooltip-hover');
+            });
         }
 
         // ========== 初始化 ==========

@@ -2,11 +2,15 @@
         :root {
             --primary: #4A90D9;
             --primary-hover: #357ABD;
+            --primary-light: rgba(74, 144, 217, 0.15);
             --success: #4CAF50;
             --success-hover: #45a049;
+            --success-light: #E8F5E9;
             --warning: #FFA726;
+            --warning-light: #FFF4E5;
             --danger: #FF5F57;
             --danger-border: #E24B41;
+            --danger-light: #FFF0EF;
             --macos-yellow: #FEBC2E;
             --macos-yellow-border: #E1A73E;
 
@@ -83,7 +87,7 @@
             display: flex;
             align-items: center;
             gap: var(--space-4);
-            margin-bottom: var(--space-1);
+            margin-bottom: var(--space-3);
             padding: 8px var(--space-4);
             padding-right: 120px;
             background: var(--bg-secondary);
@@ -234,7 +238,7 @@
         .user-form input,
         .user-form select {
             padding: var(--space-2) var(--space-3);
-            border: 1px solid var(--border);
+            border: 1px solid var(--border-color);
             border-radius: var(--radius-sm);
             background: var(--bg-primary);
             color: var(--text-primary);
@@ -270,7 +274,7 @@
             align-items: center;
             padding: var(--space-2) var(--space-3);
             background: var(--bg-tertiary);
-            border: 1px solid var(--border);
+            border: 1px solid var(--border-color);
             border-bottom: none;
             border-radius: var(--radius-sm) var(--radius-sm) 0 0;
             font-size: 12px;
@@ -297,7 +301,7 @@
         }
 
         .user-list {
-            border: 1px solid var(--border);
+            border: 1px solid var(--border-color);
             border-radius: 0 0 var(--radius-sm) var(--radius-sm);
             overflow: hidden;
         }
@@ -306,7 +310,7 @@
             display: flex;
             align-items: center;
             padding: var(--space-3);
-            border-bottom: 1px solid var(--border);
+            border-bottom: 1px solid var(--border-color);
             background: var(--bg-primary);
         }
 
@@ -330,7 +334,7 @@
             border-radius: var(--radius-sm);
             font-size: 12px;
             margin-right: var(--space-3);
-            border: 1px solid var(--border);
+            border: 1px solid var(--border-color);
             cursor: pointer;
             background: var(--bg-primary);
             color: var(--text-primary);
@@ -368,7 +372,7 @@
 
         .user-item-actions button:not(.btn-delete-circle) {
             padding: 4px 8px;
-            border: 1px solid var(--border);
+            border: 1px solid var(--border-color);
             border-radius: var(--radius-sm);
             background: var(--bg-secondary);
             color: var(--text-secondary);
@@ -1342,16 +1346,6 @@
         .message.error {
             background: #ef4444;
             display: block;
-        }
-
-        .header {
-            display: flex;
-            align-items: center;
-            margin-bottom: var(--space-5);
-        }
-
-        .header h1 {
-            margin-bottom: 0;
         }
 
         /* 内联编辑样式 */
@@ -2512,16 +2506,20 @@
             opacity: 1;
         }
 
-        .task-card:has(.task-schedule-wrapper:hover) {
+        /* :has() 选择器 + fallback 类 */
+        .task-card:has(.task-schedule-wrapper:hover),
+        .task-card.has-tooltip-hover {
             overflow: visible;
             z-index: 100;
         }
 
-        .task-group:has(.task-schedule-wrapper:hover) {
+        .task-group:has(.task-schedule-wrapper:hover),
+        .task-group.has-tooltip-hover {
             overflow: visible;
         }
 
-        .group-tasks:has(.task-schedule-wrapper:hover) {
+        .group-tasks:has(.task-schedule-wrapper:hover),
+        .group-tasks.has-tooltip-hover {
             overflow: visible;
         }
 
@@ -2867,7 +2865,7 @@
 
         .edit-help-panel {
             background: var(--bg-tertiary);
-            border: 1px solid var(--border);
+            border: 1px solid var(--border-color);
             border-radius: 8px;
             margin: 8px 0;
             padding: 12px 16px;
@@ -2903,4 +2901,13 @@
             margin-top: 4px;
             color: var(--text-muted);
             font-size: 12px;
+        }
+
+        /* 无障碍：减少动画（针对前庭敏感用户） */
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+            }
         }
