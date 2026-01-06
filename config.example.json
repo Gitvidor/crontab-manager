@@ -1,7 +1,21 @@
 {
     "secret_key": "your-secret-key-change-in-production",
     "users": {
-        "admin": "admin123"
+        "admin": {
+            "password": "admin123",
+            "role": "admin",
+            "machines": ["*"]
+        },
+        "editor": {
+            "password": "editor123",
+            "role": "editor",
+            "machines": ["local", "server-1"]
+        },
+        "viewer": {
+            "password": "viewer123",
+            "role": "viewer",
+            "machines": ["*"]
+        }
     },
     "machines": {
         "local": {

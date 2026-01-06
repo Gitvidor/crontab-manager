@@ -3571,7 +3571,7 @@
                         <span class="history-time">${ts}${userLabel}</span>
                         <div class="history-actions">
                             <button class="history-btn diff-btn" onclick="event.stopPropagation(); showDiff('${b.filename}', '${ts}')">Diff</button>
-                            <button class="history-btn restore-btn" onclick="event.stopPropagation(); restoreBackup('${b.filename}', '${ts}')">Restore</button>
+                            <button class="history-btn restore-btn${USER_CAN_EDIT ? '' : ' no-permission'}" ${USER_CAN_EDIT ? `onclick="event.stopPropagation(); restoreBackup('${b.filename}', '${ts}')"` : ''}>Restore</button>
                         </div>
                     </div>
                 </div>`;
