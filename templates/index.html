@@ -208,8 +208,6 @@
         .cron-log-list {
             background: var(--bg-secondary);
             border: 1px solid var(--border-color);
-            max-height: 75vh;
-            overflow-y: auto;
         }
 
         .cron-log-line {
@@ -349,8 +347,6 @@
         .log-list {
             background: var(--bg-secondary);
             border: 1px solid var(--border-color);
-            max-height: 75vh;
-            overflow-y: auto;
         }
 
         .log-item {
@@ -380,7 +376,7 @@
             color: var(--primary);
             font-weight: 500;
             font-size: 11px;
-            padding: 1px 6px;
+            padding: 0 6px;
             background: var(--bg-tertiary);
             border-radius: var(--radius-sm);
         }
@@ -3144,16 +3140,16 @@
         let auditCurrentPage = 1;
         let activeUserFilter = null;
         let activeActionFilter = null;
-        const AUDIT_ROW_HEIGHT = 33; // 每行高度(px): padding 8*2 + font 12 + border 1
+        const AUDIT_ROW_HEIGHT = 35; // 每行高度(px)
         const AUDIT_MIN_PAGE_SIZE = 10;
 
         let allCronLogs = [];   // 原始日志数据
         let cronLogs = [];      // 过滤后的日志
         let cronCurrentPage = 1;
-        const CRON_ROW_HEIGHT = 24; // 每行高度(px): padding 4*2 + font 12 + border 1
+        const CRON_ROW_HEIGHT = 35; // 每行高度(px)
         const CRON_MIN_PAGE_SIZE = 15;
 
-        const PAGE_HEADER_OFFSET = 180; // 页头+tabs+分页栏等固定高度
+        const PAGE_HEADER_OFFSET = 320; // 页头+tabs+搜索框+表头+分页栏等固定高度
 
         function getHistoryPageSize() {
             const availableHeight = window.innerHeight - PAGE_HEADER_OFFSET;
