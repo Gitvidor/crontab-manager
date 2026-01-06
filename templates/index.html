@@ -215,6 +215,7 @@
             border-bottom: 1px solid var(--border-light);
             font-size: 12px;
             display: flex;
+            align-items: center;
             gap: var(--space-4);
         }
 
@@ -233,8 +234,21 @@
         }
 
         .cron-host {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            background: var(--bg-tertiary);
+            border-radius: var(--radius-md);
+            padding: 2px 8px 2px 4px;
             color: var(--text-secondary);
             min-width: 100px;
+        }
+
+        .cron-host svg {
+            width: 14px;
+            height: 14px;
+            opacity: 0.6;
+            flex-shrink: 0;
         }
 
         .cron-details {
@@ -3135,13 +3149,13 @@
         let auditCurrentPage = 1;
         let activeUserFilter = null;
         let activeActionFilter = null;
-        const AUDIT_ROW_HEIGHT = 35; // 每行高度(px)
+        const AUDIT_ROW_HEIGHT = 39; // 每行高度(px)
         const AUDIT_MIN_PAGE_SIZE = 10;
 
         let allCronLogs = [];   // 原始日志数据
         let cronLogs = [];      // 过滤后的日志
         let cronCurrentPage = 1;
-        const CRON_ROW_HEIGHT = 35; // 每行高度(px)
+        const CRON_ROW_HEIGHT = 39; // 每行高度(px)
         const CRON_MIN_PAGE_SIZE = 15;
 
         const PAGE_HEADER_OFFSET = 320; // 页头+tabs+搜索框+表头+分页栏等固定高度
@@ -3803,7 +3817,7 @@
                 if (parsed) {
                     return `<div class="cron-log-line">
                         <span class="cron-time">${escapeHtml(parsed.time)}</span>
-                        <span class="cron-host">${escapeHtml(parsed.host)}</span>
+                        <span class="cron-host"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>${escapeHtml(parsed.host)}</span>
                         <span class="cron-details">${formatCronDetails(parsed.details)}</span>
                     </div>`;
                 } else {
