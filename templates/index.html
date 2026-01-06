@@ -76,37 +76,39 @@
 
         /* 顶部导航栏 */
         .header {
+            position: relative;
             display: flex;
             align-items: center;
             gap: var(--space-4);
             margin-bottom: var(--space-1);
             padding: 8px var(--space-4);
+            padding-right: 120px;
             background: var(--bg-secondary);
             border-bottom: 1px solid var(--border-color);
         }
 
         .user-info {
-            position: relative;
-            margin-left: auto;
+            position: absolute;
+            right: var(--space-4);
+            top: 50%;
+            transform: translateY(-50%);
+            z-index: 9999;
         }
 
         .user-name {
             display: flex;
             align-items: center;
             gap: var(--space-1);
-            font-size: 14px;
+            font-size: 13px;
             color: var(--text-secondary);
-            padding: var(--space-2) var(--space-3);
-            background: var(--bg-hover);
-            border: 1px solid var(--border-color);
-            border-radius: var(--radius-md);
-            cursor: pointer;
+            padding: var(--space-1) var(--space-2);
+            border-radius: var(--radius-sm);
+            cursor: default;
             transition: all var(--transition-fast);
         }
 
-        .user-name:hover {
-            background: var(--bg-tertiary);
-            border-color: var(--primary);
+        .user-info:hover .user-name {
+            background: var(--bg-hover);
         }
 
         .user-name strong {
@@ -114,31 +116,31 @@
         }
 
         .user-name .dropdown-arrow {
-            margin-left: var(--space-1);
+            margin-left: 2px;
             transition: transform var(--transition-fast);
         }
 
-        .user-info.open .user-name .dropdown-arrow {
+        .user-info:hover .user-name .dropdown-arrow {
             transform: rotate(180deg);
         }
 
         .user-dropdown {
             position: absolute;
-            top: calc(100% + 4px);
+            top: 100%;
             right: 0;
-            min-width: 160px;
+            min-width: 140px;
             background: var(--bg-secondary);
             border: 1px solid var(--border-color);
             border-radius: var(--radius-md);
             box-shadow: 0 4px 12px rgba(0,0,0,0.15);
             opacity: 0;
             visibility: hidden;
-            transform: translateY(-8px);
+            transform: translateY(-4px);
             transition: all var(--transition-fast);
-            z-index: 1000;
+            z-index: 9999;
         }
 
-        .user-info.open .user-dropdown {
+        .user-info:hover .user-dropdown {
             opacity: 1;
             visibility: visible;
             transform: translateY(0);
@@ -2901,19 +2903,19 @@
             </div>
         </div>
         <div class="user-info" id="userMenu">
-            <span class="user-name" onclick="toggleUserMenu()">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <span class="user-name">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
                     <circle cx="12" cy="7" r="4" />
                     <path d="M5.5 21a6.5 6.5 0 0 1 13 0z" />
                 </svg>
                 <strong>{{ username }}</strong>
-                <svg class="dropdown-arrow" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <svg class="dropdown-arrow" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M6 9l6 6 6-6"/>
                 </svg>
             </span>
             <div class="user-dropdown">
                 {% if user_role == 'admin' %}
-                <div class="user-dropdown-item" onclick="switchTab('settings'); closeUserMenu();">
+                <div class="user-dropdown-item" onclick="switchTab('settings')">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <circle cx="12" cy="12" r="3"/>
                         <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
@@ -5710,24 +5712,6 @@
                 showMessage('Error: ' + e.message, 'error');
             }
         }
-
-        // ========== 用户菜单 ==========
-
-        function toggleUserMenu() {
-            document.getElementById('userMenu').classList.toggle('open');
-        }
-
-        function closeUserMenu() {
-            document.getElementById('userMenu').classList.remove('open');
-        }
-
-        // 点击外部关闭菜单
-        document.addEventListener('click', function(e) {
-            const userMenu = document.getElementById('userMenu');
-            if (userMenu && !userMenu.contains(e.target)) {
-                userMenu.classList.remove('open');
-            }
-        });
 
         // ========== 权限控制 ==========
 
