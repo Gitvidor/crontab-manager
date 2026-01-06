@@ -1164,48 +1164,48 @@
             const parts = task.schedule.split(/\s+/);
             const [minute, hour, day, month, weekday] = parts.length >= 5 ? parts : ['*', '*', '*', '*', '*'];
             const cronDescription = parseCronToHuman(minute, hour, day, month, weekday);
-            // 直接使用任务名
             const displayName = task.name;
             const noPerm = USER_CAN_EDIT ? '' : ' no-permission';
-            const taskName = displayName
-                ? `<span class="task-name editable" ${USER_CAN_EDIT ? `ondblclick="editTaskName(${task.id},this)" title="Double-click to edit"` : ''}>${escapeHtml(displayName)}</span>`
-                : `<span class="task-name task-name-empty editable" ${USER_CAN_EDIT ? `ondblclick="editTaskName(${task.id},this)" title="Double-click to edit"` : ''}>Unnamed Task</span>`;
-            const groupLabel = `<span class="task-group-label" onclick="goToGroup(${groupId})" title="Click to jump to group">${escapeHtml(group.title || 'Unnamed Group')}</span>`;
+            const editableClass = USER_CAN_EDIT ? 'editable' : '';
+            const taskNameClass = displayName ? 'task-name' : 'task-name task-name-empty';
+            const taskNameText = displayName ? escapeHtml(displayName) : 'Unnamed Task';
 
             return `
             <div class="task-card ${task.enabled ? '' : 'disabled'}" id="task-${task.id}"
                  data-task-id="${task.id}" data-group-id="${groupId}"
                  data-minute="${encodeURIComponent(minute)}" data-hour="${encodeURIComponent(hour)}" data-day="${encodeURIComponent(day)}"
                  data-month="${encodeURIComponent(month)}" data-weekday="${encodeURIComponent(weekday)}" data-command="${encodeURIComponent(task.command)}"
-                 data-name="${encodeURIComponent(task.name || '')}"
-                 draggable="false" ondragstart="dragTaskStart(event)" ondragend="dragEnd(event)" ondragover="dragTaskOver(event)" ondragleave="dragTaskLeave(event)" ondrop="dropTask(event)">
-                <span class="drag-handle${noPerm}" title="Drag to reorder" ${USER_CAN_EDIT ? `onmousedown="enableDrag(this.parentElement)" onmouseup="disableDrag(this.parentElement)" ontouchstart="enableDrag(this.parentElement)" ontouchend="disableDrag(this.parentElement)"` : ''}>⋮⋮</span>
-                <div class="toggle ${task.enabled ? 'on' : ''}${noPerm}" ${USER_CAN_EDIT ? `onclick="toggleTask(${task.id})"` : ''}></div>
+                 data-name="${encodeURIComponent(task.name || '')}" draggable="false">
+                <span class="drag-handle${noPerm}" title="Drag to reorder">⋮⋮</span>
+                <div class="toggle ${task.enabled ? 'on' : ''}${noPerm}"></div>
                 <div class="task-info">
-                    <div class="task-name-row">${taskName}${groupLabel}</div>
+                    <div class="task-name-row">
+                        <span class="${taskNameClass} ${editableClass}" ${USER_CAN_EDIT ? 'title="Double-click to edit"' : ''}>${taskNameText}</span>
+                        <span class="task-group-label" data-group-id="${groupId}" title="Click to jump to group">${escapeHtml(group.title || 'Unnamed Group')}</span>
+                    </div>
                     <div class="task-schedule-wrapper">
                         <div class="cron-tooltip">${cronDescription}</div>
                         <div class="task-schedule">
-                            <span class="${USER_CAN_EDIT ? 'editable ' : ''}time-field" ${USER_CAN_EDIT ? `ondblclick="editField(${task.id},'minute',this)"` : ''} title="Minute">${minute}</span>
-                            <span class="${USER_CAN_EDIT ? 'editable ' : ''}time-field" ${USER_CAN_EDIT ? `ondblclick="editField(${task.id},'hour',this)"` : ''} title="Hour">${hour}</span>
-                            <span class="${USER_CAN_EDIT ? 'editable ' : ''}time-field" ${USER_CAN_EDIT ? `ondblclick="editField(${task.id},'day',this)"` : ''} title="Day">${day}</span>
-                            <span class="${USER_CAN_EDIT ? 'editable ' : ''}time-field" ${USER_CAN_EDIT ? `ondblclick="editField(${task.id},'month',this)"` : ''} title="Month">${month}</span>
-                            <span class="${USER_CAN_EDIT ? 'editable ' : ''}time-field" ${USER_CAN_EDIT ? `ondblclick="editField(${task.id},'weekday',this)"` : ''} title="Weekday">${weekday}</span>
+                            <span class="${editableClass} time-field" data-field="minute" title="Minute">${minute}</span>
+                            <span class="${editableClass} time-field" data-field="hour" title="Hour">${hour}</span>
+                            <span class="${editableClass} time-field" data-field="day" title="Day">${day}</span>
+                            <span class="${editableClass} time-field" data-field="month" title="Month">${month}</span>
+                            <span class="${editableClass} time-field" data-field="weekday" title="Weekday">${weekday}</span>
                         </div>
                     </div>
                     <div class="task-command">
-                        <span class="${USER_CAN_EDIT ? 'editable ' : ''}cmd-field" ${USER_CAN_EDIT ? `ondblclick="editField(${task.id},'command',this)"` : ''}>${escapeHtml(task.command)}</span>
+                        <span class="${editableClass} cmd-field">${escapeHtml(task.command)}</span>
                     </div>
                 </div>
                 <div class="task-actions">
-                    <button class="detail-btn" onclick="showTaskDetail(${task.id})" title="Details">
+                    <button class="detail-btn" title="Details">
                         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <circle cx="12" cy="12" r="10"/>
                             <path d="M12 16v-4M12 8h.01"/>
                         </svg>
                     </button>
-                    <button class="run-btn${noPerm}" ${USER_CAN_EDIT ? `onclick="runTask(${task.id})"` : ''} title="Run Now">▶</button>
-                    <button class="delete-btn btn-delete-circle${noPerm}" ${USER_CAN_EDIT ? `onclick="deleteTask(${task.id})"` : ''} title="Delete">×</button>
+                    <button class="run-btn${noPerm}" title="Run Now">▶</button>
+                    <button class="delete-btn btn-delete-circle${noPerm}" title="Delete">×</button>
                 </div>
             </div>`;
         }
@@ -1227,31 +1227,31 @@
                 const switchClass = allEnabled ? 'on' : (partial ? 'partial' : '');
                 return `
                 <div class="task-group${allDisabled ? ' disabled' : ''}" id="group-${group.id}" data-group-id="${group.id}" data-title="${escapeHtml(group.title || '')}"
-                     draggable="false" ondragstart="dragGroupStart(event)" ondragend="dragEnd(event)" ondragover="dragGroupOver(event)" ondrop="dropGroup(event)">
-                    <div class="group-header" onclick="toggleGroupCollapse(${group.id})">
-                        <span class="drag-handle group-drag-handle${noPerm}" title="Drag to reorder" onclick="event.stopPropagation()" ${USER_CAN_EDIT ? `onmousedown="enableDrag(this.closest('.task-group'))" onmouseup="disableDrag(this.closest('.task-group'))" ontouchstart="enableDrag(this.closest('.task-group'))" ontouchend="disableDrag(this.closest('.task-group'))"` : ''}>⋮⋮</span>
-                        <div class="group-toggle-switch ${switchClass}${noPerm}" ${USER_CAN_EDIT ? `onclick="event.stopPropagation();toggleGroupSwitch(${group.id},${!allEnabled})"` : 'onclick="event.stopPropagation()"'}></div>
-                        <span class="group-title" onclick="event.stopPropagation()" ${USER_CAN_EDIT ? `ondblclick="event.stopPropagation();editGroupTitle(${group.id},this)" title="Double-click to edit"` : ''}>${group.title ? escapeHtml(group.title) : 'Unnamed Group'}</span>
+                     data-all-enabled="${allEnabled}" draggable="false">
+                    <div class="group-header">
+                        <span class="drag-handle group-drag-handle${noPerm}" title="Drag to reorder">⋮⋮</span>
+                        <div class="group-toggle-switch ${switchClass}${noPerm}"></div>
+                        <span class="group-title" ${USER_CAN_EDIT ? 'title="Double-click to edit"' : ''}>${group.title ? escapeHtml(group.title) : 'Unnamed Group'}</span>
                         <span class="group-count">${enabledCount}/${group.tasks.length}</span>
-                        <button class="group-delete-btn btn-delete-circle${noPerm}" ${USER_CAN_EDIT ? `onclick="event.stopPropagation();deleteGroup(${group.id})"` : 'onclick="event.stopPropagation()"'} title="Delete group"></button>
+                        <button class="group-delete-btn btn-delete-circle${noPerm}" title="Delete group"></button>
                     </div>
                     <div class="group-tasks">
                         ${group.tasks.map(task => renderTask(task, group.id, group)).join('')}
-                        <div class="group-drop-end${noPerm}" data-group-id="${group.id}" ${USER_CAN_EDIT ? `ondragover="dragDropEndOver(event)" ondragleave="dragDropEndLeave(event)" ondrop="dropToEnd(event)"` : ''}></div>
-                        <div class="group-add-task-btn${noPerm}" ${USER_CAN_EDIT ? `onclick="showGroupAddForm(${group.id})"` : ''}><span class="plus-icon">+</span> New Task</div>
+                        <div class="group-drop-end${noPerm}" data-group-id="${group.id}"></div>
+                        <div class="group-add-task-btn${noPerm}"><span class="plus-icon">+</span> New Task</div>
                         <div class="group-add-form" id="group-add-form-${group.id}">
-                            <input type="text" id="g${group.id}-name" class="mini-name-input" placeholder="Task name (optional)">
+                            <input type="text" class="mini-name-input" placeholder="Task name (optional)">
                             <div class="mini-cron-inputs">
-                                <input type="text" id="g${group.id}-minute" value="*" placeholder="Min" title="Minute">
-                                <input type="text" id="g${group.id}-hour" value="*" placeholder="Hr" title="Hour">
-                                <input type="text" id="g${group.id}-day" value="*" placeholder="Day" title="Day">
-                                <input type="text" id="g${group.id}-month" value="*" placeholder="Mon" title="Month">
-                                <input type="text" id="g${group.id}-weekday" value="*" placeholder="Wk" title="Weekday">
+                                <input type="text" class="mini-minute" value="*" placeholder="Min" title="Minute">
+                                <input type="text" class="mini-hour" value="*" placeholder="Hr" title="Hour">
+                                <input type="text" class="mini-day" value="*" placeholder="Day" title="Day">
+                                <input type="text" class="mini-month" value="*" placeholder="Mon" title="Month">
+                                <input type="text" class="mini-weekday" value="*" placeholder="Wk" title="Weekday">
                             </div>
                             <div class="mini-command-row">
-                                <input type="text" id="g${group.id}-command" placeholder="Enter command">
-                                <button class="mini-add-btn" onclick="addTaskToGroup(${group.id})">Add</button>
-                                <button class="mini-cancel-btn" onclick="hideGroupAddForm(${group.id})">Cancel</button>
+                                <input type="text" class="mini-command" placeholder="Enter command">
+                                <button class="mini-add-btn">Add</button>
+                                <button class="mini-cancel-btn">Cancel</button>
                             </div>
                         </div>
                     </div>
@@ -1610,32 +1610,35 @@
 
         // 显示组内添加任务表单
         function showGroupAddForm(groupId) {
-            document.getElementById(`group-add-form-${groupId}`).classList.add('active');
-            document.getElementById(`g${groupId}-command`).focus();
+            const form = document.getElementById(`group-add-form-${groupId}`);
+            form.classList.add('active');
+            form.querySelector('.mini-command').focus();
         }
 
         // 隐藏组内添加任务表单
         function hideGroupAddForm(groupId) {
-            document.getElementById(`group-add-form-${groupId}`).classList.remove('active');
+            const form = document.getElementById(`group-add-form-${groupId}`);
+            form.classList.remove('active');
             // 重置表单
-            document.getElementById(`g${groupId}-name`).value = '';
-            document.getElementById(`g${groupId}-minute`).value = '*';
-            document.getElementById(`g${groupId}-hour`).value = '*';
-            document.getElementById(`g${groupId}-day`).value = '*';
-            document.getElementById(`g${groupId}-month`).value = '*';
-            document.getElementById(`g${groupId}-weekday`).value = '*';
-            document.getElementById(`g${groupId}-command`).value = '';
+            form.querySelector('.mini-name-input').value = '';
+            form.querySelector('.mini-minute').value = '*';
+            form.querySelector('.mini-hour').value = '*';
+            form.querySelector('.mini-day').value = '*';
+            form.querySelector('.mini-month').value = '*';
+            form.querySelector('.mini-weekday').value = '*';
+            form.querySelector('.mini-command').value = '';
         }
 
         // 向组内添加任务
         async function addTaskToGroup(groupId) {
-            const name = document.getElementById(`g${groupId}-name`).value.trim();
-            const minute = document.getElementById(`g${groupId}-minute`).value.trim() || '*';
-            const hour = document.getElementById(`g${groupId}-hour`).value.trim() || '*';
-            const day = document.getElementById(`g${groupId}-day`).value.trim() || '*';
-            const month = document.getElementById(`g${groupId}-month`).value.trim() || '*';
-            const weekday = document.getElementById(`g${groupId}-weekday`).value.trim() || '*';
-            const command = document.getElementById(`g${groupId}-command`).value.trim();
+            const form = document.getElementById(`group-add-form-${groupId}`);
+            const name = form.querySelector('.mini-name-input').value.trim();
+            const minute = form.querySelector('.mini-minute').value.trim() || '*';
+            const hour = form.querySelector('.mini-hour').value.trim() || '*';
+            const day = form.querySelector('.mini-day').value.trim() || '*';
+            const month = form.querySelector('.mini-month').value.trim() || '*';
+            const weekday = form.querySelector('.mini-weekday').value.trim() || '*';
+            const command = form.querySelector('.mini-command').value.trim();
 
             if (!command) {
                 showMessage('Please enter command', 'error');
@@ -2644,7 +2647,193 @@
             }
         }
 
+        // ========== 事件委托 ==========
+        // taskList 区域的事件委托，避免 inline handler
+        function setupTaskListEventDelegation() {
+            const taskList = document.getElementById('taskList');
+            if (!taskList) return;
+
+            // Click 事件委托
+            taskList.addEventListener('click', (e) => {
+                const card = e.target.closest('.task-card');
+                const group = e.target.closest('.task-group');
+                const groupId = group ? parseInt(group.dataset.groupId) : null;
+                const taskId = card ? parseInt(card.dataset.taskId) : null;
+
+                // 任务卡片上的操作
+                if (card) {
+                    if (e.target.closest('.toggle') && USER_CAN_EDIT) {
+                        return toggleTask(taskId);
+                    }
+                    if (e.target.closest('.detail-btn')) {
+                        return showTaskDetail(taskId);
+                    }
+                    if (e.target.closest('.run-btn') && USER_CAN_EDIT) {
+                        return runTask(taskId);
+                    }
+                    if (e.target.closest('.delete-btn') && USER_CAN_EDIT) {
+                        return deleteTask(taskId);
+                    }
+                    if (e.target.closest('.task-group-label')) {
+                        const targetGroupId = parseInt(e.target.dataset.groupId);
+                        return goToGroup(targetGroupId);
+                    }
+                }
+
+                // 组操作
+                if (group) {
+                    // 阻止拖拽手柄、开关、标题、删除按钮冒泡到 group-header
+                    if (e.target.closest('.drag-handle') || e.target.closest('.group-toggle-switch') ||
+                        e.target.closest('.group-title') || e.target.closest('.group-delete-btn')) {
+                        // 这些元素有自己的处理逻辑
+                    }
+
+                    if (e.target.closest('.group-toggle-switch') && USER_CAN_EDIT) {
+                        const allEnabled = group.dataset.allEnabled === 'true';
+                        return toggleGroupSwitch(groupId, !allEnabled);
+                    }
+                    if (e.target.closest('.group-delete-btn') && USER_CAN_EDIT) {
+                        return deleteGroup(groupId);
+                    }
+                    if (e.target.closest('.group-header') && !e.target.closest('.drag-handle') &&
+                        !e.target.closest('.group-toggle-switch') && !e.target.closest('.group-title') &&
+                        !e.target.closest('.group-delete-btn')) {
+                        return toggleGroupCollapse(groupId);
+                    }
+                    if (e.target.closest('.group-add-task-btn') && USER_CAN_EDIT) {
+                        return showGroupAddForm(groupId);
+                    }
+                    if (e.target.closest('.mini-add-btn') && USER_CAN_EDIT) {
+                        return addTaskToGroup(groupId);
+                    }
+                    if (e.target.closest('.mini-cancel-btn')) {
+                        return hideGroupAddForm(groupId);
+                    }
+                }
+            });
+
+            // Dblclick 事件委托
+            taskList.addEventListener('dblclick', (e) => {
+                if (!USER_CAN_EDIT) return;
+
+                const card = e.target.closest('.task-card');
+                const group = e.target.closest('.task-group');
+                const taskId = card ? parseInt(card.dataset.taskId) : null;
+                const groupId = group ? parseInt(group.dataset.groupId) : null;
+
+                // 任务字段编辑
+                if (card) {
+                    if (e.target.closest('.task-name')) {
+                        return editTaskName(taskId, e.target.closest('.task-name'));
+                    }
+                    if (e.target.closest('.time-field')) {
+                        const field = e.target.closest('.time-field').dataset.field;
+                        return editField(taskId, field, e.target.closest('.time-field'));
+                    }
+                    if (e.target.closest('.cmd-field')) {
+                        return editField(taskId, 'command', e.target.closest('.cmd-field'));
+                    }
+                }
+
+                // 组标题编辑
+                if (group && e.target.closest('.group-title')) {
+                    return editGroupTitle(groupId, e.target.closest('.group-title'));
+                }
+            });
+
+            // Mousedown/Touchstart 事件委托（拖拽手柄）
+            const handleDragHandleStart = (e) => {
+                if (!USER_CAN_EDIT) return;
+                const handle = e.target.closest('.drag-handle');
+                if (!handle) return;
+
+                const card = handle.closest('.task-card');
+                const group = handle.closest('.task-group');
+                if (card) {
+                    enableDrag(card);
+                } else if (group) {
+                    enableDrag(group);
+                }
+            };
+
+            const handleDragHandleEnd = (e) => {
+                if (!USER_CAN_EDIT) return;
+                const handle = e.target.closest('.drag-handle');
+                if (!handle) return;
+
+                const card = handle.closest('.task-card');
+                const group = handle.closest('.task-group');
+                if (card) {
+                    disableDrag(card);
+                } else if (group) {
+                    disableDrag(group);
+                }
+            };
+
+            taskList.addEventListener('mousedown', handleDragHandleStart);
+            taskList.addEventListener('mouseup', handleDragHandleEnd);
+            taskList.addEventListener('touchstart', handleDragHandleStart);
+            taskList.addEventListener('touchend', handleDragHandleEnd);
+
+            // Drag 事件委托
+            taskList.addEventListener('dragstart', (e) => {
+                const card = e.target.closest('.task-card');
+                const group = e.target.closest('.task-group');
+                if (card) {
+                    dragTaskStart(e);
+                } else if (group && !card) {
+                    dragGroupStart(e);
+                }
+            });
+
+            taskList.addEventListener('dragend', (e) => {
+                dragEnd(e);
+            });
+
+            taskList.addEventListener('dragover', (e) => {
+                const card = e.target.closest('.task-card');
+                const group = e.target.closest('.task-group');
+                const dropEnd = e.target.closest('.group-drop-end');
+
+                if (dropEnd) {
+                    dragDropEndOver(e);
+                } else if (card) {
+                    dragTaskOver(e);
+                } else if (group && !card) {
+                    dragGroupOver(e);
+                }
+            });
+
+            taskList.addEventListener('dragleave', (e) => {
+                const card = e.target.closest('.task-card');
+                const dropEnd = e.target.closest('.group-drop-end');
+
+                if (dropEnd) {
+                    dragDropEndLeave(e);
+                } else if (card) {
+                    dragTaskLeave(e);
+                }
+            });
+
+            taskList.addEventListener('drop', (e) => {
+                const card = e.target.closest('.task-card');
+                const group = e.target.closest('.task-group');
+                const dropEnd = e.target.closest('.group-drop-end');
+
+                if (dropEnd) {
+                    dropToEnd(e);
+                } else if (card) {
+                    dropTask(e);
+                } else if (group && !card) {
+                    dropGroup(e);
+                }
+            });
+        }
+
         // ========== 初始化 ==========
+        // 设置事件委托
+        setupTaskListEventDelegation();
+
         // 首先加载机器列表，然后加载任务并折叠所有组
         loadMachines().then(() => {
             loadTasks().then(() => {
