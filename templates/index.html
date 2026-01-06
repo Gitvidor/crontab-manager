@@ -2653,11 +2653,6 @@
                 <select id="machineSelect" onchange="switchMachine(this.value)">
                 </select>
             </div>
-            <div class="selector-group">
-                <label><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></label>
-                <select id="linuxUserSelect" onchange="switchLinuxUser(this.value)">
-                </select>
-            </div>
             <div class="connection-status" title="Connection status">
                 <span class="status-dot" id="connectionStatus"></span>
             </div>
@@ -2737,7 +2732,7 @@
                 </div>
                 <div class="help-example">
                     <span class="help-desc">2. 在已有任务的任务组内添加任务</span>
-                    <code>... 组内已有任务 ...</code>
+                    <code>... 组内其他任务 ...</code>
                     <code># 任务名称（可选）</code>
                     <code>* * * * * /path/to/command</code>
                     <span class="help-desc">→ 紧跟在组内最后一个任务后添加，无空行</span>
@@ -3880,47 +3875,28 @@
                 });
                 currentMachine = data.default || 'local';
 
-                // 填充机器选择器
+                // 填充机器选择器（user@machine 格式）
                 const select = document.getElementById('machineSelect');
                 select.innerHTML = '';
+                const defaultUser = (machines[currentMachine]?.linux_users || ['root'])[0] || 'root';
+                currentLinuxUser = defaultUser;
                 for (const [id, config] of Object.entries(machines)) {
-                    const option = document.createElement('option');
-                    option.value = id;
-                    option.textContent = config.name || id;
-                    if (id === currentMachine) option.selected = true;
-                    select.appendChild(option);
+                    const users = config.linux_users || ['root'];
+                    users.forEach((user, idx) => {
+                        const option = document.createElement('option');
+                        const userName = user || 'root';
+                        option.value = `${userName}@${id}`;
+                        option.textContent = `${userName}@${config.name || id}`;
+                        if (id === currentMachine && idx === 0) option.selected = true;
+                        select.appendChild(option);
+                    });
                 }
 
-                // 更新 Linux 用户选择器
-                updateLinuxUserSelect();
                 // 检查连接状态
                 checkMachineStatus();
             } catch (e) {
                 console.error('Failed to load machines:', e);
             }
-        }
-
-        // 更新 Linux 用户选择器
-        function updateLinuxUserSelect() {
-            const select = document.getElementById('linuxUserSelect');
-            const config = machines[currentMachine];
-            if (!config) return;
-
-            // 默认用户列表为 ['root']
-            const users = config.linux_users || ['root'];
-            select.innerHTML = '';
-            users.forEach((user, idx) => {
-                const option = document.createElement('option');
-                // 用户名不能为空，默认为 root
-                const userName = user || 'root';
-                option.value = userName;
-                option.textContent = userName;
-                if (idx === 0) {
-                    option.selected = true;
-                    currentLinuxUser = userName;
-                }
-                select.appendChild(option);
-            });
         }
 
         // 获取当前 machine+user 的存储 key
@@ -3960,23 +3936,15 @@
             updateCollapseToggleBtn();
         }
 
-        // 切换机器
-        async function switchMachine(machineId) {
+        // 切换机器（解析 user@machineId 格式）
+        async function switchMachine(value) {
             // 保存当前折叠状态
             saveCurrentCollapsedState();
-            // 切换机器
-            currentMachine = machineId;
-            updateLinuxUserSelect();
-            await checkMachineStatus();
-            refreshCurrentTab();
-        }
-
-        // 切换 Linux 用户
-        async function switchLinuxUser(user) {
-            // 保存当前折叠状态
-            saveCurrentCollapsedState();
-            // 切换用户
+            // 解析 user@machineId 格式
+            const [user, machineId] = value.split('@');
             currentLinuxUser = user || 'root';
+            currentMachine = machineId;
+            await checkMachineStatus();
             refreshCurrentTab();
         }
 
