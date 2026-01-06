@@ -2887,6 +2887,16 @@
         let currentLinuxUser = 'root';  // 默认用户为 root
         const collapsedStateMap = new Map();  // 保存每个 machine+user 的折叠状态
 
+        // ========== SVG 图标常量 ==========
+        const ICON = {
+            // 用户图标（实心）
+            USER: '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="7" r="4"/><path d="M5.5 21a6.5 6.5 0 0 1 13 0z"/></svg>',
+            // 主机图标（显示器）
+            HOST: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>',
+            // 过滤器图标
+            FILTER: '<svg width="10" height="10" viewBox="0 0 16 16" fill="currentColor"><path d="M1 2h14l-5.5 6v5l-3 2v-7L1 2z"/></svg>',
+        };
+
         // ========== 工具函数 ==========
         // Cron 时间解析为人类可读描述
         function parseCronToHuman(minute, hour, day, month, weekday) {
@@ -2991,6 +3001,47 @@
                 showMessage((options.errorPrefix || 'Error') + ': ' + result.error, 'error');
             }
             return result;
+        }
+
+        // 通用分页渲染函数
+        function renderPagination(config) {
+            const { elementId, currentPage, totalPages, goPageFn, totalItems, itemType, showDisplay } = config;
+            const pagination = document.getElementById(elementId);
+            if (totalPages <= 1) {
+                pagination.innerHTML = '';
+                if (showDisplay !== undefined) pagination.style.display = 'none';
+                return;
+            }
+            if (showDisplay !== undefined) pagination.style.display = 'flex';
+
+            let html = '';
+            html += `<button class="page-btn" onclick="${goPageFn}(1)" ${currentPage === 1 ? 'disabled' : ''}>«</button>`;
+            html += `<button class="page-btn" onclick="${goPageFn}(${currentPage - 1})" ${currentPage === 1 ? 'disabled' : ''}>‹</button>`;
+
+            const maxVisible = 5;
+            let startPage = Math.max(1, currentPage - Math.floor(maxVisible / 2));
+            let endPage = Math.min(totalPages, startPage + maxVisible - 1);
+            if (endPage - startPage < maxVisible - 1) {
+                startPage = Math.max(1, endPage - maxVisible + 1);
+            }
+
+            if (startPage > 1) {
+                html += `<button class="page-btn" onclick="${goPageFn}(1)">1</button>`;
+                if (startPage > 2) html += `<span class="page-info">...</span>`;
+            }
+            for (let i = startPage; i <= endPage; i++) {
+                html += `<button class="page-btn ${i === currentPage ? 'active' : ''}" onclick="${goPageFn}(${i})">${i}</button>`;
+            }
+            if (endPage < totalPages) {
+                if (endPage < totalPages - 1) html += `<span class="page-info">...</span>`;
+                html += `<button class="page-btn" onclick="${goPageFn}(${totalPages})">${totalPages}</button>`;
+            }
+
+            html += `<button class="page-btn" onclick="${goPageFn}(${currentPage + 1})" ${currentPage === totalPages ? 'disabled' : ''}>›</button>`;
+            html += `<button class="page-btn" onclick="${goPageFn}(${totalPages})" ${currentPage === totalPages ? 'disabled' : ''}>»</button>`;
+            if (totalItems !== undefined) html += `<span class="page-info">${totalItems} ${itemType || 'items'}</span>`;
+
+            pagination.innerHTML = html;
         }
 
         // ========== UI 反馈（消息提示、撤销） ==========
@@ -3231,7 +3282,7 @@
             list.innerHTML = pageBackups.map(b => {
                 // 格式化时间：20251231_151544 -> 2025-12-31 15:15:44
                 const ts = b.timestamp.replace(/_/, ' ').replace(/(\d{4})(\d{2})(\d{2}) (\d{2})(\d{2})(\d{2})/, '$1-$2-$3 $4:$5:$6');
-                const userLabel = b.username ? `<span class="history-user"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="7" r="4"/><path d="M5.5 21a6.5 6.5 0 0 1 13 0z"/></svg>${escapeHtml(b.username)}</span>` : '';
+                const userLabel = b.username ? `<span class="history-user">${ICON.USER}${escapeHtml(b.username)}</span>` : '';
                 return `<div class="history-item">
                     <div class="history-item-header" onclick="toggleHistoryItem(this.parentElement, '${b.filename}')">
                         <span class="history-time">${ts}${userLabel}</span>
@@ -3247,43 +3298,13 @@
         }
 
         function renderHistoryPagination(totalPages) {
-            const pagination = document.getElementById('historyPagination');
-            if (totalPages <= 1) {
-                pagination.innerHTML = '';
-                return;
-            }
-
-            let html = '';
-            html += `<button class="page-btn" onclick="goHistoryPage(1)" ${historyCurrentPage === 1 ? 'disabled' : ''}>«</button>`;
-            html += `<button class="page-btn" onclick="goHistoryPage(${historyCurrentPage - 1})" ${historyCurrentPage === 1 ? 'disabled' : ''}>‹</button>`;
-
-            // 显示页码
-            const maxVisible = 5;
-            let startPage = Math.max(1, historyCurrentPage - Math.floor(maxVisible / 2));
-            let endPage = Math.min(totalPages, startPage + maxVisible - 1);
-            if (endPage - startPage < maxVisible - 1) {
-                startPage = Math.max(1, endPage - maxVisible + 1);
-            }
-
-            if (startPage > 1) {
-                html += `<button class="page-btn" onclick="goHistoryPage(1)">1</button>`;
-                if (startPage > 2) html += `<span class="page-info">...</span>`;
-            }
-
-            for (let i = startPage; i <= endPage; i++) {
-                html += `<button class="page-btn ${i === historyCurrentPage ? 'active' : ''}" onclick="goHistoryPage(${i})">${i}</button>`;
-            }
-
-            if (endPage < totalPages) {
-                if (endPage < totalPages - 1) html += `<span class="page-info">...</span>`;
-                html += `<button class="page-btn" onclick="goHistoryPage(${totalPages})">${totalPages}</button>`;
-            }
-
-            html += `<button class="page-btn" onclick="goHistoryPage(${historyCurrentPage + 1})" ${historyCurrentPage === totalPages ? 'disabled' : ''}>›</button>`;
-            html += `<button class="page-btn" onclick="goHistoryPage(${totalPages})" ${historyCurrentPage === totalPages ? 'disabled' : ''}>»</button>`;
-            html += `<span class="page-info">${historyBackups.length} items</span>`;
-
-            pagination.innerHTML = html;
+            renderPagination({
+                elementId: 'historyPagination',
+                currentPage: historyCurrentPage,
+                totalPages,
+                goPageFn: 'goHistoryPage',
+                totalItems: historyBackups.length
+            });
         }
 
         function goHistoryPage(page) {
@@ -3599,7 +3620,7 @@
                 return `
                     <div class="log-item">
                         <span class="log-time">${log.timestamp}</span>
-                        <span class="log-user"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="7" r="4"/><path d="M5.5 21a6.5 6.5 0 0 1 13 0z"/></svg>${log.user}</span>
+                        <span class="log-user">${ICON.USER}${log.user}</span>
                         <span class="log-action ${actionClass}">${log.action}</span>
                         <span class="log-details">${details}</span>
                     </div>
@@ -3610,42 +3631,13 @@
         }
 
         function renderAuditPagination(totalPages) {
-            const pagination = document.getElementById('auditPagination');
-            if (totalPages <= 1) {
-                pagination.innerHTML = '';
-                return;
-            }
-
-            let html = '';
-            html += `<button class="page-btn" onclick="goAuditPage(1)" ${auditCurrentPage === 1 ? 'disabled' : ''}>«</button>`;
-            html += `<button class="page-btn" onclick="goAuditPage(${auditCurrentPage - 1})" ${auditCurrentPage === 1 ? 'disabled' : ''}>‹</button>`;
-
-            const maxVisible = 5;
-            let startPage = Math.max(1, auditCurrentPage - Math.floor(maxVisible / 2));
-            let endPage = Math.min(totalPages, startPage + maxVisible - 1);
-            if (endPage - startPage < maxVisible - 1) {
-                startPage = Math.max(1, endPage - maxVisible + 1);
-            }
-
-            if (startPage > 1) {
-                html += `<button class="page-btn" onclick="goAuditPage(1)">1</button>`;
-                if (startPage > 2) html += `<span class="page-info">...</span>`;
-            }
-
-            for (let i = startPage; i <= endPage; i++) {
-                html += `<button class="page-btn ${i === auditCurrentPage ? 'active' : ''}" onclick="goAuditPage(${i})">${i}</button>`;
-            }
-
-            if (endPage < totalPages) {
-                if (endPage < totalPages - 1) html += `<span class="page-info">...</span>`;
-                html += `<button class="page-btn" onclick="goAuditPage(${totalPages})">${totalPages}</button>`;
-            }
-
-            html += `<button class="page-btn" onclick="goAuditPage(${auditCurrentPage + 1})" ${auditCurrentPage === totalPages ? 'disabled' : ''}>›</button>`;
-            html += `<button class="page-btn" onclick="goAuditPage(${totalPages})" ${auditCurrentPage === totalPages ? 'disabled' : ''}>»</button>`;
-            html += `<span class="page-info">${auditLogs.length} items</span>`;
-
-            pagination.innerHTML = html;
+            renderPagination({
+                elementId: 'auditPagination',
+                currentPage: auditCurrentPage,
+                totalPages,
+                goPageFn: 'goAuditPage',
+                totalItems: auditLogs.length
+            });
         }
 
         function goAuditPage(page) {
@@ -3836,7 +3828,7 @@
                 if (parsed) {
                     return `<div class="cron-log-line">
                         <span class="cron-time">${escapeHtml(parsed.time)}</span>
-                        <span class="cron-host"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>${escapeHtml(parsed.host)}</span>
+                        <span class="cron-host">${ICON.HOST}${escapeHtml(parsed.host)}</span>
                         <span class="cron-details">${formatCronDetails(parsed.details)}</span>
                     </div>`;
                 } else {
@@ -3848,42 +3840,13 @@
         }
 
         function renderCronPagination(totalPages) {
-            const pagination = document.getElementById('cronPagination');
-            if (totalPages <= 1) {
-                pagination.innerHTML = '';
-                return;
-            }
-
-            let html = '';
-            html += `<button class="page-btn" onclick="goCronPage(1)" ${cronCurrentPage === 1 ? 'disabled' : ''}>«</button>`;
-            html += `<button class="page-btn" onclick="goCronPage(${cronCurrentPage - 1})" ${cronCurrentPage === 1 ? 'disabled' : ''}>‹</button>`;
-
-            const maxVisible = 5;
-            let startPage = Math.max(1, cronCurrentPage - Math.floor(maxVisible / 2));
-            let endPage = Math.min(totalPages, startPage + maxVisible - 1);
-            if (endPage - startPage < maxVisible - 1) {
-                startPage = Math.max(1, endPage - maxVisible + 1);
-            }
-
-            if (startPage > 1) {
-                html += `<button class="page-btn" onclick="goCronPage(1)">1</button>`;
-                if (startPage > 2) html += `<span class="page-info">...</span>`;
-            }
-
-            for (let i = startPage; i <= endPage; i++) {
-                html += `<button class="page-btn ${i === cronCurrentPage ? 'active' : ''}" onclick="goCronPage(${i})">${i}</button>`;
-            }
-
-            if (endPage < totalPages) {
-                if (endPage < totalPages - 1) html += `<span class="page-info">...</span>`;
-                html += `<button class="page-btn" onclick="goCronPage(${totalPages})">${totalPages}</button>`;
-            }
-
-            html += `<button class="page-btn" onclick="goCronPage(${cronCurrentPage + 1})" ${cronCurrentPage === totalPages ? 'disabled' : ''}>›</button>`;
-            html += `<button class="page-btn" onclick="goCronPage(${totalPages})" ${cronCurrentPage === totalPages ? 'disabled' : ''}>»</button>`;
-            html += `<span class="page-info">${cronLogs.length} items</span>`;
-
-            pagination.innerHTML = html;
+            renderPagination({
+                elementId: 'cronPagination',
+                currentPage: cronCurrentPage,
+                totalPages,
+                goPageFn: 'goCronPage',
+                totalItems: cronLogs.length
+            });
         }
 
         function goCronPage(page) {
@@ -4426,44 +4389,15 @@
 
         // 渲染任务分页控件
         function renderTaskPagination(totalPages, totalItems, itemType) {
-            const pagination = document.getElementById('taskPagination');
-            if (totalPages <= 1) {
-                pagination.innerHTML = '';
-                pagination.style.display = 'none';
-                return;
-            }
-            pagination.style.display = 'flex';
-
-            let html = '';
-            html += `<button class="page-btn" onclick="goTaskPage(1)" ${taskCurrentPage === 1 ? 'disabled' : ''}>«</button>`;
-            html += `<button class="page-btn" onclick="goTaskPage(${taskCurrentPage - 1})" ${taskCurrentPage === 1 ? 'disabled' : ''}>‹</button>`;
-
-            const maxVisible = 5;
-            let startPage = Math.max(1, taskCurrentPage - Math.floor(maxVisible / 2));
-            let endPage = Math.min(totalPages, startPage + maxVisible - 1);
-            if (endPage - startPage < maxVisible - 1) {
-                startPage = Math.max(1, endPage - maxVisible + 1);
-            }
-
-            if (startPage > 1) {
-                html += `<button class="page-btn" onclick="goTaskPage(1)">1</button>`;
-                if (startPage > 2) html += `<span class="page-info">...</span>`;
-            }
-
-            for (let i = startPage; i <= endPage; i++) {
-                html += `<button class="page-btn ${i === taskCurrentPage ? 'active' : ''}" onclick="goTaskPage(${i})">${i}</button>`;
-            }
-
-            if (endPage < totalPages) {
-                if (endPage < totalPages - 1) html += `<span class="page-info">...</span>`;
-                html += `<button class="page-btn" onclick="goTaskPage(${totalPages})">${totalPages}</button>`;
-            }
-
-            html += `<button class="page-btn" onclick="goTaskPage(${taskCurrentPage + 1})" ${taskCurrentPage === totalPages ? 'disabled' : ''}>›</button>`;
-            html += `<button class="page-btn" onclick="goTaskPage(${totalPages})" ${taskCurrentPage === totalPages ? 'disabled' : ''}>»</button>`;
-            html += `<span class="page-info">${totalItems} ${itemType}</span>`;
-
-            pagination.innerHTML = html;
+            renderPagination({
+                elementId: 'taskPagination',
+                currentPage: taskCurrentPage,
+                totalPages,
+                goPageFn: 'goTaskPage',
+                totalItems,
+                itemType,
+                showDisplay: true
+            });
         }
 
         // 跳转到指定页
