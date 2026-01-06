@@ -86,9 +86,7 @@
         }
 
         .user-info {
-            display: flex;
-            align-items: center;
-            gap: var(--space-3);
+            position: relative;
             margin-left: auto;
         }
 
@@ -98,29 +96,96 @@
             gap: var(--space-1);
             font-size: 14px;
             color: var(--text-secondary);
+            padding: var(--space-2) var(--space-3);
+            background: var(--bg-hover);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            cursor: pointer;
+            transition: all var(--transition-fast);
+        }
+
+        .user-name:hover {
+            background: var(--bg-tertiary);
+            border-color: var(--primary);
         }
 
         .user-name strong {
             color: var(--text-primary);
         }
 
-        .logout-btn {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: var(--space-2);
-            background: var(--bg-hover);
-            border: 1px solid var(--border-color);
-            border-radius: var(--radius-md);
-            color: var(--text-secondary);
-            cursor: pointer;
-            transition: all var(--transition-fast);
+        .user-name .dropdown-arrow {
+            margin-left: var(--space-1);
+            transition: transform var(--transition-fast);
         }
 
-        .logout-btn:hover {
-            background: var(--danger);
-            color: white;
-            border-color: var(--danger);
+        .user-info.open .user-name .dropdown-arrow {
+            transform: rotate(180deg);
+        }
+
+        .user-dropdown {
+            position: absolute;
+            top: calc(100% + 4px);
+            right: 0;
+            min-width: 160px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            opacity: 0;
+            visibility: hidden;
+            transform: translateY(-8px);
+            transition: all var(--transition-fast);
+            z-index: 1000;
+        }
+
+        .user-info.open .user-dropdown {
+            opacity: 1;
+            visibility: visible;
+            transform: translateY(0);
+        }
+
+        .user-dropdown-item {
+            display: flex;
+            align-items: center;
+            gap: var(--space-2);
+            padding: var(--space-2) var(--space-3);
+            color: var(--text-primary);
+            text-decoration: none;
+            cursor: pointer;
+            transition: background var(--transition-fast);
+        }
+
+        .user-dropdown-item:first-child {
+            border-radius: var(--radius-md) var(--radius-md) 0 0;
+        }
+
+        .user-dropdown-item:last-child {
+            border-radius: 0 0 var(--radius-md) var(--radius-md);
+        }
+
+        .user-dropdown-item:hover {
+            background: var(--bg-hover);
+        }
+
+        .user-dropdown-item.danger:hover {
+            background: var(--danger-light);
+            color: var(--danger);
+        }
+
+        .user-dropdown-item svg {
+            width: 16px;
+            height: 16px;
+            color: var(--text-secondary);
+        }
+
+        .user-dropdown-item.danger:hover svg {
+            color: var(--danger);
+        }
+
+        .user-dropdown-divider {
+            height: 1px;
+            background: var(--border-color);
+            margin: var(--space-1) 0;
         }
 
         /* 日志视图 */
@@ -2824,9 +2889,6 @@
             <button class="tab" onclick="switchTab('history')">Raw Version</button>
             <button class="tab" onclick="switchTab('cron')">Cron Logs</button>
             <button class="tab" onclick="switchTab('logs')">Audit Logs</button>
-            {% if user_role == 'admin' %}
-            <button class="tab" onclick="switchTab('settings')">Settings</button>
-            {% endif %}
         </div>
         <div class="host-selector">
             <div class="selector-group">
@@ -2838,17 +2900,37 @@
                 <span class="status-dot" id="connectionStatus"></span>
             </div>
         </div>
-        <div class="user-info">
-            <span class="user-name"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+        <div class="user-info" id="userMenu">
+            <span class="user-name" onclick="toggleUserMenu()">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                     <circle cx="12" cy="7" r="4" />
                     <path d="M5.5 21a6.5 6.5 0 0 1 13 0z" />
-                </svg><strong>{{ username }}</strong></span>
-            <a href="/logout" class="logout-btn" title="Logout"><svg width="16" height="16" viewBox="0 0 24 24"
-                    fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-                    <polyline points="16 17 21 12 16 7" />
-                    <line x1="21" y1="12" x2="9" y2="12" />
-                </svg></a>
+                </svg>
+                <strong>{{ username }}</strong>
+                <svg class="dropdown-arrow" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M6 9l6 6 6-6"/>
+                </svg>
+            </span>
+            <div class="user-dropdown">
+                {% if user_role == 'admin' %}
+                <div class="user-dropdown-item" onclick="switchTab('settings'); closeUserMenu();">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="3"/>
+                        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+                    </svg>
+                    Settings
+                </div>
+                <div class="user-dropdown-divider"></div>
+                {% endif %}
+                <a href="/logout" class="user-dropdown-item danger">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                        <polyline points="16 17 21 12 16 7"/>
+                        <line x1="21" y1="12" x2="9" y2="12"/>
+                    </svg>
+                    Logout
+                </a>
+            </div>
         </div>
     </div>
 
@@ -3295,9 +3377,12 @@
                 return;
             }
 
+            // 更新 tab 按钮状态（settings 不在 tab 栏中）
             document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-            const tabMap = { 'list': 1, 'history': 2, 'cron': 3, 'logs': 4, 'settings': 5 };
-            document.querySelector(`.tab:nth-child(${tabMap[tab]})`).classList.add('active');
+            const tabMap = { 'list': 1, 'history': 2, 'cron': 3, 'logs': 4 };
+            if (tabMap[tab]) {
+                document.querySelector(`.tab:nth-child(${tabMap[tab]})`).classList.add('active');
+            }
 
             document.getElementById('taskList').classList.toggle('active', tab === 'list');
             document.getElementById('historyView').classList.toggle('active', tab === 'history');
@@ -5625,6 +5710,24 @@
                 showMessage('Error: ' + e.message, 'error');
             }
         }
+
+        // ========== 用户菜单 ==========
+
+        function toggleUserMenu() {
+            document.getElementById('userMenu').classList.toggle('open');
+        }
+
+        function closeUserMenu() {
+            document.getElementById('userMenu').classList.remove('open');
+        }
+
+        // 点击外部关闭菜单
+        document.addEventListener('click', function(e) {
+            const userMenu = document.getElementById('userMenu');
+            if (userMenu && !userMenu.contains(e.target)) {
+                userMenu.classList.remove('open');
+            }
+        });
 
         // ========== 权限控制 ==========
 
