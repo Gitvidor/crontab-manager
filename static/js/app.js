@@ -132,6 +132,46 @@
             return parts.join(', ').replace(/^./, c => c.toUpperCase());
         }
 
+        // Cron 字段验证
+        const CRON_FIELD_LIMITS = {
+            minute: { min: 0, max: 59, name: 'Minute' },
+            hour: { min: 0, max: 23, name: 'Hour' },
+            day: { min: 1, max: 31, name: 'Day' },
+            month: { min: 1, max: 12, name: 'Month' },
+            weekday: { min: 0, max: 7, name: 'Weekday' }
+        };
+
+        function validateCronField(value, field) {
+            const limits = CRON_FIELD_LIMITS[field];
+            if (!limits) return { valid: true };
+            if (value === '*') return { valid: true };
+            // 步长: */n
+            if (value.startsWith('*/')) {
+                const step = parseInt(value.slice(2), 10);
+                if (isNaN(step) || step < 1 || step > limits.max) {
+                    return { valid: false, error: `${limits.name}: invalid step ${value}` };
+                }
+                return { valid: true };
+            }
+            // 逗号分隔的多个值
+            for (const part of value.split(',')) {
+                const trimmed = part.trim();
+                if (trimmed.includes('-')) {
+                    const rangePart = trimmed.split('/')[0];
+                    const [start, end] = rangePart.split('-').map(Number);
+                    if (isNaN(start) || isNaN(end) || start < limits.min || end > limits.max || start > end) {
+                        return { valid: false, error: `${limits.name}: invalid range ${trimmed} (${limits.min}-${limits.max})` };
+                    }
+                } else {
+                    const num = parseInt(trimmed, 10);
+                    if (isNaN(num) || num < limits.min || num > limits.max) {
+                        return { valid: false, error: `${limits.name}: ${num} out of range (${limits.min}-${limits.max})` };
+                    }
+                }
+            }
+            return { valid: true };
+        }
+
         // 高亮搜索关键词
         function highlightText(text, keyword) {
             if (!keyword) return escapeHtml(text);
@@ -1804,6 +1844,16 @@
                     showMessage('Command cannot be empty', 'error');
                     element.textContent = originalText;
                     return;
+                }
+
+                // 前端验证 cron 字段
+                if (!isCmd) {
+                    const validation = validateCronField(newValue, field);
+                    if (!validation.valid) {
+                        showMessage(validation.error, 'error');
+                        element.textContent = originalText;
+                        return;
+                    }
                 }
 
                 // 更新data属性

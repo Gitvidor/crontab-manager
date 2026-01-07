@@ -174,9 +174,115 @@ def log_action(action, details=None):
         f.write(json.dumps(log_entry, ensure_ascii=False) + "\n")
 
 
-def validate_cron_schedule(schedule):
-    """验证 cron 表达式格式"""
-    return bool(re.match(r'^[\d*,/-]+\s+[\d*,/-]+\s+[\d*,/-]+\s+[\d*,/-]+\s+[\d*,/-]+$', schedule))
+def validate_cron_field(value: str, min_val: int, max_val: int) -> bool:
+    """验证单个 cron 字段的格式和范围"""
+    if value == '*':
+        return True
+    # 步长: */n
+    if value.startswith('*/'):
+        try:
+            step = int(value[2:])
+            return 1 <= step <= max_val
+        except ValueError:
+            return False
+    # 处理逗号分隔的多个值
+    for part in value.split(','):
+        part = part.strip()
+        # 范围: n-m 或 n-m/step
+        if '-' in part:
+            range_part = part.split('/')[0]
+            try:
+                start, end = range_part.split('-')
+                start, end = int(start), int(end)
+                if not (min_val <= start <= max_val and min_val <= end <= max_val):
+                    return False
+                if start > end:
+                    return False
+            except ValueError:
+                return False
+        else:
+            # 单个数字
+            try:
+                num = int(part)
+                if not (min_val <= num <= max_val):
+                    return False
+            except ValueError:
+                return False
+    return True
+
+
+def validate_cron_schedule(schedule: str) -> tuple[bool, str]:
+    """
+    验证 cron 表达式格式和值范围
+    返回 (是否有效, 错误信息)
+    """
+    parts = schedule.split()
+    if len(parts) != 5:
+        return False, "Cron expression must have 5 fields"
+
+    # 字段定义: (名称, 最小值, 最大值)
+    fields = [
+        ('minute', 0, 59),
+        ('hour', 0, 23),
+        ('day', 1, 31),
+        ('month', 1, 12),
+        ('weekday', 0, 7),  # 0和7都表示周日
+    ]
+
+    for i, (name, min_val, max_val) in enumerate(fields):
+        if not validate_cron_field(parts[i], min_val, max_val):
+            return False, f"Invalid {name}: {parts[i]} (valid: {min_val}-{max_val})"
+
+    return True, ""
+
+
+def validate_crontab_line(line: str) -> tuple[bool, str]:
+    """
+    验证单行 crontab 内容
+    返回 (是否有效, 错误信息)
+    """
+    line = line.strip()
+    # 空行和注释行直接通过
+    if not line or line.startswith('#'):
+        return True, ""
+    # 环境变量行 (KEY=value)
+    if re.match(r'^[A-Za-z_][A-Za-z0-9_]*=', line):
+        return True, ""
+    # cron 任务行
+    parts = line.split(None, 5)
+    if len(parts) < 6:
+        return False, "Cron line must have schedule (5 fields) + command"
+    schedule = ' '.join(parts[:5])
+    command = parts[5]
+    # 验证时间表达式
+    valid, error = validate_cron_schedule(schedule)
+    if not valid:
+        return False, error
+    # 验证命令不为空
+    if not command.strip():
+        return False, "Command cannot be empty"
+    return True, ""
+
+
+def validate_crontab_content(content: str) -> tuple[bool, list]:
+    """
+    验证整个 crontab 内容
+    返回 (是否有效, 错误列表)
+    """
+    errors = []
+    for i, line in enumerate(content.split('\n'), 1):
+        # 跳过被注释掉的 cron 任务（# + cron表达式）
+        if line.strip().startswith('#') and re.match(r'^#[\d*,/-]+\s+', line.strip()):
+            # 验证被注释的 cron 行
+            uncommented = line.strip()[1:]
+            valid, error = validate_crontab_line(uncommented)
+            if not valid:
+                errors.append(f"Line {i}: {error}")
+        else:
+            valid, error = validate_crontab_line(line)
+            if not valid:
+                errors.append(f"Line {i}: {error}")
+    return len(errors) == 0, errors
 
 
 def find_task_by_id(task_id, tasks=None):
@@ -455,8 +561,8 @@ def start_crontab_watcher():
     def watch_loop():
         while True:
             try:
-                for machine_id, config in MACHINES.items():
-                    users = config.get('users', [DEFAULT_LINUX_USER])
+                for machine_id, machine_config in MACHINES.items():
+                    users = machine_config.get('linux_users', [DEFAULT_LINUX_USER])
                     for linux_user in users:
                         check_single_crontab(machine_id, linux_user)
             except Exception as e:
@@ -822,6 +928,12 @@ def save(machine_id=None, linux_user=None):
     if not linux_user or linux_user == '_default_':
         linux_user = DEFAULT_LINUX_USER
     content = request.json.get('content', '')
+
+    # 验证 crontab 内容
+    valid, errors = validate_crontab_content(content)
+    if not valid:
+        return jsonify({'success': False, 'error': '; '.join(errors[:5])})  # 最多返回5个错误
+
     success, error = save_crontab(content, current_user.id, machine_id, linux_user)
     if success:
         log_action('save_raw', {'machine': machine_id, 'linux_user': linux_user, 'length': len(content)})
@@ -961,8 +1073,9 @@ def add_task():
     if not schedule or not command:
         return jsonify({'success': False, 'error': 'Schedule and command cannot be empty'})
 
-    if not validate_cron_schedule(schedule):
-        return jsonify({'success': False, 'error': 'Invalid cron expression'})
+    valid, error = validate_cron_schedule(schedule)
+    if not valid:
+        return jsonify({'success': False, 'error': error})
 
     raw = get_crontab_raw(machine_id, linux_user)
     # 新任务默认禁用
@@ -990,8 +1103,9 @@ def update_task(task_id):
     if not schedule or not command:
         return jsonify({'success': False, 'error': 'Schedule and command cannot be empty'})
 
-    if not validate_cron_schedule(schedule):
-        return jsonify({'success': False, 'error': 'Invalid cron expression'})
+    valid, error = validate_cron_schedule(schedule)
+    if not valid:
+        return jsonify({'success': False, 'error': error})
 
     raw = get_crontab_raw(machine_id, linux_user)
     lines = raw.split('\n')
@@ -1221,8 +1335,9 @@ def add_task_to_group(group_id):
     if not schedule or not command:
         return jsonify({'success': False, 'error': 'Schedule and command cannot be empty'})
 
-    if not validate_cron_schedule(schedule):
-        return jsonify({'success': False, 'error': 'Invalid cron expression'})
+    valid, error = validate_cron_schedule(schedule)
+    if not valid:
+        return jsonify({'success': False, 'error': error})
 
     raw = get_crontab_raw(machine_id, linux_user)
     lines = raw.split('\n')
