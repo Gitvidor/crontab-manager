@@ -12,6 +12,7 @@
         <h1><a href="/">Crontab Manager</a></h1>
         <div class="tabs">
             <button class="tab active" onclick="switchTab('list')">Tasks</button>
+            <button class="tab" onclick="switchTab('atjobs')">At Jobs</button>
             <button class="tab" onclick="switchTab('history')">History</button>
             <button class="tab" onclick="switchTab('cron')">Cron Logs</button>
             <button class="tab" onclick="switchTab('logs')">Audit Logs</button>
@@ -95,6 +96,86 @@
 
     <div id="taskList" class="task-list active"></div>
     <div class="pagination" id="taskPagination"></div>
+
+    <!-- At Jobs 面板 (一次性临时任务) -->
+    <div id="atJobsPanel" class="at-jobs-panel">
+        <div class="at-jobs-header">
+            <span>一次性临时任务 (at)</span>
+            <button class="refresh-btn" onclick="loadAtJobs()" title="刷新">⟳</button>
+        </div>
+
+        <!-- 模板快捷选择区 -->
+        <div class="at-template-bar">
+            <span class="at-template-label">模板:</span>
+            <div class="at-template-list" id="atTemplateList">
+                <span class="template-empty">暂无模板</span>
+            </div>
+            <button class="at-template-add-btn{% if user_role == 'viewer' %} no-permission{% endif %}"
+                    {% if user_role != 'viewer' %}onclick="showTemplateForm()"{% endif %}>
+                <span class="plus-icon">+</span> 新模板
+            </button>
+        </div>
+
+        <!-- 模板编辑表单（内联） -->
+        <div id="templateForm" class="template-inline-form" style="display:none">
+            <input type="text" id="templateName" placeholder="模板名称">
+            <input type="text" id="templateCommand" placeholder="命令">
+            <select id="templateTimePreset">
+                <option value="now + 5 minutes">5 分钟后</option>
+                <option value="now + 15 minutes">15 分钟后</option>
+                <option value="now + 30 minutes">30 分钟后</option>
+                <option value="now + 1 hour">1 小时后</option>
+                <option value="now + 2 hours">2 小时后</option>
+                <option value="now + 1 day">1 天后</option>
+                <option value="tomorrow">明天此时</option>
+            </select>
+            <button class="template-save-btn" onclick="saveTemplate()">保存</button>
+            <button class="template-cancel-btn" onclick="hideTemplateForm()">取消</button>
+            <button class="template-delete-btn" id="templateDeleteBtn" onclick="deleteEditingTemplate()" style="display:none" title="删除模板">&times;</button>
+        </div>
+
+        <!-- 创建新任务表单 -->
+        <div class="at-job-form{% if user_role == 'viewer' %} no-permission{% endif %}">
+            <div class="at-job-form-row">
+                <div class="at-time-group">
+                    <label>执行时间:</label>
+                    <select id="atTimeMode" onchange="toggleAtTimeMode()">
+                        <option value="relative">相对时间</option>
+                        <option value="absolute">指定时间</option>
+                    </select>
+                    <select id="atTimePreset" class="at-time-relative">
+                        <option value="now + 5 minutes">5 分钟后</option>
+                        <option value="now + 15 minutes">15 分钟后</option>
+                        <option value="now + 30 minutes">30 分钟后</option>
+                        <option value="now + 1 hour">1 小时后</option>
+                        <option value="now + 2 hours">2 小时后</option>
+                        <option value="now + 1 day">1 天后</option>
+                        <option value="tomorrow">明天此时</option>
+                    </select>
+                    <input type="datetime-local" id="atDatetime" class="at-time-absolute" style="display:none">
+                </div>
+            </div>
+            <div class="at-job-form-row">
+                <div class="at-command-group">
+                    <label>命令:</label>
+                    <input type="text" id="atCommand" placeholder="输入要执行的命令">
+                </div>
+                <button class="at-create-btn" {% if user_role != 'viewer' %}onclick="createAtJob()"{% endif %}>创建任务</button>
+            </div>
+        </div>
+
+        <!-- 任务列表 -->
+        <div class="at-job-list-header">
+            <span class="at-col-expand"></span>
+            <span class="at-col-id">ID</span>
+            <span class="at-col-time">计划时间</span>
+            <span class="at-col-queue">队列</span>
+            <span class="at-col-actions"></span>
+        </div>
+        <div class="at-job-list" id="atJobList">
+            <div class="log-empty">加载中...</div>
+        </div>
+    </div>
 
     <div id="historyView" class="history-view">
         <div class="history-header">

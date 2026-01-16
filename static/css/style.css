@@ -2903,6 +2903,425 @@
             font-size: 12px;
         }
 
+        /* ===== At Jobs 面板样式 ===== */
+        .at-jobs-panel {
+            display: none;
+            margin: 0 20px 20px;
+        }
+
+        .at-jobs-panel.active {
+            display: block;
+        }
+
+        .at-jobs-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: var(--space-3) var(--space-4);
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md) var(--radius-md) 0 0;
+            font-weight: 500;
+        }
+
+        .at-job-form {
+            padding: var(--space-4);
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-top: none;
+        }
+
+        .at-job-form.no-permission {
+            opacity: 0.6;
+            pointer-events: none;
+        }
+
+        .at-job-form-row {
+            display: flex;
+            gap: var(--space-3);
+            margin-bottom: var(--space-3);
+            align-items: flex-end;
+        }
+
+        .at-job-form-row:last-child {
+            margin-bottom: 0;
+        }
+
+        .at-time-group,
+        .at-command-group {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: var(--space-1);
+        }
+
+        .at-time-group {
+            flex-direction: row;
+            align-items: center;
+            gap: var(--space-2);
+            flex-wrap: wrap;
+        }
+
+        .at-job-form label {
+            font-size: 12px;
+            color: var(--text-secondary);
+            white-space: nowrap;
+        }
+
+        .at-job-form select,
+        .at-job-form input {
+            padding: var(--space-2) var(--space-3);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            font-size: 13px;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+        }
+
+        .at-job-form select {
+            min-width: 120px;
+        }
+
+        .at-job-form input {
+            flex: 1;
+            min-width: 200px;
+        }
+
+        .at-job-form select:focus,
+        .at-job-form input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 2px var(--primary-light);
+        }
+
+        .at-create-btn {
+            padding: var(--space-2) var(--space-4);
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: var(--radius-sm);
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background var(--transition-fast);
+            white-space: nowrap;
+        }
+
+        .at-create-btn:hover {
+            background: var(--primary-hover);
+        }
+
+        .at-job-list-header {
+            display: grid;
+            grid-template-columns: 20px 50px 1fr 60px 60px;
+            gap: var(--space-3);
+            padding: var(--space-2) var(--space-4);
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-top: none;
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+        }
+
+        .at-job-list {
+            border: 1px solid var(--border-color);
+            border-top: none;
+            border-radius: 0 0 var(--radius-md) var(--radius-md);
+            background: var(--bg-secondary);
+            min-height: 100px;
+        }
+
+        .at-job-item {
+            border-bottom: 1px solid var(--border-light);
+        }
+
+        .at-job-item:last-child {
+            border-bottom: none;
+        }
+
+        .at-job-row {
+            display: grid;
+            grid-template-columns: 20px 50px 1fr 60px 60px;
+            gap: var(--space-3);
+            padding: var(--space-3) var(--space-4);
+            align-items: center;
+            cursor: pointer;
+            transition: background var(--transition-fast);
+        }
+
+        .at-job-row:hover {
+            background: var(--bg-hover);
+        }
+
+        .at-col-expand {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .at-col-expand .expand-arrow {
+            transition: transform var(--transition-fast);
+            color: var(--text-muted);
+        }
+
+        .at-job-item.expanded .expand-arrow {
+            transform: rotate(90deg);
+        }
+
+        /* 任务详情展开区域 */
+        .at-job-detail {
+            display: none;
+            padding: 0 var(--space-4) var(--space-3) calc(20px + var(--space-3) + var(--space-4));
+            background: var(--bg-tertiary);
+        }
+
+        .at-job-item.expanded .at-job-detail {
+            display: block;
+        }
+
+        .at-job-command {
+            margin: 0;
+            padding: var(--space-3);
+            background: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            font-family: var(--font-mono);
+            font-size: 12px;
+            white-space: pre-wrap;
+            word-break: break-all;
+            color: var(--text-primary);
+        }
+
+        .at-job-detail-loading,
+        .at-job-detail-error {
+            font-size: 12px;
+            color: var(--text-muted);
+            font-style: italic;
+        }
+
+        .at-job-detail-error {
+            color: var(--danger);
+        }
+
+        .at-col-id {
+            font-family: var(--font-mono);
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .at-col-time {
+            font-family: var(--font-mono);
+            font-size: 13px;
+        }
+
+        .at-col-queue {
+            font-family: var(--font-mono);
+            font-size: 12px;
+            color: var(--text-secondary);
+            text-align: center;
+        }
+
+        .at-col-actions {
+            display: flex;
+            gap: var(--space-2);
+            justify-content: flex-end;
+        }
+
+        .at-delete-btn {
+            width: 24px;
+            height: 24px;
+            padding: 0;
+            background: transparent;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            color: var(--text-secondary);
+            font-size: 16px;
+            line-height: 1;
+            cursor: pointer;
+            transition: all var(--transition-fast);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .at-delete-btn:hover {
+            background: var(--danger-light);
+            border-color: var(--danger);
+            color: var(--danger);
+        }
+
+        .at-delete-btn.no-permission {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* ===== At Job Templates 样式 ===== */
+        .at-template-bar {
+            display: flex;
+            align-items: center;
+            gap: var(--space-2);
+            padding: var(--space-2) var(--space-4);
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-top: none;
+            overflow-x: auto;
+        }
+
+        .at-template-label {
+            font-size: 12px;
+            color: var(--text-secondary);
+            white-space: nowrap;
+        }
+
+        .at-template-list {
+            display: flex;
+            gap: var(--space-2);
+            flex: 1;
+            overflow-x: auto;
+        }
+
+        .at-template-btn {
+            padding: var(--space-1) var(--space-2);
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            font-size: 12px;
+            color: var(--text-primary);
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all var(--transition-fast);
+        }
+
+        .at-template-btn:hover {
+            background: var(--primary-light);
+            border-color: var(--primary);
+            color: var(--primary);
+        }
+
+        .at-template-add-btn {
+            display: flex;
+            align-items: center;
+            gap: 2px;
+            padding: var(--space-1) var(--space-2);
+            background: transparent;
+            border: 1px dashed var(--border-color);
+            border-radius: var(--radius-sm);
+            font-size: 12px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all var(--transition-fast);
+        }
+
+        .at-template-add-btn:hover {
+            background: var(--bg-hover);
+            border-color: var(--primary);
+            color: var(--primary);
+        }
+
+        .at-template-add-btn.no-permission {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .template-empty {
+            font-size: 12px;
+            color: var(--text-muted);
+            font-style: italic;
+        }
+
+        /* 模板内联编辑表单 */
+        .template-inline-form {
+            display: flex;
+            align-items: center;
+            gap: var(--space-2);
+            padding: var(--space-2) var(--space-4);
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-top: none;
+        }
+
+        .template-inline-form input {
+            padding: var(--space-2) var(--space-3);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            font-size: 12px;
+            background: var(--bg-primary);
+        }
+
+        .template-inline-form input:first-child {
+            width: 120px;
+        }
+
+        .template-inline-form input:nth-child(2) {
+            flex: 1;
+            min-width: 200px;
+        }
+
+        .template-inline-form select {
+            padding: var(--space-2) var(--space-3);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            font-size: 12px;
+            background: var(--bg-primary);
+        }
+
+        .template-inline-form .template-save-btn {
+            padding: var(--space-2) var(--space-3);
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: var(--radius-sm);
+            font-size: 12px;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: background var(--transition-fast);
+        }
+
+        .template-inline-form .template-save-btn:hover {
+            background: var(--primary-hover);
+        }
+
+        .template-inline-form .template-cancel-btn {
+            padding: var(--space-2) var(--space-3);
+            background: transparent;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            font-size: 12px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all var(--transition-fast);
+        }
+
+        .template-inline-form .template-cancel-btn:hover {
+            background: var(--bg-hover);
+        }
+
+        .template-inline-form .template-delete-btn {
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            background: transparent;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            font-size: 16px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all var(--transition-fast);
+        }
+
+        .template-inline-form .template-delete-btn:hover {
+            background: var(--danger-light);
+            border-color: var(--danger);
+            color: var(--danger);
+        }
+
         /* 无障碍：减少动画（针对前庭敏感用户） */
         @media (prefers-reduced-motion: reduce) {
             *, *::before, *::after {

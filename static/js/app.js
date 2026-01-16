@@ -362,12 +362,14 @@
 
             // 更新 tab 按钮状态（settings 不在 tab 栏中）
             document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-            const tabMap = { 'list': 1, 'history': 2, 'cron': 3, 'logs': 4 };
+            const tabMap = { 'list': 1, 'atjobs': 2, 'history': 3, 'cron': 4, 'logs': 5 };
             if (tabMap[tab]) {
                 document.querySelector(`.tab:nth-child(${tabMap[tab]})`).classList.add('active');
             }
 
             document.getElementById('taskList').classList.toggle('active', tab === 'list');
+            const atJobsPanel = document.getElementById('atJobsPanel');
+            if (atJobsPanel) atJobsPanel.classList.toggle('active', tab === 'atjobs');
             document.getElementById('historyView').classList.toggle('active', tab === 'history');
             document.getElementById('cronLogs').classList.toggle('active', tab === 'cron');
             document.getElementById('auditLogs').classList.toggle('active', tab === 'logs');
@@ -383,6 +385,8 @@
 
             if (tab === 'list') {
                 loadTasksKeepState();
+            } else if (tab === 'atjobs') {
+                loadAtJobs();
             } else if (tab === 'history') {
                 loadRaw();
                 loadHistory();
@@ -2920,6 +2924,390 @@
             });
         }
 
+        // ========== At Jobs 管理 (一次性临时任务) ==========
+
+        let atJobs = [];
+
+        // 切换时间模式（相对/指定）
+        function toggleAtTimeMode() {
+            const mode = document.getElementById('atTimeMode').value;
+            const relative = document.querySelector('.at-time-relative');
+            const absolute = document.querySelector('.at-time-absolute');
+
+            if (mode === 'relative') {
+                relative.style.display = '';
+                absolute.style.display = 'none';
+            } else {
+                relative.style.display = 'none';
+                absolute.style.display = '';
+                // 设置默认值为1小时后
+                const now = new Date();
+                now.setHours(now.getHours() + 1);
+                now.setMinutes(Math.ceil(now.getMinutes() / 5) * 5); // 对齐到5分钟
+                absolute.value = now.toISOString().slice(0, 16);
+            }
+        }
+
+        // 获取时间规格
+        function getAtTimeSpec() {
+            const mode = document.getElementById('atTimeMode').value;
+            if (mode === 'relative') {
+                return document.getElementById('atTimePreset').value;
+            } else {
+                // 将 datetime-local 转换为 at 格式: "HH:MM YYYY-MM-DD"
+                const dt = document.getElementById('atDatetime').value;
+                if (!dt) return '';
+                const [date, time] = dt.split('T');
+                return `${time} ${date}`;
+            }
+        }
+
+        // 加载 At Jobs 列表
+        async function loadAtJobs() {
+            const list = document.getElementById('atJobList');
+            const refreshBtn = document.querySelector('#atJobsPanel .refresh-btn');
+
+            if (refreshBtn) {
+                refreshBtn.classList.add('spinning');
+                setTimeout(() => refreshBtn.classList.remove('spinning'), 600);
+            }
+
+            try {
+                const resp = await fetchWithTimeout(getApiPath('/api/at_jobs'));
+                const data = await resp.json();
+
+                if (!data.success) {
+                    list.innerHTML = `<div class="log-empty">${escapeHtml(data.error)}</div>`;
+                    return;
+                }
+
+                atJobs = data.jobs || [];
+
+                if (atJobs.length === 0) {
+                    list.innerHTML = '<div class="log-empty">暂无待执行的临时任务</div>';
+                    return;
+                }
+
+                renderAtJobs();
+            } catch (e) {
+                list.innerHTML = '<div class="log-empty">加载失败</div>';
+            }
+        }
+
+        // 渲染 At Jobs 列表
+        function renderAtJobs() {
+            const list = document.getElementById('atJobList');
+            const noPerm = USER_CAN_EDIT ? '' : ' no-permission';
+
+            list.innerHTML = atJobs.map(job => `
+                <div class="at-job-item" data-job-id="${job.job_id}">
+                    <div class="at-job-row" onclick="toggleAtJobDetail('${job.job_id}')">
+                        <span class="at-col-expand">
+                            <svg class="expand-arrow" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M9 18l6-6-6-6"/>
+                            </svg>
+                        </span>
+                        <span class="at-col-id">#${escapeHtml(job.job_id)}</span>
+                        <span class="at-col-time">${escapeHtml(job.datetime)}</span>
+                        <span class="at-col-queue">${escapeHtml(job.queue)}</span>
+                        <div class="at-col-actions">
+                            <button class="at-delete-btn btn-delete-circle${noPerm}" ${USER_CAN_EDIT ? `onclick="event.stopPropagation(); deleteAtJob('${job.job_id}')"` : ''} title="删除">
+                                &times;
+                            </button>
+                        </div>
+                    </div>
+                    <div class="at-job-detail" id="atJobDetail_${job.job_id}">
+                        <div class="at-job-detail-loading">加载中...</div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // 创建 At Job
+        async function createAtJob() {
+            const command = document.getElementById('atCommand').value.trim();
+            const timeSpec = getAtTimeSpec();
+
+            if (!command) {
+                showMessage('请输入要执行的命令', 'error');
+                return;
+            }
+            if (!timeSpec) {
+                showMessage('请指定执行时间', 'error');
+                return;
+            }
+
+            // 指定时间模式下检查是否为过去的时间
+            const mode = document.getElementById('atTimeMode').value;
+            if (mode === 'absolute') {
+                const dt = document.getElementById('atDatetime').value;
+                if (dt && new Date(dt) <= new Date()) {
+                    showMessage('指定的时间已过，请选择未来的时间', 'error');
+                    return;
+                }
+            }
+
+            try {
+                const resp = await fetchWithTimeout(getApiPath('/api/at_jobs'), {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        command: command,
+                        time_spec: timeSpec,
+                        machine_id: currentMachine,
+                        linux_user: currentLinuxUser || 'root'
+                    })
+                });
+                const data = await resp.json();
+
+                if (data.success) {
+                    showMessage(`任务 #${data.job_id} 已创建，计划于 ${data.scheduled_time} 执行`, 'success');
+                    document.getElementById('atCommand').value = '';
+                    // 重置时间选择器
+                    document.getElementById('atTimeMode').value = 'relative';
+                    document.getElementById('atTimePreset').value = 'now + 5 minutes';
+                    toggleAtTimeMode();
+                    loadAtJobs();
+                } else {
+                    showMessage('创建失败: ' + data.error, 'error');
+                }
+            } catch (e) {
+                showMessage('创建任务失败: ' + e.message, 'error');
+            }
+        }
+
+        // 切换任务详情展开/折叠
+        async function toggleAtJobDetail(jobId) {
+            const item = document.querySelector(`.at-job-item[data-job-id="${jobId}"]`);
+            const detail = document.getElementById(`atJobDetail_${jobId}`);
+            if (!item || !detail) return;
+
+            const isExpanded = item.classList.contains('expanded');
+
+            if (isExpanded) {
+                // 折叠
+                item.classList.remove('expanded');
+            } else {
+                // 展开并加载详情
+                item.classList.add('expanded');
+
+                // 如果还没加载过，加载详情
+                if (detail.querySelector('.at-job-detail-loading')) {
+                    try {
+                        const resp = await fetchWithTimeout(getApiPath('/api/at_job/' + jobId));
+                        const data = await resp.json();
+
+                        if (data.success) {
+                            detail.innerHTML = `<pre class="at-job-command">${escapeHtml(data.command)}</pre>`;
+                        } else {
+                            detail.innerHTML = `<div class="at-job-detail-error">${escapeHtml(data.error)}</div>`;
+                        }
+                    } catch (e) {
+                        detail.innerHTML = '<div class="at-job-detail-error">加载失败</div>';
+                    }
+                }
+            }
+        }
+
+        // 删除 At Job
+        async function deleteAtJob(jobId) {
+            if (!confirm(`确定删除任务 #${jobId}?`)) return;
+
+            try {
+                const resp = await fetchWithTimeout(getApiPath('/api/at_job/' + jobId), {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        machine_id: currentMachine,
+                        linux_user: currentLinuxUser || 'root'
+                    })
+                });
+                const data = await resp.json();
+
+                if (data.success) {
+                    showMessage(`任务 #${jobId} 已删除`, 'success');
+                    loadAtJobs();
+                } else {
+                    showMessage('删除失败: ' + data.error, 'error');
+                }
+            } catch (e) {
+                showMessage('删除失败', 'error');
+            }
+        }
+
+        // ========== At Job Templates 管理 ==========
+
+        let atTemplates = [];
+        let editingTemplateId = null;  // 当前编辑的模板 ID
+
+        // 加载模板列表
+        async function loadAtTemplates() {
+            try {
+                const resp = await fetchWithTimeout('/api/at_templates');
+                const data = await resp.json();
+                if (data.success) {
+                    atTemplates = data.templates || [];
+                    renderTemplateBar();
+                }
+            } catch (e) {
+                console.error('加载模板失败:', e);
+            }
+        }
+
+        // 渲染模板快捷栏
+        function renderTemplateBar() {
+            const container = document.getElementById('atTemplateList');
+            if (!container) return;
+
+            if (atTemplates.length === 0) {
+                container.innerHTML = '<span class="template-empty">暂无</span>';
+                return;
+            }
+
+            container.innerHTML = atTemplates.map(tpl => `
+                <button class="at-template-btn" onclick="applyTemplate('${tpl.id}')" ondblclick="editTemplate('${tpl.id}')" title="${escapeHtml(tpl.command)}&#10;双击编辑">
+                    ${escapeHtml(tpl.name)}
+                </button>
+            `).join('');
+        }
+
+        // 应用模板（填充表单）
+        function applyTemplate(templateId) {
+            const tpl = atTemplates.find(t => t.id === templateId);
+            if (!tpl) return;
+
+            // 填充命令
+            document.getElementById('atCommand').value = tpl.command;
+
+            // 填充时间
+            const defaultTime = tpl.default_time || 'now + 5 minutes';
+            const presetSelect = document.getElementById('atTimePreset');
+
+            // 尝试匹配预设选项
+            const matched = Array.from(presetSelect.options).find(opt => opt.value === defaultTime);
+            if (matched) {
+                document.getElementById('atTimeMode').value = 'relative';
+                presetSelect.value = defaultTime;
+                toggleAtTimeMode();
+            } else {
+                document.getElementById('atTimeMode').value = 'relative';
+                toggleAtTimeMode();
+            }
+
+            showMessage(`已加载模板: ${tpl.name}`, 'success');
+        }
+
+        // 显示模板编辑表单
+        function showTemplateForm() {
+            editingTemplateId = null;
+            clearTemplateForm();
+            document.getElementById('templateForm').style.display = 'flex';
+            document.getElementById('templateDeleteBtn').style.display = 'none';
+            document.getElementById('templateName').focus();
+        }
+
+        // 隐藏模板编辑表单
+        function hideTemplateForm() {
+            document.getElementById('templateForm').style.display = 'none';
+            editingTemplateId = null;
+        }
+
+        // 清空模板表单
+        function clearTemplateForm() {
+            document.getElementById('templateName').value = '';
+            document.getElementById('templateCommand').value = '';
+            document.getElementById('templateTimePreset').value = 'now + 5 minutes';
+        }
+
+        // 保存模板
+        async function saveTemplate() {
+            const name = document.getElementById('templateName').value.trim();
+            const command = document.getElementById('templateCommand').value.trim();
+            const defaultTime = document.getElementById('templateTimePreset').value;
+
+            if (!name) {
+                showMessage('请输入模板名称', 'error');
+                return;
+            }
+            if (!command) {
+                showMessage('请输入命令', 'error');
+                return;
+            }
+
+            try {
+                let resp;
+                if (editingTemplateId) {
+                    resp = await fetchWithTimeout(`/api/at_template/${editingTemplateId}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ name, command, default_time: defaultTime })
+                    });
+                } else {
+                    resp = await fetchWithTimeout('/api/at_templates', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ name, command, default_time: defaultTime })
+                    });
+                }
+
+                const data = await resp.json();
+                if (data.success) {
+                    showMessage(editingTemplateId ? '模板已更新' : '模板已创建', 'success');
+                    await loadAtTemplates();
+                    hideTemplateForm();
+                } else {
+                    showMessage('保存失败: ' + data.error, 'error');
+                }
+            } catch (e) {
+                showMessage('保存失败: ' + e.message, 'error');
+            }
+        }
+
+        // 编辑模板（双击模板按钮触发）
+        function editTemplate(templateId) {
+            const tpl = atTemplates.find(t => t.id === templateId);
+            if (!tpl) return;
+
+            editingTemplateId = templateId;
+            document.getElementById('templateName').value = tpl.name;
+            document.getElementById('templateCommand').value = tpl.command;
+
+            // 设置时间
+            const presetSelect = document.getElementById('templateTimePreset');
+            const matched = Array.from(presetSelect.options).find(opt => opt.value === tpl.default_time);
+            if (matched) {
+                presetSelect.value = tpl.default_time;
+            } else {
+                presetSelect.value = 'now + 5 minutes';
+            }
+
+            document.getElementById('templateForm').style.display = 'flex';
+            document.getElementById('templateDeleteBtn').style.display = '';
+            document.getElementById('templateName').focus();
+        }
+
+        // 删除正在编辑的模板
+        async function deleteEditingTemplate() {
+            if (!editingTemplateId) return;
+            if (!confirm('确定删除此模板?')) return;
+
+            try {
+                const resp = await fetchWithTimeout(`/api/at_template/${editingTemplateId}`, {
+                    method: 'DELETE'
+                });
+                const data = await resp.json();
+                if (data.success) {
+                    showMessage('模板已删除', 'success');
+                    await loadAtTemplates();
+                    hideTemplateForm();
+                } else {
+                    showMessage('删除失败: ' + data.error, 'error');
+                }
+            } catch (e) {
+                showMessage('删除失败', 'error');
+            }
+        }
+
         // ========== 初始化 ==========
         // 设置事件委托
         setupTaskListEventDelegation();
@@ -2931,4 +3319,5 @@
                 collapseAll();
                 applyPermissions();
             });
+            loadAtTemplates();  // 加载模板
         });

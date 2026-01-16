@@ -24,6 +24,7 @@ app = Flask(__name__)
 
 # 加载配置文件
 CONFIG_FILE = os.path.join(os.path.dirname(__file__), 'config.json')
+TEMPLATES_FILE = os.path.join(os.path.dirname(__file__), 'templates.json')
 if os.path.exists(CONFIG_FILE):
     with open(CONFIG_FILE, 'r', encoding='utf-8') as f:
         config = json.load(f)
@@ -1720,6 +1721,279 @@ def reorder_tasks():
             'linux_user': linux_user
         })
     return jsonify({'success': success, 'error': error})
+
+
+# ===== At Jobs API (一次性临时任务) =====
+
+
+def parse_atq_output(output: str) -> list:
+    """
+    解析 atq 命令输出
+    输入格式: "5\tThu Jan  9 14:30:00 2026 a root"
+    返回: [{"job_id": "5", "datetime": "2026-01-09 14:30:00", "queue": "a", "user": "root"}, ...]
+    """
+    jobs = []
+    for line in output.strip().split('\n'):
+        if not line.strip():
+            continue
+        # atq 输出格式: job_id \t weekday month day time year queue user
+        # 例如: 5	Thu Jan  9 14:30:00 2026 a root
+        parts = line.split()
+        if len(parts) >= 8:
+            job_id = parts[0]
+            # 日期部分: weekday month day time year
+            weekday, month, day, time_str, year = parts[1:6]
+            queue = parts[6]
+            user = parts[7]
+            # 转换为标准日期格式
+            try:
+                dt_str = f"{weekday} {month} {day} {time_str} {year}"
+                dt = datetime.strptime(dt_str, '%a %b %d %H:%M:%S %Y')
+                formatted_dt = dt.strftime('%Y-%m-%d %H:%M:%S')
+            except ValueError:
+                formatted_dt = f"{year}-{month}-{day} {time_str}"
+            jobs.append({
+                'job_id': job_id,
+                'datetime': formatted_dt,
+                'queue': queue,
+                'user': user
+            })
+    return jobs
+
+
+def extract_command_from_at_content(content: str) -> str:
+    """从 at -c 输出中提取实际命令"""
+    # at -c 输出包含很多环境变量设置，实际命令在最后
+    lines = content.strip().split('\n')
+    # 跳过环境设置，从 cd 开始或最后几行是实际命令
+    command_lines = []
+    capture = False
+    for line in reversed(lines):
+        # 跳过 ${SHELL...} 这类行
+        if line.startswith('${') or not line.strip():
+            continue
+        command_lines.insert(0, line)
+        if line.startswith('cd '):
+            break
+        # 只取最后几行有意义的命令
+        if len(command_lines) >= 5:
+            break
+    return '\n'.join(command_lines) if command_lines else content[-500:]
+
+
+@app.route('/api/at_jobs')
+@app.route('/api/at_jobs/<machine_id>/<linux_user>')
+@login_required
+@require_machine_access
+def list_at_jobs(machine_id=None, linux_user=None):
+    """列出所有 at 任务"""
+    if machine_id is None:
+        machine_id, linux_user = get_machine_params()
+    try:
+        executor = get_machine_executor(machine_id)
+        returncode, stdout, stderr = executor.run_command('atq')
+        if returncode != 0 and 'no atd running' in stderr.lower():
+            return jsonify({'success': False, 'error': 'atd 服务未运行，请执行: systemctl start atd'})
+        jobs = parse_atq_output(stdout)
+        return jsonify({'success': True, 'jobs': jobs})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+
+@app.route('/api/at_jobs', methods=['POST'])
+@app.route('/api/at_jobs/<machine_id>/<linux_user>', methods=['POST'])
+@require_role('editor', 'admin')
+@require_machine_access
+def create_at_job(machine_id=None, linux_user=None):
+    """创建新 at 任务"""
+    if machine_id is None:
+        machine_id, linux_user = get_machine_params()
+    command = request.json.get('command', '').strip()
+    time_spec = request.json.get('time_spec', '').strip()
+
+    if not command:
+        return jsonify({'success': False, 'error': '请输入要执行的命令'})
+    if not time_spec:
+        return jsonify({'success': False, 'error': '请指定执行时间'})
+
+    # 安全检查：time_spec 只允许常见字符
+    if not re.match(r'^[a-zA-Z0-9\s:+\-/]+$', time_spec):
+        return jsonify({'success': False, 'error': '时间格式包含非法字符'})
+
+    try:
+        executor = get_machine_executor(machine_id)
+        # 使用 printf 避免命令中的特殊字符问题
+        escaped_cmd = command.replace("'", "'\\''")
+        at_cmd = f"printf '%s\\n' '{escaped_cmd}' | at {time_spec} 2>&1"
+        returncode, stdout, stderr = executor.run_command(at_cmd)
+
+        # at 命令的输出在 stderr，格式如:
+        # warning: commands will be executed using /bin/sh
+        # job 6 at Thu Jan  9 15:00:00 2026
+        output = stdout + stderr
+        match = re.search(r'job\s+(\d+)\s+at\s+(.+)', output)
+        if match:
+            job_id = match.group(1)
+            scheduled_time = match.group(2).strip()
+            log_action('create_at_job', {
+                'job_id': job_id,
+                'command': command[:100],
+                'time_spec': time_spec,
+                'machine': machine_id
+            })
+            return jsonify({
+                'success': True,
+                'job_id': job_id,
+                'scheduled_time': scheduled_time
+            })
+        # 检查是否是 atd 未运行
+        if 'no atd running' in output.lower() or 'cannot open' in output.lower():
+            return jsonify({'success': False, 'error': 'atd 服务未运行，请执行: systemctl start atd'})
+        return jsonify({'success': False, 'error': output or '创建任务失败'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+
+@app.route('/api/at_job/<job_id>')
+@app.route('/api/at_job/<job_id>/<machine_id>/<linux_user>')
+@login_required
+@require_machine_access
+def get_at_job_detail(job_id, machine_id=None, linux_user=None):
+    """获取 at 任务详情"""
+    if machine_id is None:
+        machine_id, _ = get_machine_params()
+    if not job_id.isdigit():
+        return jsonify({'success': False, 'error': '无效的任务 ID'})
+
+    try:
+        executor = get_machine_executor(machine_id)
+        returncode, stdout, stderr = executor.run_command(f'at -c {job_id}')
+        if returncode != 0:
+            return jsonify({'success': False, 'error': stderr or '任务不存在'})
+
+        command = extract_command_from_at_content(stdout)
+        return jsonify({
+            'success': True,
+            'job_id': job_id,
+            'command': command,
+            'raw_content': stdout
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+
+@app.route('/api/at_job/<job_id>', methods=['DELETE'])
+@app.route('/api/at_job/<job_id>/<machine_id>/<linux_user>', methods=['DELETE'])
+@require_role('editor', 'admin')
+@require_machine_access
+def delete_at_job(job_id, machine_id=None, linux_user=None):
+    """删除 at 任务"""
+    if machine_id is None:
+        machine_id, _ = get_machine_params()
+    if not job_id.isdigit():
+        return jsonify({'success': False, 'error': '无效的任务 ID'})
+
+    try:
+        executor = get_machine_executor(machine_id)
+        returncode, stdout, stderr = executor.run_command(f'atrm {job_id}')
+        if returncode != 0:
+            return jsonify({'success': False, 'error': stderr or '删除失败'})
+
+        log_action('delete_at_job', {'job_id': job_id, 'machine': machine_id})
+        return jsonify({'success': True, 'message': f'任务 {job_id} 已删除'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+
+# ===== At Job Templates API (预设任务模板) =====
+
+
+def load_templates():
+    """加载模板文件"""
+    if os.path.exists(TEMPLATES_FILE):
+        with open(TEMPLATES_FILE, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    return {"version": 1, "templates": []}
+
+
+def save_templates(data):
+    """保存模板文件"""
+    with open(TEMPLATES_FILE, 'w', encoding='utf-8') as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
+
+def generate_template_id():
+    """生成唯一模板 ID"""
+    import secrets
+    timestamp = int(datetime.now().timestamp())
+    random_part = secrets.token_hex(3)
+    return f"tpl_{timestamp}_{random_part}"
+
+
+@app.route('/api/at_templates')
+@login_required
+def list_at_templates():
+    """获取所有模板"""
+    data = load_templates()
+    return jsonify({'success': True, 'templates': data.get('templates', [])})
+
+
+@app.route('/api/at_templates', methods=['POST'])
+@require_role('editor', 'admin')
+def create_at_template():
+    """创建新模板"""
+    name = request.json.get('name', '').strip()
+    command = request.json.get('command', '').strip()
+    default_time = request.json.get('default_time', 'now + 5 minutes').strip()
+
+    if not name:
+        return jsonify({'success': False, 'error': '请输入模板名称'})
+    if not command:
+        return jsonify({'success': False, 'error': '请输入命令'})
+
+    data = load_templates()
+    template = {
+        'id': generate_template_id(),
+        'name': name,
+        'command': command,
+        'default_time': default_time,
+        'created_at': datetime.now().isoformat(),
+        'created_by': current_user.id
+    }
+    data['templates'].append(template)
+    save_templates(data)
+    log_action('create_at_template', {'name': name})
+    return jsonify({'success': True, 'template': template})
+
+
+@app.route('/api/at_template/<template_id>', methods=['PUT'])
+@require_role('editor', 'admin')
+def update_at_template(template_id):
+    """更新模板"""
+    data = load_templates()
+    for tpl in data['templates']:
+        if tpl['id'] == template_id:
+            tpl['name'] = request.json.get('name', tpl['name']).strip()
+            tpl['command'] = request.json.get('command', tpl['command']).strip()
+            tpl['default_time'] = request.json.get('default_time', tpl['default_time']).strip()
+            save_templates(data)
+            log_action('update_at_template', {'id': template_id, 'name': tpl['name']})
+            return jsonify({'success': True, 'template': tpl})
+    return jsonify({'success': False, 'error': '模板不存在'}), 404
+
+
+@app.route('/api/at_template/<template_id>', methods=['DELETE'])
+@require_role('editor', 'admin')
+def delete_at_template(template_id):
+    """删除模板"""
+    data = load_templates()
+    original_len = len(data['templates'])
+    data['templates'] = [t for t in data['templates'] if t['id'] != template_id]
+    if len(data['templates']) == original_len:
+        return jsonify({'success': False, 'error': '模板不存在'}), 404
+    save_templates(data)
+    log_action('delete_at_template', {'id': template_id})
+    return jsonify({'success': True, 'message': '模板已删除'})
 
 
 # 启动 crontab 变化检测线程
