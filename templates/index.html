@@ -121,13 +121,23 @@
             <input type="text" id="templateName" placeholder="模板名称">
             <input type="text" id="templateCommand" placeholder="命令">
             <select id="templateTimePreset">
-                <option value="now + 5 minutes">5 分钟后</option>
-                <option value="now + 15 minutes">15 分钟后</option>
-                <option value="now + 30 minutes">30 分钟后</option>
-                <option value="now + 1 hour">1 小时后</option>
-                <option value="now + 2 hours">2 小时后</option>
-                <option value="now + 1 day">1 天后</option>
-                <option value="tomorrow">明天此时</option>
+                <optgroup label="相对时间">
+                    <option value="now + 5 minutes">5 分钟后</option>
+                    <option value="now + 10 minutes">10 分钟后</option>
+                    <option value="now + 15 minutes">15 分钟后</option>
+                    <option value="now + 30 minutes">30 分钟后</option>
+                    <option value="now + 60 minutes">1 小时后</option>
+                    <option value="now + 120 minutes">2 小时后</option>
+                    <option value="now + 1440 minutes">1 天后</option>
+                </optgroup>
+                <optgroup label="今日时间">
+                    <option value="09:00">09:00</option>
+                    <option value="12:00">12:00</option>
+                    <option value="14:00">14:00</option>
+                    <option value="18:00">18:00</option>
+                    <option value="21:00">21:00</option>
+                    <option value="00:00">00:00</option>
+                </optgroup>
             </select>
             <button class="template-save-btn" onclick="saveTemplate()">保存</button>
             <button class="template-cancel-btn" onclick="hideTemplateForm()">取消</button>
@@ -141,17 +151,25 @@
                     <label>执行时间:</label>
                     <select id="atTimeMode" onchange="toggleAtTimeMode()">
                         <option value="relative">相对时间</option>
-                        <option value="absolute">指定时间</option>
+                        <option value="timeonly">今日时间</option>
+                        <option value="absolute">指定日期</option>
                     </select>
-                    <select id="atTimePreset" class="at-time-relative">
-                        <option value="now + 5 minutes">5 分钟后</option>
-                        <option value="now + 15 minutes">15 分钟后</option>
-                        <option value="now + 30 minutes">30 分钟后</option>
-                        <option value="now + 1 hour">1 小时后</option>
-                        <option value="now + 2 hours">2 小时后</option>
-                        <option value="now + 1 day">1 天后</option>
-                        <option value="tomorrow">明天此时</option>
+                    <select id="atRelativePreset" class="at-time-relative" onchange="applyRelativePreset()">
+                        <option value="1">1 分钟后</option>
+                        <option value="5" selected>5 分钟后</option>
+                        <option value="10">10 分钟后</option>
+                        <option value="15">15 分钟后</option>
+                        <option value="30">30 分钟后</option>
+                        <option value="60">1 小时后</option>
+                        <option value="120">2 小时后</option>
+                        <option value="360">6 小时后</option>
+                        <option value="720">12 小时后</option>
+                        <option value="1440">1 天后</option>
+                        <option value="custom">自定义...</option>
                     </select>
+                    <input type="number" id="atRelativeMinutes" class="at-time-relative at-time-custom" min="1" max="10080" value="5" style="width:60px; display:none">
+                    <span class="at-time-relative at-time-custom" style="display:none">分钟后</span>
+                    <input type="time" id="atTimeOnly" class="at-time-only" style="display:none">
                     <input type="datetime-local" id="atDatetime" class="at-time-absolute" style="display:none">
                 </div>
             </div>

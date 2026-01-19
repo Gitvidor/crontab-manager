@@ -8,6 +8,14 @@
       "default_time": "now + 15 minutes",
       "created_at": "2026-01-15T16:13:52.750592",
       "created_by": "admin"
+    },
+    {
+      "id": "tpl_1768557639_3f71a8",
+      "name": "云同步本地raw_snapshot",
+      "command": "rsync -arvz /root/project/ctp_prod/output/raw_snapshot_dongzheng.bin.$(date +%Y%m%d) wcg:/data/future_data/dongzheng_data/raw_snapshot/",
+      "default_time": "now + 10 minutes",
+      "created_at": "2026-01-16T18:00:39.116848",
+      "created_by": "admin"
     }
   ]
 }

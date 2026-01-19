@@ -2987,6 +2987,14 @@
             min-width: 200px;
         }
 
+        .at-job-form input[type="datetime-local"],
+        .at-job-form input[type="time"],
+        .at-job-form input[type="number"] {
+            flex: none;
+            width: auto;
+            min-width: auto;
+        }
+
         .at-job-form select:focus,
         .at-job-form input:focus {
             outline: none;

@@ -2928,23 +2928,51 @@
 
         let atJobs = [];
 
-        // 切换时间模式（相对/指定）
+        // 应用相对时间预设值（选择自定义时显示输入框）
+        function applyRelativePreset() {
+            const preset = document.getElementById('atRelativePreset').value;
+            const customEls = document.querySelectorAll('.at-time-custom');
+            if (preset === 'custom') {
+                customEls.forEach(el => el.style.display = '');
+            } else {
+                customEls.forEach(el => el.style.display = 'none');
+            }
+        }
+
+        // 切换时间模式（相对/今日时间/指定日期）
         function toggleAtTimeMode() {
             const mode = document.getElementById('atTimeMode').value;
-            const relative = document.querySelector('.at-time-relative');
+            const relativeEls = document.querySelectorAll('.at-time-relative');
+            const timeonly = document.querySelector('.at-time-only');
             const absolute = document.querySelector('.at-time-absolute');
 
+            // 隐藏所有
+            relativeEls.forEach(el => el.style.display = 'none');
+            timeonly.style.display = 'none';
+            absolute.style.display = 'none';
+
             if (mode === 'relative') {
-                relative.style.display = '';
-                absolute.style.display = 'none';
+                relativeEls.forEach(el => el.style.display = '');
+            } else if (mode === 'timeonly') {
+                timeonly.style.display = '';
+                // 设置默认值为下一个整点
+                const now = new Date();
+                now.setHours(now.getHours() + 1);
+                now.setMinutes(0);
+                timeonly.value = now.toTimeString().slice(0, 5);
             } else {
-                relative.style.display = 'none';
                 absolute.style.display = '';
                 // 设置默认值为1小时后
                 const now = new Date();
                 now.setHours(now.getHours() + 1);
                 now.setMinutes(Math.ceil(now.getMinutes() / 5) * 5); // 对齐到5分钟
                 absolute.value = now.toISOString().slice(0, 16);
+                // 设置有效范围：当前时间到10年后
+                const minDate = new Date();
+                const maxDate = new Date();
+                maxDate.setFullYear(maxDate.getFullYear() + 10);
+                absolute.min = minDate.toISOString().slice(0, 16);
+                absolute.max = maxDate.toISOString().slice(0, 16);
             }
         }
 
@@ -2952,7 +2980,16 @@
         function getAtTimeSpec() {
             const mode = document.getElementById('atTimeMode').value;
             if (mode === 'relative') {
-                return document.getElementById('atTimePreset').value;
+                const preset = document.getElementById('atRelativePreset').value;
+                const minutes = preset === 'custom'
+                    ? (parseInt(document.getElementById('atRelativeMinutes').value) || 5)
+                    : parseInt(preset);
+                return `now + ${minutes} minutes`;
+            } else if (mode === 'timeonly') {
+                // 今日时间模式：直接返回 HH:MM 格式
+                // at 命令会自动处理：如果时间已过则安排到明天
+                const time = document.getElementById('atTimeOnly').value;
+                return time || '';
             } else {
                 // 将 datetime-local 转换为 at 格式: "HH:MM YYYY-MM-DD"
                 const dt = document.getElementById('atDatetime').value;
