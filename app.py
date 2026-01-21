@@ -23,9 +23,9 @@ from executor import CrontabExecutor, get_executor
 app = Flask(__name__)
 
 # 加载配置文件
-CONFIG_FILE = os.path.join(os.path.dirname(__file__), 'config.json')
-TEMPLATES_FILE = os.path.join(os.path.dirname(__file__), 'templates.json')
-AT_HISTORY_FILE = os.path.join(os.path.dirname(__file__), 'at_history.json')
+CONFIG_FILE = os.path.join(os.path.dirname(__file__), 'config', 'config.json')
+TEMPLATES_FILE = os.path.join(os.path.dirname(__file__), 'config', 'templates.json')
+AT_HISTORY_FILE = os.path.join(os.path.dirname(__file__), 'log', 'at_history.json')
 AT_DONE_PREFIX = '/tmp/.at_done_'  # 完成标记文件前缀
 AT_HISTORY_RETENTION_DAYS = 90  # 历史保留天数
 if os.path.exists(CONFIG_FILE):
