@@ -1470,9 +1470,9 @@
             });
 
             const totalCount = tasks.length;
-            document.getElementById('filterCountAll').textContent = totalCount > 0 ? ` (${totalCount})` : '';
-            document.getElementById('filterCountActive').textContent = activeCount > 0 ? ` (${activeCount})` : '';
-            document.getElementById('filterCountPaused').textContent = pausedCount > 0 ? ` (${pausedCount})` : '';
+            document.getElementById('filterCountAll').textContent = totalCount > 0 ? totalCount : '';
+            document.getElementById('filterCountActive').textContent = activeCount > 0 ? activeCount : '';
+            document.getElementById('filterCountPaused').textContent = pausedCount > 0 ? pausedCount : '';
         }
 
         // 跳转到指定组（从 Active/Paused 视图跳转到 All 视图）
@@ -3573,10 +3573,10 @@
                 const cancelledCount = cancelledData.success ? (cancelledData.total || 0) : 0;
                 const allCount = pendingCount + executedCount + cancelledCount;
 
-                document.getElementById('atFilterCountAll').textContent = allCount > 0 ? ` (${allCount})` : '';
-                document.getElementById('atFilterCountPending').textContent = pendingCount > 0 ? ` (${pendingCount})` : '';
-                document.getElementById('atFilterCountExecuted').textContent = executedCount > 0 ? ` (${executedCount})` : '';
-                document.getElementById('atFilterCountCancelled').textContent = cancelledCount > 0 ? ` (${cancelledCount})` : '';
+                document.getElementById('atFilterCountAll').textContent = allCount > 0 ? allCount : '';
+                document.getElementById('atFilterCountPending').textContent = pendingCount > 0 ? pendingCount : '';
+                document.getElementById('atFilterCountExecuted').textContent = executedCount > 0 ? executedCount : '';
+                document.getElementById('atFilterCountCancelled').textContent = cancelledCount > 0 ? cancelledCount : '';
             } catch (e) {
                 // 忽略错误
             }

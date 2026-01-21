@@ -1818,9 +1818,22 @@
         }
 
         .filter-count {
-            margin-left: 4px;
-            font-size: 12px;
-            opacity: 0.8;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 18px;
+            height: 18px;
+            margin-left: 6px;
+            padding: 0 5px;
+            font-size: 11px;
+            font-weight: 600;
+            border-radius: 9px;
+            background: rgba(0, 0, 0, 0.12);
+            color: inherit;
+        }
+
+        .filter-btn.active .filter-count {
+            background: rgba(255, 255, 255, 0.25);
         }
 
         .filter-count:empty {
