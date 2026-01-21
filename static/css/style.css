@@ -1817,6 +1817,16 @@
             box-shadow: var(--shadow-sm);
         }
 
+        .filter-count {
+            margin-left: 4px;
+            font-size: 12px;
+            opacity: 0.8;
+        }
+
+        .filter-count:empty {
+            display: none;
+        }
+
         /* 按钮之间的分割线 */
         .filter-btn+.filter-btn {
             position: relative;

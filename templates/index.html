@@ -63,9 +63,9 @@
 
     <div class="collapse-controls">
         <div class="filter-controls">
-            <button class="filter-btn active" data-filter="all" onclick="setFilter('all')">All</button>
-            <button class="filter-btn" data-filter="active" onclick="setFilter('active')">Active</button>
-            <button class="filter-btn" data-filter="paused" onclick="setFilter('paused')">Paused</button>
+            <button class="filter-btn active" data-filter="all" onclick="setFilter('all')">All<span class="filter-count" id="filterCountAll"></span></button>
+            <button class="filter-btn" data-filter="active" onclick="setFilter('active')">Active<span class="filter-count" id="filterCountActive"></span></button>
+            <button class="filter-btn" data-filter="paused" onclick="setFilter('paused')">Paused<span class="filter-count" id="filterCountPaused"></span></button>
         </div>
         <button class="collapse-toggle-btn" id="collapseToggleBtn" onclick="toggleAllGroups()" title="Expand All">
             <svg class="expand-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -181,10 +181,10 @@
         <!-- Filter Section -->
         <div class="at-filter-section">
             <div class="at-filter-group">
-                <button class="at-filter-btn" data-filter="all" onclick="setAtFilter('all')">All</button>
-                <button class="at-filter-btn active" data-filter="pending" onclick="setAtFilter('pending')">Pending</button>
-                <button class="at-filter-btn" data-filter="executed" onclick="setAtFilter('executed')">Executed</button>
-                <button class="at-filter-btn" data-filter="cancelled" onclick="setAtFilter('cancelled')">Cancelled</button>
+                <button class="at-filter-btn" data-filter="all" onclick="setAtFilter('all')">All<span class="filter-count" id="atFilterCountAll"></span></button>
+                <button class="at-filter-btn active" data-filter="pending" onclick="setAtFilter('pending')">Pending<span class="filter-count" id="atFilterCountPending"></span></button>
+                <button class="at-filter-btn" data-filter="executed" onclick="setAtFilter('executed')">Executed<span class="filter-count" id="atFilterCountExecuted"></span></button>
+                <button class="at-filter-btn" data-filter="cancelled" onclick="setAtFilter('cancelled')">Cancelled<span class="filter-count" id="atFilterCountCancelled"></span></button>
             </div>
             <button class="at-cleanup-btn{% if user_role != 'admin' %} no-permission{% endif %}"
                     {% if user_role == 'admin' %}onclick="cleanupAtHistory()"{% endif %} title="Clean up history">

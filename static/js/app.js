@@ -1233,6 +1233,7 @@
             const resp = await fetchWithTimeout(getApiPath('/api/tasks'));
             groups = await resp.json();
             renderTasks();
+            updateCronFilterCounts();
         }
 
         // 渲染单个任务（内联编辑模式）
@@ -1451,6 +1452,27 @@
                 restoreCollapsedState(savedCollapsedState);
                 updateCollapseToggleBtn();
             }
+        }
+
+        // 更新 Cron Jobs 筛选器计数
+        function updateCronFilterCounts() {
+            const tasks = document.querySelectorAll('.task-card');
+            let activeCount = 0;
+            let pausedCount = 0;
+
+            tasks.forEach(taskEl => {
+                const isEnabled = taskEl.querySelector('.toggle')?.classList.contains('on');
+                if (isEnabled) {
+                    activeCount++;
+                } else {
+                    pausedCount++;
+                }
+            });
+
+            const totalCount = tasks.length;
+            document.getElementById('filterCountAll').textContent = totalCount > 0 ? ` (${totalCount})` : '';
+            document.getElementById('filterCountActive').textContent = activeCount > 0 ? ` (${activeCount})` : '';
+            document.getElementById('filterCountPaused').textContent = pausedCount > 0 ? ` (${pausedCount})` : '';
         }
 
         // 跳转到指定组（从 Active/Paused 视图跳转到 All 视图）
@@ -3065,11 +3087,13 @@
                 if (atJobs.length === 0) {
                     list.innerHTML = '<div class="log-empty">No tasks</div>';
                     renderAtJobsPagination();
+                    updateAtFilterCounts();
                     return;
                 }
 
                 renderAtJobs();
                 renderAtJobsPagination();
+                updateAtFilterCounts();
             } catch (e) {
                 list.innerHTML = '<div class="log-empty">Load failed</div>';
             }
@@ -3263,7 +3287,7 @@
         // Load template list
         async function loadAtTemplates() {
             try {
-                const resp = await fetchWithTimeout('/api/at_templates');
+                const resp = await fetchWithTimeout(getApiPath('/api/at_templates'));
                 const data = await resp.json();
                 if (data.success) {
                     atTemplates = data.templates || [];
@@ -3513,7 +3537,6 @@
 
         // ========== At History (Execution History) ==========
 
-        let atHistory = [];
         let atJobsPage = 1;
         let atJobsTotalPages = 1;
         let atFilter = 'pending';  // all, pending, executed, cancelled
@@ -3529,6 +3552,34 @@
             });
 
             loadAtJobs();
+        }
+
+        // 更新 AT Jobs 筛选器计数
+        async function updateAtFilterCounts() {
+            try {
+                // 并行获取各状态的计数
+                const [pendingResp, executedResp, cancelledResp] = await Promise.all([
+                    fetchWithTimeout(getApiPath('/api/at_jobs')),
+                    fetchWithTimeout(getApiPath('/api/at_history') + '?per_page=1&status=executed'),
+                    fetchWithTimeout(getApiPath('/api/at_history') + '?per_page=1&status=cancelled')
+                ]);
+
+                const pendingData = await pendingResp.json();
+                const executedData = await executedResp.json();
+                const cancelledData = await cancelledResp.json();
+
+                const pendingCount = pendingData.success ? (pendingData.jobs || []).length : 0;
+                const executedCount = executedData.success ? (executedData.total || 0) : 0;
+                const cancelledCount = cancelledData.success ? (cancelledData.total || 0) : 0;
+                const allCount = pendingCount + executedCount + cancelledCount;
+
+                document.getElementById('atFilterCountAll').textContent = allCount > 0 ? ` (${allCount})` : '';
+                document.getElementById('atFilterCountPending').textContent = pendingCount > 0 ? ` (${pendingCount})` : '';
+                document.getElementById('atFilterCountExecuted').textContent = executedCount > 0 ? ` (${executedCount})` : '';
+                document.getElementById('atFilterCountCancelled').textContent = cancelledCount > 0 ? ` (${cancelledCount})` : '';
+            } catch (e) {
+                // 忽略错误
+            }
         }
 
         // 刷新 At 面板
