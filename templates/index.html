@@ -11,7 +11,7 @@
     <div class="header">
         <h1><a href="/">Crontab Manager</a></h1>
         <div class="tabs">
-            <button class="tab active" onclick="switchTab('list')">Tasks</button>
+            <button class="tab active" onclick="switchTab('list')">Cron Jobs</button>
             <button class="tab" onclick="switchTab('atjobs')">At Jobs</button>
             <button class="tab" onclick="switchTab('history')">History</button>
             <button class="tab" onclick="switchTab('cron')">Cron Logs</button>
@@ -99,8 +99,8 @@
 
     <!-- At Jobs Panel (One-time Tasks) -->
     <div id="atJobsPanel" class="at-jobs-panel">
-        <div class="at-jobs-header">
-            <span>One-time Tasks (at)</span>
+        <div class="cron-log-header">
+            <span class="cron-log-source">At Jobs: <code>One-time scheduled tasks</code></span>
             <button class="refresh-btn" onclick="refreshAtPanel()" title="Refresh">⟳</button>
         </div>
 
@@ -110,10 +110,6 @@
             <div class="at-template-list" id="atTemplateList">
                 <span class="template-empty">No templates</span>
             </div>
-            <button class="at-template-add-btn{% if user_role == 'viewer' %} no-permission{% endif %}"
-                    {% if user_role != 'viewer' %}onclick="showTemplateForm()"{% endif %}>
-                <span class="plus-icon">+</span> New
-            </button>
         </div>
 
         <!-- Template Edit Form -->

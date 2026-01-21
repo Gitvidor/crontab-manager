@@ -1312,7 +1312,7 @@
                     <div class="group-tasks">
                         ${group.tasks.map(task => renderTask(task, group.id, group)).join('')}
                         <div class="group-drop-end${noPerm}" data-group-id="${group.id}"></div>
-                        <div class="group-add-task-btn${noPerm}"><span class="plus-icon">+</span> New Task</div>
+                        <div class="group-add-task-btn${noPerm}">+</div>
                         <div class="group-add-form" id="group-add-form-${group.id}">
                             <input type="text" class="mini-name-input" placeholder="Task name (optional)">
                             <div class="mini-cron-inputs">
@@ -3271,8 +3271,13 @@
             const container = document.getElementById('atTemplateList');
             if (!container) return;
 
+            // 生成 + 按钮 HTML
+            const addBtnHtml = USER_CAN_EDIT
+                ? `<button class="at-template-add-btn" onclick="showTemplateForm()">+</button>`
+                : `<button class="at-template-add-btn no-permission">+</button>`;
+
             if (atTemplates.length === 0) {
-                container.innerHTML = '<span class="template-empty">None</span>';
+                container.innerHTML = '<span class="template-empty">None</span>' + addBtnHtml;
                 return;
             }
 
@@ -3282,7 +3287,7 @@
                         title="${escapeHtml(tpl.command)}">
                     ${escapeHtml(tpl.name)}<span class="at-template-edit" onclick="event.stopPropagation(); editTemplate('${tpl.id}')" title="Edit">✎</span>
                 </button>
-            `).join('');
+            `).join('') + addBtnHtml;
         }
 
         // Highlight editing template button
