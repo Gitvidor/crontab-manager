@@ -3003,20 +3003,27 @@
         }
 
         .at-create-btn {
-            padding: var(--space-2) var(--space-4);
-            background: var(--primary);
+            height: 32px;
+            padding: 0 var(--space-3);
+            background: var(--success);
             color: white;
             border: none;
-            border-radius: var(--radius-sm);
+            border-radius: var(--radius-md);
             font-size: 13px;
             font-weight: 500;
             cursor: pointer;
-            transition: background var(--transition-fast);
+            transition: all var(--transition-fast);
             white-space: nowrap;
         }
 
         .at-create-btn:hover {
-            background: var(--primary-hover);
+            background: var(--success-hover);
+            transform: translateY(-1px);
+            box-shadow: var(--shadow-md);
+        }
+
+        .at-create-btn:active {
+            transform: scale(0.95);
         }
 
         .at-job-list-header {
@@ -3259,54 +3266,69 @@
 
         /* Template edit form */
         .template-form {
+            position: relative;
+            padding-right: 40px;
+        }
+
+        .template-form .template-form-content {
             background: #F1F5F9;
+            border-radius: var(--radius-md);
+            padding: var(--space-3);
+        }
+
+        .template-form .template-delete-btn {
+            position: absolute;
+            right: var(--space-4);
+            top: 0;
+            bottom: 0;
+            margin: auto 0;
+            height: 14px;
         }
 
         .template-form .at-create-btn {
+            height: 32px;
+            padding: 0 var(--space-3);
             background: var(--success);
             color: white;
+            border: none;
+            border-radius: var(--radius-md);
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all var(--transition-fast);
         }
 
         .template-form .at-create-btn:hover {
             background: var(--success-hover);
+            transform: translateY(-1px);
+            box-shadow: var(--shadow-md);
+        }
+
+        .template-form .at-create-btn:active {
+            transform: scale(0.95);
         }
 
         .template-form .template-cancel-btn {
-            padding: var(--space-2) var(--space-4);
-            background: transparent;
+            height: 32px;
+            padding: 0 var(--space-3);
+            background: var(--bg-secondary);
             border: 1px solid var(--border-color);
-            border-radius: var(--radius-sm);
+            border-radius: var(--radius-md);
             font-size: 13px;
+            font-weight: 500;
             color: var(--text-secondary);
             cursor: pointer;
-            white-space: nowrap;
             transition: all var(--transition-fast);
         }
 
         .template-form .template-cancel-btn:hover {
             background: var(--bg-hover);
+            transform: translateY(-1px);
+            box-shadow: var(--shadow-md);
         }
 
-        .template-form .template-delete-btn {
-            width: 32px;
-            height: 32px;
-            padding: 0;
-            background: transparent;
-            border: 1px solid var(--border-color);
-            border-radius: var(--radius-sm);
-            font-size: 18px;
-            color: var(--text-secondary);
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: all var(--transition-fast);
-        }
-
-        .template-form .template-delete-btn:hover {
-            background: var(--danger-light);
-            border-color: var(--danger);
-            color: var(--danger);
+        .template-form .template-cancel-btn:active {
+            transform: scale(0.95);
         }
 
         /* ===== At Jobs Tab 切换样式 ===== */
