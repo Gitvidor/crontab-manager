@@ -140,7 +140,7 @@
                 <div class="at-job-form-row">
                     <div class="at-command-group">
                         <label>Command:</label>
-                        <input type="text" id="templateCommand" placeholder="Enter command">
+                        <textarea id="templateCommand" placeholder="Enter command"></textarea>
                     </div>
                     <button class="at-create-btn" onclick="saveTemplate()">Save</button>
                     <button class="template-cancel-btn" onclick="hideTemplateForm()">Cancel</button>
@@ -172,7 +172,7 @@
             <div class="at-job-form-row">
                 <div class="at-command-group">
                     <label>Command:</label>
-                    <input type="text" id="atCommand" placeholder="Enter command to execute">
+                    <textarea id="atCommand" placeholder="Enter command to execute"></textarea>
                 </div>
                 <button class="at-create-btn" {% if user_role != 'viewer' %}onclick="createAtJob()"{% endif %}>Create</button>
             </div>

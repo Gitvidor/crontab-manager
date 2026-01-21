@@ -29,6 +29,27 @@
 
         // ========== 工具函数 ==========
 
+        // Textarea 自动调整高度
+        function autoResizeTextarea(textarea) {
+            if (!textarea) return;
+            // 临时移除高度限制以获取真实 scrollHeight
+            textarea.style.height = '0px';
+            textarea.style.overflow = 'hidden';
+            // 获取实际需要的高度
+            const height = Math.max(32, textarea.scrollHeight);
+            textarea.style.height = height + 'px';
+        }
+
+        // 初始化所有 command textarea 的自动调整
+        function initCommandTextareas() {
+            const textareas = document.querySelectorAll('#atCommand, #templateCommand');
+            textareas.forEach(textarea => {
+                textarea.addEventListener('input', () => autoResizeTextarea(textarea));
+                // 初始调整
+                autoResizeTextarea(textarea);
+            });
+        }
+
         // 带超时的 fetch 包装（防止 UI 假死）
         const API_TIMEOUT = 10000; // 10秒超时
         const nativeFetch = window.fetch.bind(window); // 保留原生 fetch 引用
@@ -3205,7 +3226,9 @@
 
                 if (data.success) {
                     showMessage(`Task #${data.job_id} created, scheduled at ${data.scheduled_time}`, 'success');
-                    document.getElementById('atCommand').value = '';
+                    const atCmd = document.getElementById('atCommand');
+                    atCmd.value = '';
+                    autoResizeTextarea(atCmd);
                     // Reset time selector
                     document.getElementById('atTimeMode').value = 'relative';
                     document.getElementById('atRelativeValue').value = '5';
@@ -3339,7 +3362,9 @@
             if (!tpl) return;
 
             // Fill command
-            document.getElementById('atCommand').value = tpl.command;
+            const atCmd = document.getElementById('atCommand');
+            atCmd.value = tpl.command;
+            autoResizeTextarea(atCmd);
 
             // Fill time - parse format
             const defaultTime = tpl.default_time || 'now + 5 minutes';
@@ -3397,6 +3422,8 @@
             clearTemplateForm();
             document.getElementById('templateForm').style.display = 'block';
             document.getElementById('templateDeleteBtn').style.display = 'none';
+            // 表单显示后调整 textarea 高度
+            autoResizeTextarea(document.getElementById('templateCommand'));
             document.getElementById('templateName').focus();
         }
 
@@ -3510,6 +3537,8 @@
 
             document.getElementById('templateForm').style.display = 'block';
             document.getElementById('templateDeleteBtn').style.display = '';
+            // 表单显示后调整 textarea 高度
+            autoResizeTextarea(document.getElementById('templateCommand'));
             document.getElementById('templateName').focus();
         }
 
@@ -3627,6 +3656,7 @@
         // 设置事件委托
         setupTaskListEventDelegation();
         setupPaginationDelegation();
+        initCommandTextareas();
 
         // 首先加载机器列表，然后加载任务并折叠所有组
         loadMachines().then(() => {

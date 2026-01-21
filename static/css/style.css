@@ -3048,6 +3048,7 @@
         /* 模板表单显示时，创建表单不需要底部圆角 */
         .at-job-form.template-form {
             border-radius: 0;
+            padding: var(--space-2) 30px var(--space-2) var(--space-2);
         }
 
         .at-job-form.template-form + .at-job-form {
@@ -3085,6 +3086,17 @@
             flex-wrap: wrap;
         }
 
+        .at-command-group {
+            flex-direction: row;
+            align-items: flex-start;
+            gap: var(--space-2);
+            flex-wrap: wrap;
+        }
+
+        .at-command-group label {
+            padding-top: var(--space-2);
+        }
+
         .at-job-form label {
             font-size: 12px;
             color: var(--text-secondary);
@@ -3092,7 +3104,8 @@
         }
 
         .at-job-form select,
-        .at-job-form input {
+        .at-job-form input,
+        .at-job-form textarea {
             padding: var(--space-2) var(--space-3);
             border: 1px solid var(--border-color);
             border-radius: var(--radius-sm);
@@ -3115,9 +3128,19 @@
             min-width: 120px;
         }
 
-        .at-job-form input {
+        .at-job-form input,
+        .at-job-form textarea {
             flex: 1;
             min-width: 200px;
+        }
+
+        .at-job-form textarea {
+            resize: none;
+            min-height: 32px;
+            font-family: inherit;
+            overflow: hidden;
+            line-height: 1.4;
+            box-sizing: border-box;
         }
 
         .at-job-form input[type="datetime-local"],
@@ -3129,7 +3152,8 @@
         }
 
         .at-job-form select:focus,
-        .at-job-form input:focus {
+        .at-job-form input:focus,
+        .at-job-form textarea:focus {
             outline: none;
             border-color: var(--primary);
             box-shadow: 0 0 0 2px var(--primary-light);
@@ -3356,6 +3380,7 @@
             font-size: 12px;
             color: var(--text-secondary);
             white-space: nowrap;
+            padding-top: var(--space-1);
         }
 
         .at-template-list {
@@ -3441,7 +3466,6 @@
         /* Template edit form */
         .template-form {
             position: relative;
-            padding-right: 40px;
         }
 
         .template-form .template-form-content {
@@ -3452,7 +3476,7 @@
 
         .template-form .template-delete-btn {
             position: absolute;
-            right: var(--space-4);
+            right: 9px;
             top: 0;
             bottom: 0;
             margin: auto 0;
