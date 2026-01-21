@@ -126,24 +126,11 @@
             <div id="templateForm" class="template-inline-form" style="display:none">
                 <input type="text" id="templateName" placeholder="Template name">
                 <input type="text" id="templateCommand" placeholder="Command">
-                <select id="templateTimePreset">
-                    <optgroup label="Relative Time">
-                        <option value="now + 5 minutes">5 min later</option>
-                        <option value="now + 10 minutes">10 min later</option>
-                        <option value="now + 15 minutes">15 min later</option>
-                        <option value="now + 30 minutes">30 min later</option>
-                        <option value="now + 60 minutes">1 hour later</option>
-                        <option value="now + 120 minutes">2 hours later</option>
-                        <option value="now + 1440 minutes">1 day later</option>
-                    </optgroup>
-                    <optgroup label="Time Today">
-                        <option value="09:00">09:00</option>
-                        <option value="12:00">12:00</option>
-                        <option value="14:00">14:00</option>
-                        <option value="18:00">18:00</option>
-                        <option value="21:00">21:00</option>
-                        <option value="00:00">00:00</option>
-                    </optgroup>
+                <input type="number" id="templateTimeValue" min="1" max="999" value="5" style="width:50px">
+                <select id="templateTimeUnit">
+                    <option value="minutes" selected>min</option>
+                    <option value="hours">hours</option>
+                    <option value="days">days</option>
                 </select>
                 <button class="template-save-btn" onclick="saveTemplate()">Save</button>
                 <button class="template-cancel-btn" onclick="hideTemplateForm()">Cancel</button>
@@ -160,21 +147,12 @@
                             <option value="timeonly">Time Today</option>
                             <option value="absolute">Specific Date</option>
                         </select>
-                        <select id="atRelativePreset" class="at-time-relative" onchange="applyRelativePreset()">
-                            <option value="1">1 min later</option>
-                            <option value="5" selected>5 min later</option>
-                            <option value="10">10 min later</option>
-                            <option value="15">15 min later</option>
-                            <option value="30">30 min later</option>
-                            <option value="60">1 hour later</option>
-                            <option value="120">2 hours later</option>
-                            <option value="360">6 hours later</option>
-                            <option value="720">12 hours later</option>
-                            <option value="1440">1 day later</option>
-                            <option value="custom">Custom...</option>
+                        <input type="number" id="atRelativeValue" class="at-time-relative" min="1" max="999" value="5" style="width:60px">
+                        <select id="atRelativeUnit" class="at-time-relative">
+                            <option value="minutes" selected>minutes</option>
+                            <option value="hours">hours</option>
+                            <option value="days">days</option>
                         </select>
-                        <input type="number" id="atRelativeMinutes" class="at-time-relative at-time-custom" min="1" max="10080" value="5" style="width:60px; display:none">
-                        <span class="at-time-relative at-time-custom" style="display:none">min later</span>
                         <input type="time" id="atTimeOnly" class="at-time-only" style="display:none">
                         <input type="datetime-local" id="atDatetime" class="at-time-absolute" style="display:none">
                     </div>

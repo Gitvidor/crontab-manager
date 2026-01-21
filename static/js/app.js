@@ -2924,29 +2924,18 @@
             });
         }
 
-        // ========== At Jobs 管理 (一次性临时任务) ==========
+        // ========== At Jobs Management ==========
 
         let atJobs = [];
 
-        // 应用相对时间预设值（选择自定义时显示输入框）
-        function applyRelativePreset() {
-            const preset = document.getElementById('atRelativePreset').value;
-            const customEls = document.querySelectorAll('.at-time-custom');
-            if (preset === 'custom') {
-                customEls.forEach(el => el.style.display = '');
-            } else {
-                customEls.forEach(el => el.style.display = 'none');
-            }
-        }
-
-        // 切换时间模式（相对/今日时间/指定日期）
+        // Toggle time mode (relative/time today/specific date)
         function toggleAtTimeMode() {
             const mode = document.getElementById('atTimeMode').value;
             const relativeEls = document.querySelectorAll('.at-time-relative');
             const timeonly = document.querySelector('.at-time-only');
             const absolute = document.querySelector('.at-time-absolute');
 
-            // 隐藏所有
+            // Hide all
             relativeEls.forEach(el => el.style.display = 'none');
             timeonly.style.display = 'none';
             absolute.style.display = 'none';
@@ -2955,19 +2944,19 @@
                 relativeEls.forEach(el => el.style.display = '');
             } else if (mode === 'timeonly') {
                 timeonly.style.display = '';
-                // 设置默认值为下一个整点
+                // Set default to next hour
                 const now = new Date();
                 now.setHours(now.getHours() + 1);
                 now.setMinutes(0);
                 timeonly.value = now.toTimeString().slice(0, 5);
             } else {
                 absolute.style.display = '';
-                // 设置默认值为1小时后
+                // Set default to 1 hour later
                 const now = new Date();
                 now.setHours(now.getHours() + 1);
-                now.setMinutes(Math.ceil(now.getMinutes() / 5) * 5); // 对齐到5分钟
+                now.setMinutes(Math.ceil(now.getMinutes() / 5) * 5);
                 absolute.value = now.toISOString().slice(0, 16);
-                // 设置有效范围：当前时间到10年后
+                // Set valid range: now to 10 years later
                 const minDate = new Date();
                 const maxDate = new Date();
                 maxDate.setFullYear(maxDate.getFullYear() + 10);
@@ -2976,22 +2965,20 @@
             }
         }
 
-        // 获取时间规格
+        // Get time specification
         function getAtTimeSpec() {
             const mode = document.getElementById('atTimeMode').value;
             if (mode === 'relative') {
-                const preset = document.getElementById('atRelativePreset').value;
-                const minutes = preset === 'custom'
-                    ? (parseInt(document.getElementById('atRelativeMinutes').value) || 5)
-                    : parseInt(preset);
-                return `now + ${minutes} minutes`;
+                const value = parseInt(document.getElementById('atRelativeValue').value) || 5;
+                const unit = document.getElementById('atRelativeUnit').value;
+                return `now + ${value} ${unit}`;
             } else if (mode === 'timeonly') {
-                // 今日时间模式：直接返回 HH:MM 格式
-                // at 命令会自动处理：如果时间已过则安排到明天
+                // Time today mode: return HH:MM format
+                // at command auto-handles: if time passed, schedule tomorrow
                 const time = document.getElementById('atTimeOnly').value;
                 return time || '';
             } else {
-                // 将 datetime-local 转换为 at 格式: "HH:MM YYYY-MM-DD"
+                // Convert datetime-local to at format: "HH:MM YYYY-MM-DD"
                 const dt = document.getElementById('atDatetime').value;
                 if (!dt) return '';
                 const [date, time] = dt.split('T');
@@ -3102,7 +3089,8 @@
                     document.getElementById('atCommand').value = '';
                     // Reset time selector
                     document.getElementById('atTimeMode').value = 'relative';
-                    document.getElementById('atRelativePreset').value = '5';
+                    document.getElementById('atRelativeValue').value = '5';
+                    document.getElementById('atRelativeUnit').value = 'minutes';
                     toggleAtTimeMode();
                     loadAtJobs();
                 } else {
@@ -3208,37 +3196,31 @@
             `).join('');
         }
 
-        // 应用模板（填充表单）
+        // Apply template (fill form)
         function applyTemplate(templateId) {
             const tpl = atTemplates.find(t => t.id === templateId);
             if (!tpl) return;
 
-            // 填充命令
+            // Fill command
             document.getElementById('atCommand').value = tpl.command;
 
-            // 填充时间 - 解析 "now + X minutes" 格式
+            // Fill time - parse "now + X unit" format
             const defaultTime = tpl.default_time || 'now + 5 minutes';
-            const presetSelect = document.getElementById('atRelativePreset');
+            const match = defaultTime.match(/now\s*\+\s*(\d+)\s*(minutes?|hours?|days?)/i);
 
-            // 尝试从 "now + X minutes" 提取分钟数
-            const match = defaultTime.match(/now\s*\+\s*(\d+)\s*minutes?/i);
+            document.getElementById('atTimeMode').value = 'relative';
             if (match) {
-                const minutes = match[1];
-                // 检查是否有预设选项
-                const hasOption = Array.from(presetSelect.options).some(opt => opt.value === minutes);
-                document.getElementById('atTimeMode').value = 'relative';
-                if (hasOption) {
-                    presetSelect.value = minutes;
-                } else {
-                    presetSelect.value = 'custom';
-                    document.getElementById('atRelativeMinutes').value = minutes;
-                }
-                toggleAtTimeMode();
-                applyRelativePreset();
+                const value = match[1];
+                let unit = match[2].toLowerCase();
+                // Normalize unit to plural form
+                if (!unit.endsWith('s')) unit += 's';
+                document.getElementById('atRelativeValue').value = value;
+                document.getElementById('atRelativeUnit').value = unit;
             } else {
-                document.getElementById('atTimeMode').value = 'relative';
-                toggleAtTimeMode();
+                document.getElementById('atRelativeValue').value = '5';
+                document.getElementById('atRelativeUnit').value = 'minutes';
             }
+            toggleAtTimeMode();
 
             showMessage(`Template loaded: ${tpl.name}`, 'success');
         }
@@ -3258,18 +3240,21 @@
             editingTemplateId = null;
         }
 
-        // 清空模板表单
+        // Clear template form
         function clearTemplateForm() {
             document.getElementById('templateName').value = '';
             document.getElementById('templateCommand').value = '';
-            document.getElementById('templateTimePreset').value = 'now + 5 minutes';
+            document.getElementById('templateTimeValue').value = '5';
+            document.getElementById('templateTimeUnit').value = 'minutes';
         }
 
-        // 保存模板
+        // Save template
         async function saveTemplate() {
             const name = document.getElementById('templateName').value.trim();
             const command = document.getElementById('templateCommand').value.trim();
-            const defaultTime = document.getElementById('templateTimePreset').value;
+            const timeValue = document.getElementById('templateTimeValue').value;
+            const timeUnit = document.getElementById('templateTimeUnit').value;
+            const defaultTime = `now + ${timeValue} ${timeUnit}`;
 
             if (!name) {
                 showMessage('Please enter template name', 'error');
@@ -3318,13 +3303,18 @@
             document.getElementById('templateName').value = tpl.name;
             document.getElementById('templateCommand').value = tpl.command;
 
-            // 设置时间
-            const presetSelect = document.getElementById('templateTimePreset');
-            const matched = Array.from(presetSelect.options).find(opt => opt.value === tpl.default_time);
-            if (matched) {
-                presetSelect.value = tpl.default_time;
+            // Set time - parse "now + X unit" format
+            const defaultTime = tpl.default_time || 'now + 5 minutes';
+            const match = defaultTime.match(/now\s*\+\s*(\d+)\s*(minutes?|hours?|days?)/i);
+            if (match) {
+                const value = match[1];
+                let unit = match[2].toLowerCase();
+                if (!unit.endsWith('s')) unit += 's';
+                document.getElementById('templateTimeValue').value = value;
+                document.getElementById('templateTimeUnit').value = unit;
             } else {
-                presetSelect.value = 'now + 5 minutes';
+                document.getElementById('templateTimeValue').value = '5';
+                document.getElementById('templateTimeUnit').value = 'minutes';
             }
 
             document.getElementById('templateForm').style.display = 'flex';
