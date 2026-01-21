@@ -3214,6 +3214,17 @@
             color: white;
         }
 
+        /* 编辑图标 - 在按钮内部 */
+        .at-template-edit {
+            margin-left: 6px;
+            opacity: 0.5;
+            transition: opacity var(--transition-fast);
+        }
+
+        .at-template-btn:hover .at-template-edit {
+            opacity: 1;
+        }
+
         .at-template-add-btn {
             display: flex;
             align-items: center;
@@ -3246,7 +3257,20 @@
             font-style: italic;
         }
 
-        /* Template edit form buttons */
+        /* Template edit form - different color scheme */
+        .template-form {
+            background: var(--bg-tertiary);
+            border-left: 3px solid var(--warning, #f59e0b);
+        }
+
+        .template-form .at-create-btn {
+            background: var(--warning, #f59e0b);
+        }
+
+        .template-form .at-create-btn:hover {
+            background: #d97706;
+        }
+
         .template-form .template-cancel-btn {
             padding: var(--space-2) var(--space-4);
             background: transparent;

@@ -3190,8 +3190,10 @@
             }
 
             container.innerHTML = atTemplates.map(tpl => `
-                <button class="at-template-btn" data-tpl-id="${tpl.id}" onclick="applyTemplate('${tpl.id}')" ondblclick="editTemplate('${tpl.id}')" title="${escapeHtml(tpl.command)}&#10;Double-click to edit">
-                    ${escapeHtml(tpl.name)}
+                <button class="at-template-btn" data-tpl-id="${tpl.id}"
+                        onclick="applyTemplate('${tpl.id}')"
+                        title="${escapeHtml(tpl.command)}">
+                    ${escapeHtml(tpl.name)}<span class="at-template-edit" onclick="event.stopPropagation(); editTemplate('${tpl.id}')" title="Edit">✎</span>
                 </button>
             `).join('');
         }
@@ -3347,7 +3349,7 @@
             }
         }
 
-        // Edit template (triggered by double-click)
+        // Edit template (triggered by edit button)
         function editTemplate(templateId) {
             const tpl = atTemplates.find(t => t.id === templateId);
             if (!tpl) return;
