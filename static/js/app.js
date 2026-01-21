@@ -3021,13 +3021,13 @@
                 atJobs = data.jobs || [];
 
                 if (atJobs.length === 0) {
-                    list.innerHTML = '<div class="log-empty">暂无待执行的临时任务</div>';
+                    list.innerHTML = '<div class="log-empty">No pending tasks</div>';
                     return;
                 }
 
                 renderAtJobs();
             } catch (e) {
-                list.innerHTML = '<div class="log-empty">加载失败</div>';
+                list.innerHTML = '<div class="log-empty">Load failed</div>';
             }
         }
 
@@ -3048,13 +3048,13 @@
                         <span class="at-col-time">${escapeHtml(job.datetime)}</span>
                         <span class="at-col-queue">${escapeHtml(job.queue)}</span>
                         <div class="at-col-actions">
-                            <button class="at-delete-btn btn-delete-circle${noPerm}" ${USER_CAN_EDIT ? `onclick="event.stopPropagation(); deleteAtJob('${job.job_id}')"` : ''} title="删除">
+                            <button class="at-delete-btn btn-delete-circle${noPerm}" ${USER_CAN_EDIT ? `onclick="event.stopPropagation(); deleteAtJob('${job.job_id}')"` : ''} title="Delete">
                                 &times;
                             </button>
                         </div>
                     </div>
                     <div class="at-job-detail" id="atJobDetail_${job.job_id}">
-                        <div class="at-job-detail-loading">加载中...</div>
+                        <div class="at-job-detail-loading">Loading...</div>
                     </div>
                 </div>
             `).join('');
@@ -3066,20 +3066,20 @@
             const timeSpec = getAtTimeSpec();
 
             if (!command) {
-                showMessage('请输入要执行的命令', 'error');
+                showMessage('Please enter a command', 'error');
                 return;
             }
             if (!timeSpec) {
-                showMessage('请指定执行时间', 'error');
+                showMessage('Please specify execution time', 'error');
                 return;
             }
 
-            // 指定时间模式下检查是否为过去的时间
+            // Check if time is in the past for absolute mode
             const mode = document.getElementById('atTimeMode').value;
             if (mode === 'absolute') {
                 const dt = document.getElementById('atDatetime').value;
                 if (dt && new Date(dt) <= new Date()) {
-                    showMessage('指定的时间已过，请选择未来的时间', 'error');
+                    showMessage('Specified time has passed, please select a future time', 'error');
                     return;
                 }
             }
@@ -3098,18 +3098,18 @@
                 const data = await resp.json();
 
                 if (data.success) {
-                    showMessage(`任务 #${data.job_id} 已创建，计划于 ${data.scheduled_time} 执行`, 'success');
+                    showMessage(`Task #${data.job_id} created, scheduled at ${data.scheduled_time}`, 'success');
                     document.getElementById('atCommand').value = '';
-                    // 重置时间选择器
+                    // Reset time selector
                     document.getElementById('atTimeMode').value = 'relative';
-                    document.getElementById('atTimePreset').value = 'now + 5 minutes';
+                    document.getElementById('atRelativePreset').value = '5';
                     toggleAtTimeMode();
                     loadAtJobs();
                 } else {
-                    showMessage('创建失败: ' + data.error, 'error');
+                    showMessage('Create failed: ' + data.error, 'error');
                 }
             } catch (e) {
-                showMessage('创建任务失败: ' + e.message, 'error');
+                showMessage('Create task failed: ' + e.message, 'error');
             }
         }
 
@@ -3140,15 +3140,15 @@
                             detail.innerHTML = `<div class="at-job-detail-error">${escapeHtml(data.error)}</div>`;
                         }
                     } catch (e) {
-                        detail.innerHTML = '<div class="at-job-detail-error">加载失败</div>';
+                        detail.innerHTML = '<div class="at-job-detail-error">Load failed</div>';
                     }
                 }
             }
         }
 
-        // 删除 At Job
+        // Delete At Job
         async function deleteAtJob(jobId) {
-            if (!confirm(`确定删除任务 #${jobId}?`)) return;
+            if (!confirm(`Delete task #${jobId}?`)) return;
 
             try {
                 const resp = await fetchWithTimeout(getApiPath('/api/at_job/' + jobId), {
@@ -3162,22 +3162,22 @@
                 const data = await resp.json();
 
                 if (data.success) {
-                    showMessage(`任务 #${jobId} 已删除`, 'success');
+                    showMessage(`Task #${jobId} deleted`, 'success');
                     loadAtJobs();
                 } else {
-                    showMessage('删除失败: ' + data.error, 'error');
+                    showMessage('Delete failed: ' + data.error, 'error');
                 }
             } catch (e) {
-                showMessage('删除失败', 'error');
+                showMessage('Delete failed', 'error');
             }
         }
 
-        // ========== At Job Templates 管理 ==========
+        // ========== At Job Templates ==========
 
         let atTemplates = [];
-        let editingTemplateId = null;  // 当前编辑的模板 ID
+        let editingTemplateId = null;  // Current editing template ID
 
-        // 加载模板列表
+        // Load template list
         async function loadAtTemplates() {
             try {
                 const resp = await fetchWithTimeout('/api/at_templates');
@@ -3187,22 +3187,22 @@
                     renderTemplateBar();
                 }
             } catch (e) {
-                console.error('加载模板失败:', e);
+                console.error('Load templates failed:', e);
             }
         }
 
-        // 渲染模板快捷栏
+        // Render template bar
         function renderTemplateBar() {
             const container = document.getElementById('atTemplateList');
             if (!container) return;
 
             if (atTemplates.length === 0) {
-                container.innerHTML = '<span class="template-empty">暂无</span>';
+                container.innerHTML = '<span class="template-empty">None</span>';
                 return;
             }
 
             container.innerHTML = atTemplates.map(tpl => `
-                <button class="at-template-btn" onclick="applyTemplate('${tpl.id}')" ondblclick="editTemplate('${tpl.id}')" title="${escapeHtml(tpl.command)}&#10;双击编辑">
+                <button class="at-template-btn" onclick="applyTemplate('${tpl.id}')" ondblclick="editTemplate('${tpl.id}')" title="${escapeHtml(tpl.command)}&#10;Double-click to edit">
                     ${escapeHtml(tpl.name)}
                 </button>
             `).join('');
@@ -3216,22 +3216,31 @@
             // 填充命令
             document.getElementById('atCommand').value = tpl.command;
 
-            // 填充时间
+            // 填充时间 - 解析 "now + X minutes" 格式
             const defaultTime = tpl.default_time || 'now + 5 minutes';
-            const presetSelect = document.getElementById('atTimePreset');
+            const presetSelect = document.getElementById('atRelativePreset');
 
-            // 尝试匹配预设选项
-            const matched = Array.from(presetSelect.options).find(opt => opt.value === defaultTime);
-            if (matched) {
+            // 尝试从 "now + X minutes" 提取分钟数
+            const match = defaultTime.match(/now\s*\+\s*(\d+)\s*minutes?/i);
+            if (match) {
+                const minutes = match[1];
+                // 检查是否有预设选项
+                const hasOption = Array.from(presetSelect.options).some(opt => opt.value === minutes);
                 document.getElementById('atTimeMode').value = 'relative';
-                presetSelect.value = defaultTime;
+                if (hasOption) {
+                    presetSelect.value = minutes;
+                } else {
+                    presetSelect.value = 'custom';
+                    document.getElementById('atRelativeMinutes').value = minutes;
+                }
                 toggleAtTimeMode();
+                applyRelativePreset();
             } else {
                 document.getElementById('atTimeMode').value = 'relative';
                 toggleAtTimeMode();
             }
 
-            showMessage(`已加载模板: ${tpl.name}`, 'success');
+            showMessage(`Template loaded: ${tpl.name}`, 'success');
         }
 
         // 显示模板编辑表单
@@ -3263,11 +3272,11 @@
             const defaultTime = document.getElementById('templateTimePreset').value;
 
             if (!name) {
-                showMessage('请输入模板名称', 'error');
+                showMessage('Please enter template name', 'error');
                 return;
             }
             if (!command) {
-                showMessage('请输入命令', 'error');
+                showMessage('Please enter command', 'error');
                 return;
             }
 
@@ -3289,18 +3298,18 @@
 
                 const data = await resp.json();
                 if (data.success) {
-                    showMessage(editingTemplateId ? '模板已更新' : '模板已创建', 'success');
+                    showMessage(editingTemplateId ? 'Template updated' : 'Template created', 'success');
                     await loadAtTemplates();
                     hideTemplateForm();
                 } else {
-                    showMessage('保存失败: ' + data.error, 'error');
+                    showMessage('Save failed: ' + data.error, 'error');
                 }
             } catch (e) {
-                showMessage('保存失败: ' + e.message, 'error');
+                showMessage('Save failed: ' + e.message, 'error');
             }
         }
 
-        // 编辑模板（双击模板按钮触发）
+        // Edit template (triggered by double-click)
         function editTemplate(templateId) {
             const tpl = atTemplates.find(t => t.id === templateId);
             if (!tpl) return;
@@ -3323,10 +3332,10 @@
             document.getElementById('templateName').focus();
         }
 
-        // 删除正在编辑的模板
+        // Delete editing template
         async function deleteEditingTemplate() {
             if (!editingTemplateId) return;
-            if (!confirm('确定删除此模板?')) return;
+            if (!confirm('Delete this template?')) return;
 
             try {
                 const resp = await fetchWithTimeout(`/api/at_template/${editingTemplateId}`, {
@@ -3334,14 +3343,237 @@
                 });
                 const data = await resp.json();
                 if (data.success) {
-                    showMessage('模板已删除', 'success');
+                    showMessage('Template deleted', 'success');
                     await loadAtTemplates();
                     hideTemplateForm();
                 } else {
-                    showMessage('删除失败: ' + data.error, 'error');
+                    showMessage('Delete failed: ' + data.error, 'error');
                 }
             } catch (e) {
-                showMessage('删除失败', 'error');
+                showMessage('Delete failed', 'error');
+            }
+        }
+
+        // ========== At History (Execution History) ==========
+
+        let atHistory = [];
+        let atHistoryPage = 1;
+        let atHistoryTotalPages = 1;
+        let currentAtTab = 'pending';  // 当前选中的 Tab
+
+        // 切换 At Tab
+        function switchAtTab(tab) {
+            currentAtTab = tab;
+
+            // 更新 Tab 按钮状态
+            document.querySelectorAll('.at-tab').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.tab === tab);
+            });
+
+            // 切换 Tab 内容
+            document.getElementById('atPendingTab').classList.toggle('active', tab === 'pending');
+            document.getElementById('atHistoryTab').classList.toggle('active', tab === 'history');
+
+            // 加载对应数据
+            if (tab === 'pending') {
+                loadAtJobs();
+            } else {
+                loadAtHistory();
+            }
+        }
+
+        // 刷新当前 At 面板
+        function refreshAtPanel() {
+            const refreshBtn = document.querySelector('#atJobsPanel .refresh-btn');
+            if (refreshBtn) {
+                refreshBtn.classList.add('spinning');
+                setTimeout(() => refreshBtn.classList.remove('spinning'), 600);
+            }
+
+            if (currentAtTab === 'pending') {
+                loadAtJobs();
+            } else {
+                loadAtHistory();
+            }
+        }
+
+        // 加载历史记录
+        async function loadAtHistory(page = 1) {
+            const list = document.getElementById('atHistoryList');
+            const statusFilter = document.getElementById('atHistoryStatusFilter').value;
+
+            try {
+                let url = getApiPath('/api/at_history') + `?page=${page}&per_page=20`;
+                if (statusFilter) {
+                    url += `&status=${statusFilter}`;
+                }
+
+                const resp = await fetchWithTimeout(url);
+                const data = await resp.json();
+
+                if (!data.success) {
+                    list.innerHTML = `<div class="log-empty">${escapeHtml(data.error)}</div>`;
+                    return;
+                }
+
+                atHistory = data.history || [];
+                atHistoryPage = data.page || 1;
+                atHistoryTotalPages = data.total_pages || 1;
+
+                if (atHistory.length === 0) {
+                    list.innerHTML = '<div class="log-empty">No history records</div>';
+                    renderAtHistoryPagination();
+                    return;
+                }
+
+                renderAtHistory();
+                renderAtHistoryPagination();
+            } catch (e) {
+                list.innerHTML = '<div class="log-empty">Load failed</div>';
+            }
+        }
+
+        // 渲染历史记录列表
+        function renderAtHistory() {
+            const list = document.getElementById('atHistoryList');
+
+            list.innerHTML = atHistory.map(record => {
+                // 状态图标和样式
+                let statusIcon, statusClass;
+                switch (record.status) {
+                    case 'executed':
+                        statusIcon = record.exit_code === 0 ? '✓' : '⚠';
+                        statusClass = record.exit_code === 0 ? 'status-success' : 'status-warning';
+                        break;
+                    case 'cancelled':
+                        statusIcon = '✕';
+                        statusClass = 'status-cancelled';
+                        break;
+                    default:  // pending
+                        statusIcon = '⏳';
+                        statusClass = 'status-pending';
+                }
+
+                // 格式化时间
+                const scheduledTime = formatHistoryTime(record.scheduled_time);
+                const executedTime = record.executed_at ? formatHistoryTime(record.executed_at) : '--';
+
+                // 退出码显示
+                const exitCode = record.exit_code !== null ? record.exit_code : '--';
+                const exitClass = record.exit_code === 0 ? 'exit-success' : (record.exit_code !== null ? 'exit-error' : '');
+
+                // 截断命令
+                const cmdDisplay = record.command.length > 50
+                    ? record.command.substring(0, 50) + '...'
+                    : record.command;
+
+                return `
+                    <div class="at-history-item" data-id="${record.id}" onclick="toggleAtHistoryDetail('${record.id}')">
+                        <div class="at-history-row">
+                            <span class="at-history-col-status ${statusClass}">${statusIcon}</span>
+                            <span class="at-history-col-command" title="${escapeHtml(record.command)}">${escapeHtml(cmdDisplay)}</span>
+                            <span class="at-history-col-scheduled">${escapeHtml(scheduledTime)}</span>
+                            <span class="at-history-col-executed">${escapeHtml(executedTime)}</span>
+                            <span class="at-history-col-exit ${exitClass}">${exitCode}</span>
+                            <span class="at-history-col-creator">${escapeHtml(record.created_by || '--')}</span>
+                        </div>
+                        <div class="at-history-detail" id="atHistoryDetail_${record.id}">
+                            <div class="at-history-detail-content">
+                                <div class="detail-row"><span class="detail-label">Command:</span> <pre>${escapeHtml(record.command)}</pre></div>
+                                <div class="detail-row"><span class="detail-label">Time Spec:</span> ${escapeHtml(record.time_spec)}</div>
+                                <div class="detail-row"><span class="detail-label">Created:</span> ${escapeHtml(record.created_at)}</div>
+                                ${record.template_name ? `<div class="detail-row"><span class="detail-label">Template:</span> ${escapeHtml(record.template_name)}</div>` : ''}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // 格式化历史时间（简短显示）
+        function formatHistoryTime(timeStr) {
+            if (!timeStr) return '--';
+            // 如果是今天，只显示时间
+            const today = new Date().toISOString().slice(0, 10);
+            if (timeStr.startsWith(today)) {
+                return timeStr.slice(11, 16);  // HH:MM
+            }
+            // 如果是今年，显示 MM-DD HH:MM
+            const thisYear = new Date().getFullYear().toString();
+            if (timeStr.startsWith(thisYear)) {
+                return timeStr.slice(5, 16);  // MM-DD HH:MM
+            }
+            return timeStr.slice(0, 16);  // YYYY-MM-DD HH:MM
+        }
+
+        // 切换历史详情展开/折叠
+        function toggleAtHistoryDetail(id) {
+            const item = document.querySelector(`.at-history-item[data-id="${id}"]`);
+            if (item) {
+                item.classList.toggle('expanded');
+            }
+        }
+
+        // 渲染历史分页
+        function renderAtHistoryPagination() {
+            const pagination = document.getElementById('atHistoryPagination');
+            if (atHistoryTotalPages <= 1) {
+                pagination.innerHTML = '';
+                return;
+            }
+
+            let html = '';
+
+            // 上一页
+            if (atHistoryPage > 1) {
+                html += `<button class="page-btn" onclick="loadAtHistory(${atHistoryPage - 1})">&lt;</button>`;
+            }
+
+            // 页码
+            for (let i = 1; i <= atHistoryTotalPages; i++) {
+                if (i === 1 || i === atHistoryTotalPages ||
+                    (i >= atHistoryPage - 2 && i <= atHistoryPage + 2)) {
+                    html += `<button class="page-btn${i === atHistoryPage ? ' active' : ''}" onclick="loadAtHistory(${i})">${i}</button>`;
+                } else if (i === atHistoryPage - 3 || i === atHistoryPage + 3) {
+                    html += '<span class="page-ellipsis">...</span>';
+                }
+            }
+
+            // 下一页
+            if (atHistoryPage < atHistoryTotalPages) {
+                html += `<button class="page-btn" onclick="loadAtHistory(${atHistoryPage + 1})">&gt;</button>`;
+            }
+
+            pagination.innerHTML = html;
+        }
+
+        // Cleanup history
+        async function cleanupAtHistory() {
+            const days = prompt('Clean up history older than how many days?', '30');
+            if (days === null) return;
+
+            const daysNum = parseInt(days);
+            if (isNaN(daysNum) || daysNum < 1) {
+                showMessage('Please enter a valid number of days', 'error');
+                return;
+            }
+
+            if (!confirm(`Delete history older than ${daysNum} days?`)) return;
+
+            try {
+                const resp = await fetchWithTimeout(getApiPath('/api/at_history') + `?days=${daysNum}`, {
+                    method: 'DELETE'
+                });
+                const data = await resp.json();
+
+                if (data.success) {
+                    showMessage(`Cleaned up ${data.deleted} history records`, 'success');
+                    loadAtHistory();
+                } else {
+                    showMessage('Cleanup failed: ' + data.error, 'error');
+                }
+            } catch (e) {
+                showMessage('Cleanup failed', 'error');
             }
         }
 

@@ -25,6 +25,9 @@ app = Flask(__name__)
 # 加载配置文件
 CONFIG_FILE = os.path.join(os.path.dirname(__file__), 'config.json')
 TEMPLATES_FILE = os.path.join(os.path.dirname(__file__), 'templates.json')
+AT_HISTORY_FILE = os.path.join(os.path.dirname(__file__), 'at_history.json')
+AT_DONE_PREFIX = '/tmp/.at_done_'  # 完成标记文件前缀
+AT_HISTORY_RETENTION_DAYS = 90  # 历史保留天数
 if os.path.exists(CONFIG_FILE):
     with open(CONFIG_FILE, 'r', encoding='utf-8') as f:
         config = json.load(f)
@@ -1810,6 +1813,7 @@ def create_at_job(machine_id=None, linux_user=None):
         machine_id, linux_user = get_machine_params()
     command = request.json.get('command', '').strip()
     time_spec = request.json.get('time_spec', '').strip()
+    template_name = request.json.get('template_name')  # 可选：模板名称
 
     if not command:
         return jsonify({'success': False, 'error': '请输入要执行的命令'})
@@ -1822,8 +1826,13 @@ def create_at_job(machine_id=None, linux_user=None):
 
     try:
         executor = get_machine_executor(machine_id)
+
+        # 预生成 history_id 用于包装命令
+        history_id = generate_history_id()
+        wrapped_cmd = wrap_command_for_history(command, history_id)
+
         # 使用 printf 避免命令中的特殊字符问题
-        escaped_cmd = command.replace("'", "'\\''")
+        escaped_cmd = wrapped_cmd.replace("'", "'\\''")
         at_cmd = f"printf '%s\\n' '{escaped_cmd}' | at {time_spec} 2>&1"
         returncode, stdout, stderr = executor.run_command(at_cmd)
 
@@ -1835,6 +1844,30 @@ def create_at_job(machine_id=None, linux_user=None):
         if match:
             job_id = match.group(1)
             scheduled_time = match.group(2).strip()
+
+            # 添加到历史记录（使用预生成的 history_id）
+            with _at_history_lock:
+                data = load_at_history()
+                record = {
+                    'id': history_id,
+                    'job_id': job_id,
+                    'command': command,  # 保存原始命令，不是包装后的
+                    'time_spec': time_spec,
+                    'scheduled_time': scheduled_time,
+                    'status': 'pending',
+                    'created_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                    'created_by': current_user.id,
+                    'executed_at': None,
+                    'exit_code': None,
+                    'machine_id': machine_id,
+                    'template_name': template_name
+                }
+                data['history'].append(record)
+                if machine_id not in data['pending']:
+                    data['pending'][machine_id] = {}
+                data['pending'][machine_id][job_id] = history_id
+                save_at_history(data)
+
             log_action('create_at_job', {
                 'job_id': job_id,
                 'command': command[:100],
@@ -1844,7 +1877,8 @@ def create_at_job(machine_id=None, linux_user=None):
             return jsonify({
                 'success': True,
                 'job_id': job_id,
-                'scheduled_time': scheduled_time
+                'scheduled_time': scheduled_time,
+                'history_id': history_id
             })
         # 检查是否是 atd 未运行
         if 'no atd running' in output.lower() or 'cannot open' in output.lower():
@@ -1898,6 +1932,9 @@ def delete_at_job(job_id, machine_id=None, linux_user=None):
         returncode, stdout, stderr = executor.run_command(f'atrm {job_id}')
         if returncode != 0:
             return jsonify({'success': False, 'error': stderr or '删除失败'})
+
+        # 标记历史记录为已取消
+        mark_history_cancelled(job_id, machine_id)
 
         log_action('delete_at_job', {'job_id': job_id, 'machine': machine_id})
         return jsonify({'success': True, 'message': f'任务 {job_id} 已删除'})
@@ -1996,8 +2033,255 @@ def delete_at_template(template_id):
     return jsonify({'success': True, 'message': '模板已删除'})
 
 
+# ===== At History API (执行历史记录) =====
+
+_at_history_lock = threading.Lock()
+
+
+def generate_history_id():
+    """生成唯一历史记录 ID"""
+    import secrets
+    timestamp = int(datetime.now().timestamp())
+    random_part = secrets.token_hex(3)
+    return f"ath_{timestamp}_{random_part}"
+
+
+def load_at_history():
+    """加载历史数据"""
+    if os.path.exists(AT_HISTORY_FILE):
+        try:
+            with open(AT_HISTORY_FILE, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except (json.JSONDecodeError, IOError):
+            pass
+    return {"version": 1, "history": [], "pending": {}}
+
+
+def save_at_history(data):
+    """保存历史数据"""
+    with open(AT_HISTORY_FILE, 'w', encoding='utf-8') as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
+
+def add_to_at_history(job_id: str, command: str, time_spec: str,
+                      scheduled_time: str, machine_id: str, created_by: str,
+                      template_name: str = None) -> str:
+    """创建任务时添加历史记录，返回 history_id"""
+    with _at_history_lock:
+        data = load_at_history()
+        history_id = generate_history_id()
+        record = {
+            'id': history_id,
+            'job_id': job_id,
+            'command': command,
+            'time_spec': time_spec,
+            'scheduled_time': scheduled_time,
+            'status': 'pending',
+            'created_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            'created_by': created_by,
+            'executed_at': None,
+            'exit_code': None,
+            'machine_id': machine_id,
+            'template_name': template_name
+        }
+        data['history'].append(record)
+        # 添加到 pending 映射以便快速查找
+        if machine_id not in data['pending']:
+            data['pending'][machine_id] = {}
+        data['pending'][machine_id][job_id] = history_id
+        save_at_history(data)
+        return history_id
+
+
+def mark_history_executed(history_id: str, exit_code: int = None):
+    """标记历史记录为已执行"""
+    with _at_history_lock:
+        data = load_at_history()
+        for record in data['history']:
+            if record['id'] == history_id:
+                record['status'] = 'executed'
+                record['executed_at'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                record['exit_code'] = exit_code
+                # 从 pending 移除
+                machine_id = record.get('machine_id', 'local')
+                job_id = record.get('job_id')
+                if machine_id in data['pending'] and job_id in data['pending'][machine_id]:
+                    del data['pending'][machine_id][job_id]
+                save_at_history(data)
+                return True
+        return False
+
+
+def mark_history_cancelled(job_id: str, machine_id: str):
+    """标记历史记录为已取消"""
+    with _at_history_lock:
+        data = load_at_history()
+        # 通过 pending 映射查找
+        if machine_id in data['pending'] and job_id in data['pending'][machine_id]:
+            history_id = data['pending'][machine_id][job_id]
+            for record in data['history']:
+                if record['id'] == history_id:
+                    record['status'] = 'cancelled'
+                    record['executed_at'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                    break
+            del data['pending'][machine_id][job_id]
+            save_at_history(data)
+            return True
+        return False
+
+
+def wrap_command_for_history(command: str, history_id: str) -> str:
+    """包装命令以捕获退出码"""
+    # 包装格式: (原命令; echo $? > /tmp/.at_done_xxx) 2>&1
+    done_file = f"{AT_DONE_PREFIX}{history_id}"
+    return f"({command}; echo $? > {done_file}) 2>&1"
+
+
+def cleanup_at_history():
+    """清理过期历史记录"""
+    with _at_history_lock:
+        data = load_at_history()
+        cutoff = datetime.now().timestamp() - AT_HISTORY_RETENTION_DAYS * 86400
+        original_len = len(data['history'])
+        data['history'] = [
+            r for r in data['history']
+            if datetime.strptime(r['created_at'], '%Y-%m-%d %H:%M:%S').timestamp() > cutoff
+        ]
+        if len(data['history']) < original_len:
+            save_at_history(data)
+            return original_len - len(data['history'])
+        return 0
+
+
+def check_at_done_files():
+    """检查完成标记文件并更新历史状态"""
+    with _at_history_lock:
+        data = load_at_history()
+        updated = False
+        for machine_id, pending_jobs in list(data['pending'].items()):
+            try:
+                executor = get_machine_executor(machine_id)
+                for job_id, history_id in list(pending_jobs.items()):
+                    done_file = f"{AT_DONE_PREFIX}{history_id}"
+                    # 检查文件是否存在
+                    returncode, stdout, _ = executor.run_command(f'cat {done_file} 2>/dev/null && rm -f {done_file}')
+                    if returncode == 0 and stdout.strip():
+                        try:
+                            exit_code = int(stdout.strip())
+                        except ValueError:
+                            exit_code = None
+                        # 更新历史记录
+                        for record in data['history']:
+                            if record['id'] == history_id:
+                                record['status'] = 'executed'
+                                record['executed_at'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                                record['exit_code'] = exit_code
+                                break
+                        del pending_jobs[job_id]
+                        updated = True
+            except Exception:
+                pass  # 忽略单个机器的错误
+        if updated:
+            save_at_history(data)
+
+
+def _at_history_watcher():
+    """后台线程: 定期检查完成标记和清理历史"""
+    cleanup_counter = 0
+    while True:
+        time.sleep(30)  # 每30秒检查一次
+        try:
+            check_at_done_files()
+            cleanup_counter += 1
+            if cleanup_counter >= 120:  # 每小时清理一次过期记录
+                cleanup_at_history()
+                cleanup_counter = 0
+        except Exception:
+            pass
+
+
+def start_at_history_watcher():
+    """启动历史检测后台线程"""
+    thread = threading.Thread(target=_at_history_watcher, daemon=True)
+    thread.start()
+
+
+@app.route('/api/at_history')
+@app.route('/api/at_history/<machine_id>/<linux_user>')
+@login_required
+@require_machine_access
+def list_at_history(machine_id=None, linux_user=None):
+    """获取历史记录列表（支持分页和过滤）"""
+    if machine_id is None:
+        machine_id, linux_user = get_machine_params()
+
+    data = load_at_history()
+    history = data.get('history', [])
+
+    # 过滤机器
+    history = [r for r in history if r.get('machine_id') == machine_id]
+
+    # 过滤状态
+    status = request.args.get('status')
+    if status and status in ('pending', 'executed', 'cancelled'):
+        history = [r for r in history if r.get('status') == status]
+
+    # 按创建时间倒序
+    history = sorted(history, key=lambda x: x.get('created_at', ''), reverse=True)
+
+    # 分页
+    page = int(request.args.get('page', 1))
+    per_page = int(request.args.get('per_page', 20))
+    total = len(history)
+    start = (page - 1) * per_page
+    end = start + per_page
+    history = history[start:end]
+
+    return jsonify({
+        'success': True,
+        'history': history,
+        'total': total,
+        'page': page,
+        'per_page': per_page,
+        'total_pages': (total + per_page - 1) // per_page
+    })
+
+
+@app.route('/api/at_history/<history_id>')
+@login_required
+def get_at_history_detail(history_id):
+    """获取单条历史记录详情"""
+    data = load_at_history()
+    for record in data.get('history', []):
+        if record['id'] == history_id:
+            return jsonify({'success': True, 'record': record})
+    return jsonify({'success': False, 'error': '记录不存在'}), 404
+
+
+@app.route('/api/at_history', methods=['DELETE'])
+@require_role('admin')
+def cleanup_at_history_api():
+    """手动清理历史记录"""
+    days = int(request.args.get('days', AT_HISTORY_RETENTION_DAYS))
+    with _at_history_lock:
+        data = load_at_history()
+        cutoff = datetime.now().timestamp() - days * 86400
+        original_len = len(data['history'])
+        data['history'] = [
+            r for r in data['history']
+            if r.get('status') == 'pending' or
+            datetime.strptime(r['created_at'], '%Y-%m-%d %H:%M:%S').timestamp() > cutoff
+        ]
+        deleted = original_len - len(data['history'])
+        save_at_history(data)
+    return jsonify({'success': True, 'deleted': deleted})
+
+
 # 启动 crontab 变化检测线程
 start_crontab_watcher()
+
+# 启动 at 历史检测线程
+start_at_history_watcher()
 
 if __name__ == '__main__':
     debug = os.environ.get('FLASK_DEBUG', '0') == '1'
