@@ -3190,10 +3190,21 @@
             }
 
             container.innerHTML = atTemplates.map(tpl => `
-                <button class="at-template-btn" onclick="applyTemplate('${tpl.id}')" ondblclick="editTemplate('${tpl.id}')" title="${escapeHtml(tpl.command)}&#10;Double-click to edit">
+                <button class="at-template-btn" data-tpl-id="${tpl.id}" onclick="applyTemplate('${tpl.id}')" ondblclick="editTemplate('${tpl.id}')" title="${escapeHtml(tpl.command)}&#10;Double-click to edit">
                     ${escapeHtml(tpl.name)}
                 </button>
             `).join('');
+        }
+
+        // Highlight editing template button
+        function highlightEditingTemplate(templateId) {
+            // Remove existing highlight
+            document.querySelectorAll('.at-template-btn.editing').forEach(btn => btn.classList.remove('editing'));
+            // Add highlight to current
+            if (templateId) {
+                const btn = document.querySelector(`.at-template-btn[data-tpl-id="${templateId}"]`);
+                if (btn) btn.classList.add('editing');
+            }
         }
 
         // Apply template (fill form)
@@ -3204,19 +3215,26 @@
             // Fill command
             document.getElementById('atCommand').value = tpl.command;
 
-            // Fill time - parse "now + X unit" format
+            // Fill time - parse format
             const defaultTime = tpl.default_time || 'now + 5 minutes';
-            const match = defaultTime.match(/now\s*\+\s*(\d+)\s*(minutes?|hours?|days?)/i);
+            const relativeMatch = defaultTime.match(/now\s*\+\s*(\d+)\s*(minutes?|hours?|days?)/i);
+            const timeMatch = defaultTime.match(/^(\d{1,2}:\d{2})$/);
 
-            document.getElementById('atTimeMode').value = 'relative';
-            if (match) {
-                const value = match[1];
-                let unit = match[2].toLowerCase();
-                // Normalize unit to plural form
+            if (relativeMatch) {
+                // Relative time format
+                document.getElementById('atTimeMode').value = 'relative';
+                const value = relativeMatch[1];
+                let unit = relativeMatch[2].toLowerCase();
                 if (!unit.endsWith('s')) unit += 's';
                 document.getElementById('atRelativeValue').value = value;
                 document.getElementById('atRelativeUnit').value = unit;
+            } else if (timeMatch) {
+                // Time today format
+                document.getElementById('atTimeMode').value = 'timeonly';
+                document.getElementById('atTimeOnly').value = timeMatch[1];
             } else {
+                // Default to relative
+                document.getElementById('atTimeMode').value = 'relative';
                 document.getElementById('atRelativeValue').value = '5';
                 document.getElementById('atRelativeUnit').value = 'minutes';
             }
@@ -3225,18 +3243,41 @@
             showMessage(`Template loaded: ${tpl.name}`, 'success');
         }
 
-        // 显示模板编辑表单
+        // Toggle template time mode (relative/time today)
+        function toggleTemplateTimeMode() {
+            const mode = document.getElementById('templateTimeMode').value;
+            const relativeEls = document.querySelectorAll('.tpl-time-relative');
+            const timeonly = document.querySelector('.tpl-time-only');
+
+            relativeEls.forEach(el => el.style.display = 'none');
+            timeonly.style.display = 'none';
+
+            if (mode === 'relative') {
+                relativeEls.forEach(el => el.style.display = '');
+            } else {
+                timeonly.style.display = '';
+                // Set default to next hour
+                const now = new Date();
+                now.setHours(now.getHours() + 1);
+                now.setMinutes(0);
+                timeonly.value = now.toTimeString().slice(0, 5);
+            }
+        }
+
+        // Show template edit form
         function showTemplateForm() {
             editingTemplateId = null;
+            highlightEditingTemplate(null);
             clearTemplateForm();
-            document.getElementById('templateForm').style.display = 'flex';
+            document.getElementById('templateForm').style.display = 'block';
             document.getElementById('templateDeleteBtn').style.display = 'none';
             document.getElementById('templateName').focus();
         }
 
-        // 隐藏模板编辑表单
+        // Hide template edit form
         function hideTemplateForm() {
             document.getElementById('templateForm').style.display = 'none';
+            highlightEditingTemplate(null);
             editingTemplateId = null;
         }
 
@@ -3244,17 +3285,29 @@
         function clearTemplateForm() {
             document.getElementById('templateName').value = '';
             document.getElementById('templateCommand').value = '';
+            document.getElementById('templateTimeMode').value = 'relative';
             document.getElementById('templateTimeValue').value = '5';
             document.getElementById('templateTimeUnit').value = 'minutes';
+            toggleTemplateTimeMode();
+        }
+
+        // Get template time spec
+        function getTemplateTimeSpec() {
+            const mode = document.getElementById('templateTimeMode').value;
+            if (mode === 'relative') {
+                const value = parseInt(document.getElementById('templateTimeValue').value) || 5;
+                const unit = document.getElementById('templateTimeUnit').value;
+                return `now + ${value} ${unit}`;
+            } else {
+                return document.getElementById('templateTimeOnly').value || '09:00';
+            }
         }
 
         // Save template
         async function saveTemplate() {
             const name = document.getElementById('templateName').value.trim();
             const command = document.getElementById('templateCommand').value.trim();
-            const timeValue = document.getElementById('templateTimeValue').value;
-            const timeUnit = document.getElementById('templateTimeUnit').value;
-            const defaultTime = `now + ${timeValue} ${timeUnit}`;
+            const defaultTime = getTemplateTimeSpec();
 
             if (!name) {
                 showMessage('Please enter template name', 'error');
@@ -3300,24 +3353,36 @@
             if (!tpl) return;
 
             editingTemplateId = templateId;
+            highlightEditingTemplate(templateId);
             document.getElementById('templateName').value = tpl.name;
             document.getElementById('templateCommand').value = tpl.command;
 
-            // Set time - parse "now + X unit" format
+            // Set time - parse format
             const defaultTime = tpl.default_time || 'now + 5 minutes';
-            const match = defaultTime.match(/now\s*\+\s*(\d+)\s*(minutes?|hours?|days?)/i);
-            if (match) {
-                const value = match[1];
-                let unit = match[2].toLowerCase();
+            const relativeMatch = defaultTime.match(/now\s*\+\s*(\d+)\s*(minutes?|hours?|days?)/i);
+            const timeMatch = defaultTime.match(/^(\d{1,2}:\d{2})$/);
+
+            if (relativeMatch) {
+                // Relative time format: "now + X unit"
+                document.getElementById('templateTimeMode').value = 'relative';
+                const value = relativeMatch[1];
+                let unit = relativeMatch[2].toLowerCase();
                 if (!unit.endsWith('s')) unit += 's';
                 document.getElementById('templateTimeValue').value = value;
                 document.getElementById('templateTimeUnit').value = unit;
+            } else if (timeMatch) {
+                // Time today format: "HH:MM"
+                document.getElementById('templateTimeMode').value = 'timeonly';
+                document.getElementById('templateTimeOnly').value = timeMatch[1];
             } else {
+                // Default to relative
+                document.getElementById('templateTimeMode').value = 'relative';
                 document.getElementById('templateTimeValue').value = '5';
                 document.getElementById('templateTimeUnit').value = 'minutes';
             }
+            toggleTemplateTimeMode();
 
-            document.getElementById('templateForm').style.display = 'flex';
+            document.getElementById('templateForm').style.display = 'block';
             document.getElementById('templateDeleteBtn').style.display = '';
             document.getElementById('templateName').focus();
         }

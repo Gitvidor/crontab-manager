@@ -3208,6 +3208,12 @@
             color: var(--primary);
         }
 
+        .at-template-btn.editing {
+            background: var(--primary);
+            border-color: var(--primary);
+            color: white;
+        }
+
         .at-template-add-btn {
             display: flex;
             align-items: center;
@@ -3240,82 +3246,31 @@
             font-style: italic;
         }
 
-        /* 模板内联编辑表单 */
-        .template-inline-form {
-            display: flex;
-            align-items: center;
-            gap: var(--space-2);
+        /* Template edit form buttons */
+        .template-form .template-cancel-btn {
             padding: var(--space-2) var(--space-4);
-            background: var(--bg-tertiary);
-            border: 1px solid var(--border-color);
-            border-top: none;
-        }
-
-        .template-inline-form input {
-            padding: var(--space-2) var(--space-3);
-            border: 1px solid var(--border-color);
-            border-radius: var(--radius-sm);
-            font-size: 12px;
-            background: var(--bg-primary);
-        }
-
-        .template-inline-form input:first-child {
-            width: 120px;
-        }
-
-        .template-inline-form input:nth-child(2) {
-            flex: 1;
-            min-width: 200px;
-        }
-
-        .template-inline-form select {
-            padding: var(--space-2) var(--space-3);
-            border: 1px solid var(--border-color);
-            border-radius: var(--radius-sm);
-            font-size: 12px;
-            background: var(--bg-primary);
-        }
-
-        .template-inline-form .template-save-btn {
-            padding: var(--space-2) var(--space-3);
-            background: var(--primary);
-            color: white;
-            border: none;
-            border-radius: var(--radius-sm);
-            font-size: 12px;
-            cursor: pointer;
-            white-space: nowrap;
-            transition: background var(--transition-fast);
-        }
-
-        .template-inline-form .template-save-btn:hover {
-            background: var(--primary-hover);
-        }
-
-        .template-inline-form .template-cancel-btn {
-            padding: var(--space-2) var(--space-3);
             background: transparent;
             border: 1px solid var(--border-color);
             border-radius: var(--radius-sm);
-            font-size: 12px;
+            font-size: 13px;
             color: var(--text-secondary);
             cursor: pointer;
             white-space: nowrap;
             transition: all var(--transition-fast);
         }
 
-        .template-inline-form .template-cancel-btn:hover {
+        .template-form .template-cancel-btn:hover {
             background: var(--bg-hover);
         }
 
-        .template-inline-form .template-delete-btn {
-            width: 28px;
-            height: 28px;
+        .template-form .template-delete-btn {
+            width: 32px;
+            height: 32px;
             padding: 0;
             background: transparent;
             border: 1px solid var(--border-color);
             border-radius: var(--radius-sm);
-            font-size: 16px;
+            font-size: 18px;
             color: var(--text-secondary);
             cursor: pointer;
             display: flex;
@@ -3324,7 +3279,7 @@
             transition: all var(--transition-fast);
         }
 
-        .template-inline-form .template-delete-btn:hover {
+        .template-form .template-delete-btn:hover {
             background: var(--danger-light);
             border-color: var(--danger);
             color: var(--danger);

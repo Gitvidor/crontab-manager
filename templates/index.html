@@ -122,19 +122,39 @@
                 </button>
             </div>
 
-            <!-- Template Edit Form (Inline) -->
-            <div id="templateForm" class="template-inline-form" style="display:none">
-                <input type="text" id="templateName" placeholder="Template name">
-                <input type="text" id="templateCommand" placeholder="Command">
-                <input type="number" id="templateTimeValue" min="1" max="999" value="5" style="width:50px">
-                <select id="templateTimeUnit">
-                    <option value="minutes" selected>min</option>
-                    <option value="hours">hours</option>
-                    <option value="days">days</option>
-                </select>
-                <button class="template-save-btn" onclick="saveTemplate()">Save</button>
-                <button class="template-cancel-btn" onclick="hideTemplateForm()">Cancel</button>
-                <button class="template-delete-btn" id="templateDeleteBtn" onclick="deleteEditingTemplate()" style="display:none" title="Delete template">&times;</button>
+            <!-- Template Edit Form -->
+            <div id="templateForm" class="at-job-form template-form" style="display:none">
+                <div class="at-job-form-row">
+                    <div class="at-time-group">
+                        <label>Name:</label>
+                        <input type="text" id="templateName" placeholder="Template name" style="flex:1; min-width:200px">
+                    </div>
+                </div>
+                <div class="at-job-form-row">
+                    <div class="at-time-group">
+                        <label>Time:</label>
+                        <select id="templateTimeMode" onchange="toggleTemplateTimeMode()">
+                            <option value="relative">Relative</option>
+                            <option value="timeonly">Time Today</option>
+                        </select>
+                        <input type="number" id="templateTimeValue" class="tpl-time-relative" min="1" max="999" value="5" style="width:60px">
+                        <select id="templateTimeUnit" class="tpl-time-relative">
+                            <option value="minutes" selected>minutes</option>
+                            <option value="hours">hours</option>
+                            <option value="days">days</option>
+                        </select>
+                        <input type="time" id="templateTimeOnly" class="tpl-time-only" style="display:none">
+                    </div>
+                </div>
+                <div class="at-job-form-row">
+                    <div class="at-command-group">
+                        <label>Command:</label>
+                        <input type="text" id="templateCommand" placeholder="Enter command">
+                    </div>
+                    <button class="at-create-btn" onclick="saveTemplate()">Save</button>
+                    <button class="template-cancel-btn" onclick="hideTemplateForm()">Cancel</button>
+                    <button class="template-delete-btn" id="templateDeleteBtn" onclick="deleteEditingTemplate()" style="display:none" title="Delete">&times;</button>
+                </div>
             </div>
 
             <!-- Create New Task Form -->
