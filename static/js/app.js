@@ -1182,15 +1182,17 @@
             if (!activeTab) return;
 
             const tabText = activeTab.textContent.trim();
-            if (tabText === 'Tasks') {
+            if (tabText === 'Cron Jobs') {
                 await loadTasks();
                 restoreOrCollapseAll();
                 filterTasks();
-            } else if (tabText === 'History') {
+            } else if (tabText === 'Cron History') {
                 loadRaw();
                 loadHistory();
             } else if (tabText === 'Cron Logs') {
                 loadCronLogs();
+            } else if (tabText === 'At Jobs') {
+                loadAtJobs();
             } else if (tabText === 'Audit Logs') {
                 loadAuditLogs();
             }
@@ -2429,6 +2431,12 @@
                 const rect = target.getBoundingClientRect();
                 insertBefore = e.clientY < rect.top + rect.height / 2;
             } else {
+                return;
+            }
+
+            // 放置在原位，无需操作
+            if (fromId === toId) {
+                cleanupDragState();
                 return;
             }
 
