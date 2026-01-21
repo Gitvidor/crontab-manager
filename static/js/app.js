@@ -2986,65 +2986,152 @@
             }
         }
 
-        // 加载 At Jobs 列表
-        async function loadAtJobs() {
+        // 加载 At Jobs 列表（根据筛选条件加载）
+        async function loadAtJobs(page = 1) {
             const list = document.getElementById('atJobList');
-            const refreshBtn = document.querySelector('#atJobsPanel .refresh-btn');
-
-            if (refreshBtn) {
-                refreshBtn.classList.add('spinning');
-                setTimeout(() => refreshBtn.classList.remove('spinning'), 600);
-            }
+            atJobsPage = page;
 
             try {
-                const resp = await fetchWithTimeout(getApiPath('/api/at_jobs'));
-                const data = await resp.json();
+                if (atFilter === 'pending') {
+                    // 只加载 pending 任务
+                    const resp = await fetchWithTimeout(getApiPath('/api/at_jobs'));
+                    const data = await resp.json();
+                    if (!data.success) {
+                        list.innerHTML = `<div class="log-empty">${escapeHtml(data.error)}</div>`;
+                        return;
+                    }
+                    // 转换为统一格式
+                    atJobs = (data.jobs || []).map(job => ({
+                        ...job,
+                        id: job.job_id,
+                        status: 'pending',
+                        scheduled_time: job.datetime,
+                        executed_time: null
+                    }));
+                    atJobsTotalPages = 1;
+                } else if (atFilter === 'executed' || atFilter === 'cancelled') {
+                    // 加载特定状态的历史
+                    const url = getApiPath('/api/at_history') + `?page=${page}&per_page=20&status=${atFilter}`;
+                    const resp = await fetchWithTimeout(url);
+                    const data = await resp.json();
+                    if (!data.success) {
+                        list.innerHTML = `<div class="log-empty">${escapeHtml(data.error)}</div>`;
+                        return;
+                    }
+                    atJobs = (data.history || []).map(h => ({
+                        ...h,
+                        job_id: h.id,
+                        scheduled_time: h.scheduled_time,
+                        executed_time: h.executed_at
+                    }));
+                    atJobsTotalPages = data.total_pages || 1;
+                } else {
+                    // All: 合并 pending 和 history
+                    const [pendingResp, historyResp] = await Promise.all([
+                        fetchWithTimeout(getApiPath('/api/at_jobs')),
+                        fetchWithTimeout(getApiPath('/api/at_history') + `?page=${page}&per_page=20`)
+                    ]);
+                    const pendingData = await pendingResp.json();
+                    const historyData = await historyResp.json();
 
-                if (!data.success) {
-                    list.innerHTML = `<div class="log-empty">${escapeHtml(data.error)}</div>`;
-                    return;
+                    const pendingJobs = (pendingData.jobs || []).map(job => ({
+                        ...job,
+                        id: job.job_id,
+                        status: 'pending',
+                        scheduled_time: job.datetime,
+                        executed_time: null
+                    }));
+
+                    const historyJobs = (historyData.history || []).map(h => ({
+                        ...h,
+                        job_id: h.id,
+                        scheduled_time: h.scheduled_time,
+                        executed_time: h.executed_at
+                    }));
+
+                    // Pending 在前，history 在后
+                    atJobs = [...pendingJobs, ...historyJobs];
+                    atJobsTotalPages = historyData.total_pages || 1;
                 }
 
-                atJobs = data.jobs || [];
-
                 if (atJobs.length === 0) {
-                    list.innerHTML = '<div class="log-empty">No pending tasks</div>';
+                    list.innerHTML = '<div class="log-empty">No tasks</div>';
+                    renderAtJobsPagination();
                     return;
                 }
 
                 renderAtJobs();
+                renderAtJobsPagination();
             } catch (e) {
                 list.innerHTML = '<div class="log-empty">Load failed</div>';
             }
         }
 
-        // 渲染 At Jobs 列表
+        // 渲染 At Jobs 列表（统一格式）
         function renderAtJobs() {
             const list = document.getElementById('atJobList');
             const noPerm = USER_CAN_EDIT ? '' : ' no-permission';
 
-            list.innerHTML = atJobs.map(job => `
-                <div class="at-job-item" data-job-id="${job.job_id}">
-                    <div class="at-job-row" onclick="toggleAtJobDetail('${job.job_id}')">
-                        <span class="at-col-expand">
-                            <svg class="expand-arrow" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M9 18l6-6-6-6"/>
-                            </svg>
-                        </span>
-                        <span class="at-col-id">#${escapeHtml(job.job_id)}</span>
-                        <span class="at-col-time">${escapeHtml(job.datetime)}</span>
-                        <span class="at-col-queue">${escapeHtml(job.queue)}</span>
+            list.innerHTML = atJobs.map(job => {
+                const status = job.status || 'pending';
+                const statusClass = `status-${status}`;
+                const statusText = status.charAt(0).toUpperCase() + status.slice(1);
+                const scheduled = job.scheduled_time || job.datetime || '-';
+                const executed = job.executed_time || '-';
+                const jobId = job.job_id || job.id;
+                const command = job.command || '';
+
+                // 只有 pending 状态的任务可以删除
+                const canDelete = status === 'pending' && USER_CAN_EDIT;
+
+                return `
+                <div class="at-job-item" data-job-id="${jobId}">
+                    <div class="at-job-row" onclick="toggleAtJobDetail('${jobId}')">
+                        <span class="at-col-status ${statusClass}">${statusText}</span>
+                        <span class="at-col-command" title="${escapeHtml(command)}">${escapeHtml(command)}</span>
+                        <span class="at-col-scheduled">${escapeHtml(scheduled)}</span>
+                        <span class="at-col-executed">${escapeHtml(executed)}</span>
                         <div class="at-col-actions">
-                            <button class="at-delete-btn btn-delete-circle${noPerm}" ${USER_CAN_EDIT ? `onclick="event.stopPropagation(); deleteAtJob('${job.job_id}')"` : ''} title="Delete">
-                                &times;
-                            </button>
+                            ${canDelete ? `<button class="btn-delete-circle${noPerm}" onclick="event.stopPropagation(); deleteAtJob('${jobId}')" title="Delete"></button>` : ''}
                         </div>
                     </div>
-                    <div class="at-job-detail" id="atJobDetail_${job.job_id}">
+                    <div class="at-job-detail" id="atJobDetail_${jobId}">
                         <div class="at-job-detail-loading">Loading...</div>
                     </div>
                 </div>
-            `).join('');
+            `}).join('');
+        }
+
+        // 渲染 At Jobs 分页
+        function renderAtJobsPagination() {
+            const pagination = document.getElementById('atJobPagination');
+            if (!pagination) return;
+
+            if (atJobsTotalPages <= 1) {
+                pagination.innerHTML = '';
+                return;
+            }
+
+            let html = '';
+
+            if (atJobsPage > 1) {
+                html += `<button class="page-btn" onclick="loadAtJobs(${atJobsPage - 1})">&lt;</button>`;
+            }
+
+            for (let i = 1; i <= atJobsTotalPages; i++) {
+                if (i === 1 || i === atJobsTotalPages ||
+                    (i >= atJobsPage - 2 && i <= atJobsPage + 2)) {
+                    html += `<button class="page-btn${i === atJobsPage ? ' active' : ''}" onclick="loadAtJobs(${i})">${i}</button>`;
+                } else if (i === atJobsPage - 3 || i === atJobsPage + 3) {
+                    html += '<span class="page-ellipsis">...</span>';
+                }
+            }
+
+            if (atJobsPage < atJobsTotalPages) {
+                html += `<button class="page-btn" onclick="loadAtJobs(${atJobsPage + 1})">&gt;</button>`;
+            }
+
+            pagination.innerHTML = html;
         }
 
         // 创建 At Job
@@ -3414,32 +3501,24 @@
         // ========== At History (Execution History) ==========
 
         let atHistory = [];
-        let atHistoryPage = 1;
-        let atHistoryTotalPages = 1;
-        let currentAtTab = 'pending';  // 当前选中的 Tab
+        let atJobsPage = 1;
+        let atJobsTotalPages = 1;
+        let atFilter = 'pending';  // all, pending, executed, cancelled
 
-        // 切换 At Tab
-        function switchAtTab(tab) {
-            currentAtTab = tab;
+        // 设置 AT Jobs 筛选
+        function setAtFilter(filter) {
+            atFilter = filter;
+            atJobsPage = 1;
 
-            // 更新 Tab 按钮状态
-            document.querySelectorAll('.at-tab').forEach(btn => {
-                btn.classList.toggle('active', btn.dataset.tab === tab);
+            // 更新按钮状态
+            document.querySelectorAll('.at-filter-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.filter === filter);
             });
 
-            // 切换 Tab 内容
-            document.getElementById('atPendingTab').classList.toggle('active', tab === 'pending');
-            document.getElementById('atHistoryTab').classList.toggle('active', tab === 'history');
-
-            // 加载对应数据
-            if (tab === 'pending') {
-                loadAtJobs();
-            } else {
-                loadAtHistory();
-            }
+            loadAtJobs();
         }
 
-        // 刷新当前 At 面板
+        // 刷新 At 面板
         function refreshAtPanel() {
             const refreshBtn = document.querySelector('#atJobsPanel .refresh-btn');
             if (refreshBtn) {
@@ -3447,161 +3526,7 @@
                 setTimeout(() => refreshBtn.classList.remove('spinning'), 600);
             }
 
-            if (currentAtTab === 'pending') {
-                loadAtJobs();
-            } else {
-                loadAtHistory();
-            }
-        }
-
-        // 加载历史记录
-        async function loadAtHistory(page = 1) {
-            const list = document.getElementById('atHistoryList');
-            const statusFilter = document.getElementById('atHistoryStatusFilter').value;
-
-            try {
-                let url = getApiPath('/api/at_history') + `?page=${page}&per_page=20`;
-                if (statusFilter) {
-                    url += `&status=${statusFilter}`;
-                }
-
-                const resp = await fetchWithTimeout(url);
-                const data = await resp.json();
-
-                if (!data.success) {
-                    list.innerHTML = `<div class="log-empty">${escapeHtml(data.error)}</div>`;
-                    return;
-                }
-
-                atHistory = data.history || [];
-                atHistoryPage = data.page || 1;
-                atHistoryTotalPages = data.total_pages || 1;
-
-                if (atHistory.length === 0) {
-                    list.innerHTML = '<div class="log-empty">No history records</div>';
-                    renderAtHistoryPagination();
-                    return;
-                }
-
-                renderAtHistory();
-                renderAtHistoryPagination();
-            } catch (e) {
-                list.innerHTML = '<div class="log-empty">Load failed</div>';
-            }
-        }
-
-        // 渲染历史记录列表
-        function renderAtHistory() {
-            const list = document.getElementById('atHistoryList');
-
-            list.innerHTML = atHistory.map(record => {
-                // 状态图标和样式
-                let statusIcon, statusClass;
-                switch (record.status) {
-                    case 'executed':
-                        statusIcon = record.exit_code === 0 ? '✓' : '⚠';
-                        statusClass = record.exit_code === 0 ? 'status-success' : 'status-warning';
-                        break;
-                    case 'cancelled':
-                        statusIcon = '✕';
-                        statusClass = 'status-cancelled';
-                        break;
-                    default:  // pending
-                        statusIcon = '⏳';
-                        statusClass = 'status-pending';
-                }
-
-                // 格式化时间
-                const scheduledTime = formatHistoryTime(record.scheduled_time);
-                const executedTime = record.executed_at ? formatHistoryTime(record.executed_at) : '--';
-
-                // 退出码显示
-                const exitCode = record.exit_code !== null ? record.exit_code : '--';
-                const exitClass = record.exit_code === 0 ? 'exit-success' : (record.exit_code !== null ? 'exit-error' : '');
-
-                // 截断命令
-                const cmdDisplay = record.command.length > 50
-                    ? record.command.substring(0, 50) + '...'
-                    : record.command;
-
-                return `
-                    <div class="at-history-item" data-id="${record.id}" onclick="toggleAtHistoryDetail('${record.id}')">
-                        <div class="at-history-row">
-                            <span class="at-history-col-status ${statusClass}">${statusIcon}</span>
-                            <span class="at-history-col-command" title="${escapeHtml(record.command)}">${escapeHtml(cmdDisplay)}</span>
-                            <span class="at-history-col-scheduled">${escapeHtml(scheduledTime)}</span>
-                            <span class="at-history-col-executed">${escapeHtml(executedTime)}</span>
-                            <span class="at-history-col-exit ${exitClass}">${exitCode}</span>
-                            <span class="at-history-col-creator">${escapeHtml(record.created_by || '--')}</span>
-                        </div>
-                        <div class="at-history-detail" id="atHistoryDetail_${record.id}">
-                            <div class="at-history-detail-content">
-                                <div class="detail-row"><span class="detail-label">Command:</span> <pre>${escapeHtml(record.command)}</pre></div>
-                                <div class="detail-row"><span class="detail-label">Time Spec:</span> ${escapeHtml(record.time_spec)}</div>
-                                <div class="detail-row"><span class="detail-label">Created:</span> ${escapeHtml(record.created_at)}</div>
-                                ${record.template_name ? `<div class="detail-row"><span class="detail-label">Template:</span> ${escapeHtml(record.template_name)}</div>` : ''}
-                            </div>
-                        </div>
-                    </div>
-                `;
-            }).join('');
-        }
-
-        // 格式化历史时间（简短显示）
-        function formatHistoryTime(timeStr) {
-            if (!timeStr) return '--';
-            // 如果是今天，只显示时间
-            const today = new Date().toISOString().slice(0, 10);
-            if (timeStr.startsWith(today)) {
-                return timeStr.slice(11, 16);  // HH:MM
-            }
-            // 如果是今年，显示 MM-DD HH:MM
-            const thisYear = new Date().getFullYear().toString();
-            if (timeStr.startsWith(thisYear)) {
-                return timeStr.slice(5, 16);  // MM-DD HH:MM
-            }
-            return timeStr.slice(0, 16);  // YYYY-MM-DD HH:MM
-        }
-
-        // 切换历史详情展开/折叠
-        function toggleAtHistoryDetail(id) {
-            const item = document.querySelector(`.at-history-item[data-id="${id}"]`);
-            if (item) {
-                item.classList.toggle('expanded');
-            }
-        }
-
-        // 渲染历史分页
-        function renderAtHistoryPagination() {
-            const pagination = document.getElementById('atHistoryPagination');
-            if (atHistoryTotalPages <= 1) {
-                pagination.innerHTML = '';
-                return;
-            }
-
-            let html = '';
-
-            // 上一页
-            if (atHistoryPage > 1) {
-                html += `<button class="page-btn" onclick="loadAtHistory(${atHistoryPage - 1})">&lt;</button>`;
-            }
-
-            // 页码
-            for (let i = 1; i <= atHistoryTotalPages; i++) {
-                if (i === 1 || i === atHistoryTotalPages ||
-                    (i >= atHistoryPage - 2 && i <= atHistoryPage + 2)) {
-                    html += `<button class="page-btn${i === atHistoryPage ? ' active' : ''}" onclick="loadAtHistory(${i})">${i}</button>`;
-                } else if (i === atHistoryPage - 3 || i === atHistoryPage + 3) {
-                    html += '<span class="page-ellipsis">...</span>';
-                }
-            }
-
-            // 下一页
-            if (atHistoryPage < atHistoryTotalPages) {
-                html += `<button class="page-btn" onclick="loadAtHistory(${atHistoryPage + 1})">&gt;</button>`;
-            }
-
-            pagination.innerHTML = html;
+            loadAtJobs();
         }
 
         // Cleanup history
@@ -3625,7 +3550,7 @@
 
                 if (data.success) {
                     showMessage(`Cleaned up ${data.deleted} history records`, 'success');
-                    loadAtHistory();
+                    loadAtJobs();
                 } else {
                     showMessage('Cleanup failed: ' + data.error, 'error');
                 }

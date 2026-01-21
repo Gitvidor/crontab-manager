@@ -2916,12 +2916,85 @@
         .at-jobs-header {
             display: flex;
             align-items: center;
-            justify-content: space-between;
+            gap: var(--space-3);
             padding: var(--space-3) var(--space-4);
             background: var(--bg-secondary);
             border: 1px solid var(--border-color);
             border-radius: var(--radius-md) var(--radius-md) 0 0;
             font-weight: 500;
+        }
+
+        .at-jobs-header > span:first-child {
+            margin-right: auto;
+        }
+
+        /* AT Jobs 筛选区域 - 分隔编辑模块与表格 */
+        .at-filter-section {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: var(--space-3) 0;
+            margin-top: var(--space-3);
+            background: var(--bg-primary);
+        }
+
+        /* AT Jobs 筛选按钮组 - 与 Tasks 的 filter-controls 一致 */
+        .at-filter-group {
+            display: inline-flex;
+            align-items: center;
+            height: 32px;
+            background: var(--bg-tertiary);
+            padding: 2px;
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border-color);
+            flex-shrink: 0;
+        }
+
+        .at-filter-btn {
+            height: 100%;
+            padding: 0 var(--space-3);
+            border: none;
+            background: transparent;
+            color: var(--text-secondary);
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            border-radius: var(--radius-sm);
+            transition: all var(--transition-fast);
+            display: flex;
+            align-items: center;
+        }
+
+        .at-filter-btn:hover {
+            color: var(--text-primary);
+            background: #d9dce1;
+        }
+
+        .at-filter-btn.active {
+            background: var(--primary);
+            color: white;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .at-filter-btn + .at-filter-btn {
+            position: relative;
+        }
+
+        .at-filter-btn + .at-filter-btn::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 20%;
+            height: 60%;
+            width: 1px;
+            background: var(--border-color);
+        }
+
+        .at-filter-btn.active + .at-filter-btn::before,
+        .at-filter-btn + .at-filter-btn.active::before,
+        .at-filter-btn:hover + .at-filter-btn::before,
+        .at-filter-btn + .at-filter-btn:hover::before {
+            display: none;
         }
 
         .at-job-form {
@@ -3028,7 +3101,7 @@
 
         .at-job-list-header {
             display: grid;
-            grid-template-columns: 20px 50px 1fr 60px 60px;
+            grid-template-columns: 70px 1fr 130px 130px 60px;
             gap: var(--space-3);
             padding: var(--space-2) var(--space-4);
             background: var(--bg-tertiary);
@@ -3043,7 +3116,6 @@
         .at-job-list {
             border: 1px solid var(--border-color);
             border-top: none;
-            border-radius: 0 0 var(--radius-md) var(--radius-md);
             background: var(--bg-secondary);
             min-height: 100px;
         }
@@ -3058,7 +3130,7 @@
 
         .at-job-row {
             display: grid;
-            grid-template-columns: 20px 50px 1fr 60px 60px;
+            grid-template-columns: 70px 1fr 130px 130px 60px;
             gap: var(--space-3);
             padding: var(--space-3) var(--space-4);
             align-items: center;
@@ -3068,6 +3140,22 @@
 
         .at-job-row:hover {
             background: var(--bg-hover);
+        }
+
+        /* 分页样式 */
+        .at-job-pagination {
+            display: flex;
+            justify-content: center;
+            gap: var(--space-1);
+            padding: var(--space-3);
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-top: none;
+            border-radius: 0 0 var(--radius-md) var(--radius-md);
+        }
+
+        .at-job-pagination:empty {
+            display: none;
         }
 
         .at-col-expand {
@@ -3120,22 +3208,36 @@
             color: var(--danger);
         }
 
-        .at-col-id {
+        .at-col-status {
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .at-col-status.status-pending {
+            color: var(--primary);
+        }
+
+        .at-col-status.status-executed {
+            color: var(--success);
+        }
+
+        .at-col-status.status-cancelled {
+            color: var(--text-muted);
+        }
+
+        .at-col-command {
+            font-family: var(--font-mono);
+            font-size: 12px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .at-col-scheduled,
+        .at-col-executed {
             font-family: var(--font-mono);
             font-size: 12px;
             color: var(--text-secondary);
-        }
-
-        .at-col-time {
-            font-family: var(--font-mono);
-            font-size: 13px;
-        }
-
-        .at-col-queue {
-            font-family: var(--font-mono);
-            font-size: 12px;
-            color: var(--text-secondary);
-            text-align: center;
         }
 
         .at-col-actions {
@@ -3370,23 +3472,32 @@
         }
 
         /* ===== At History 历史记录样式 ===== */
-        .at-history-filter {
+        .at-history-section {
+            margin-top: var(--space-4);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            overflow: hidden;
+        }
+
+        .at-history-header {
             display: flex;
             align-items: center;
-            gap: var(--space-3);
-            padding: var(--space-3) var(--space-4);
-            background: var(--bg-secondary);
-            border: 1px solid var(--border-color);
-            border-top: none;
+            justify-content: space-between;
+            padding: var(--space-2) var(--space-4);
+            background: var(--bg-tertiary);
+            font-weight: 600;
+            font-size: 14px;
+            color: var(--text-primary);
         }
 
-        .at-history-filter .filter-label {
-            font-size: 12px;
-            color: var(--text-secondary);
+        .at-history-controls {
+            display: flex;
+            align-items: center;
+            gap: var(--space-2);
         }
 
-        .at-history-filter select {
-            padding: var(--space-2) var(--space-3);
+        .at-history-controls select {
+            padding: var(--space-1) var(--space-2);
             border: 1px solid var(--border-color);
             border-radius: var(--radius-sm);
             font-size: 12px;
@@ -3421,9 +3532,8 @@
             grid-template-columns: 50px 1fr 110px 110px 60px 80px;
             gap: var(--space-2);
             padding: var(--space-2) var(--space-4);
-            background: var(--bg-tertiary);
-            border: 1px solid var(--border-color);
-            border-top: none;
+            background: var(--bg-secondary);
+            border-top: 1px solid var(--border-color);
             font-size: 11px;
             font-weight: 600;
             color: var(--text-secondary);
@@ -3431,8 +3541,6 @@
         }
 
         .at-history-list {
-            border: 1px solid var(--border-color);
-            border-top: none;
             border-radius: 0 0 var(--radius-md) var(--radius-md);
             background: var(--bg-secondary);
             min-height: 100px;
