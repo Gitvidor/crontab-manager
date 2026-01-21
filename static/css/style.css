@@ -500,6 +500,7 @@
         .cron-log-list {
             background: var(--bg-secondary);
             border: 1px solid var(--border-color);
+            border-radius: 0 0 var(--radius-md) var(--radius-md);
         }
 
         .cron-log-line {
@@ -653,6 +654,7 @@
         .log-list {
             background: var(--bg-secondary);
             border: 1px solid var(--border-color);
+            border-radius: 0 0 var(--radius-md) var(--radius-md);
         }
 
         .log-item {
@@ -2906,7 +2908,6 @@
         /* ===== At Jobs 面板样式 ===== */
         .at-jobs-panel {
             display: none;
-            margin: 0 20px 20px;
         }
 
         .at-jobs-panel.active {
@@ -3002,6 +3003,16 @@
             background: var(--bg-secondary);
             border: 1px solid var(--border-color);
             border-top: none;
+            border-radius: 0 0 var(--radius-md) var(--radius-md);
+        }
+
+        /* 模板表单显示时，创建表单不需要底部圆角 */
+        .at-job-form.template-form {
+            border-radius: 0;
+        }
+
+        .at-job-form.template-form + .at-job-form {
+            border-radius: 0 0 var(--radius-md) var(--radius-md);
         }
 
         .at-job-form.no-permission {
@@ -3049,6 +3060,16 @@
             font-size: 13px;
             background: var(--bg-secondary);
             color: var(--text-primary);
+        }
+
+        /* 时间相关输入框固定高度，避免 Time Today 行高不一致 */
+        .at-job-form select,
+        .at-job-form input[type="time"],
+        .at-job-form input[type="datetime-local"],
+        .at-job-form input[type="number"] {
+            height: 32px;
+            padding: 0 var(--space-3);
+            box-sizing: border-box;
         }
 
         .at-job-form select {
@@ -3106,7 +3127,7 @@
             padding: var(--space-2) var(--space-4);
             background: var(--bg-tertiary);
             border: 1px solid var(--border-color);
-            border-top: none;
+            border-radius: var(--radius-md) var(--radius-md) 0 0;
             font-size: 11px;
             font-weight: 600;
             color: var(--text-secondary);
@@ -3118,6 +3139,12 @@
             border-top: none;
             background: var(--bg-secondary);
             min-height: 100px;
+            border-radius: 0 0 var(--radius-md) var(--radius-md);
+        }
+
+        /* 有分页时列表不需要底部圆角 */
+        .at-job-list:has(+ .at-job-pagination:not(:empty)) {
+            border-radius: 0;
         }
 
         .at-job-item {
@@ -3277,13 +3304,13 @@
         /* ===== At Job Templates 样式 ===== */
         .at-template-bar {
             display: flex;
-            align-items: center;
+            align-items: flex-start;
             gap: var(--space-2);
             padding: var(--space-2) var(--space-4);
             background: var(--bg-secondary);
             border: 1px solid var(--border-color);
             border-top: none;
-            overflow-x: auto;
+            flex-wrap: wrap;
         }
 
         .at-template-label {
@@ -3296,7 +3323,7 @@
             display: flex;
             gap: var(--space-2);
             flex: 1;
-            overflow-x: auto;
+            flex-wrap: wrap;
         }
 
         .at-template-btn {
