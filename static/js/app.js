@@ -362,7 +362,7 @@
 
             // 更新 tab 按钮状态（settings 不在 tab 栏中）
             document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-            const tabMap = { 'list': 1, 'atjobs': 2, 'history': 3, 'cron': 4, 'logs': 5 };
+            const tabMap = { 'list': 1, 'history': 2, 'cron': 3, 'atjobs': 4, 'logs': 5 };
             if (tabMap[tab]) {
                 document.querySelector(`.tab:nth-child(${tabMap[tab]})`).classList.add('active');
             }
