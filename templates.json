@@ -3,23 +3,23 @@
   "templates": [
     {
       "id": "tpl_1768464832_8bf140",
-      "name": "cloud push wcg: adj_snapshot",
+      "name": "PUSH: cloud -> wcg: adj_snapshot",
       "command": "rsync -arvz /root/project/ctp_prod/output/adj_snapshot_dongzheng.csv.$(date +%Y%m%d) wcg:/data/future_data/dongzheng_data/adj_snapshot/",
-      "default_time": "now + 15 minutes",
+      "default_time": "now + 5 minutes",
       "created_at": "2026-01-15T16:13:52.750592",
       "created_by": "admin"
     },
     {
       "id": "tpl_1768557639_3f71a8",
-      "name": "cloud push wcg: raw_snapshot",
+      "name": "PUSH: cloud -> wcg: raw_snapshot",
       "command": "rsync -arvz /root/project/ctp_prod/output/raw_snapshot_dongzheng.bin.$(date +%Y%m%d) wcg:/data/future_data/dongzheng_data/raw_snapshot/",
-      "default_time": "now + 10 minutes",
+      "default_time": "now + 5 minutes",
       "created_at": "2026-01-16T18:00:39.116848",
       "created_by": "admin"
     },
     {
       "id": "tpl_1768962884_befb17",
-      "name": "wcg pull copilot: adj_snapshot",
+      "name": "PULL: wcg <- copilot: adj_snapshot",
       "command": "rsync -arvz copilot:/root/project/ctp_prod/output/adj_snapshot_dongzheng.csv.$(date +%Y%m%d) /data/future_data/dongzheng_data/adj_snapshot/",
       "default_time": "now + 5 minutes",
       "created_at": "2026-01-21T10:34:44.223937",
@@ -27,7 +27,7 @@
     },
     {
       "id": "tpl_1768962921_ff4f6c",
-      "name": "wcg pull copilot: raw_snapshot",
+      "name": "PULL: wcg <- copilot: raw_snapshot",
       "command": "rsync -arvz copilot:/root/project/ctp_prod/output/raw_snapshot_dongzheng.bin.$(date +%Y%m%d) /data/future_data/dongzheng_data/raw_snapshot/",
       "default_time": "now + 5 minutes",
       "created_at": "2026-01-21T10:35:21.934773",

@@ -1770,7 +1770,6 @@ def extract_command_from_at_content(content: str) -> str:
     lines = content.strip().split('\n')
     # 跳过环境设置，从 cd 开始或最后几行是实际命令
     command_lines = []
-    capture = False
     for line in reversed(lines):
         # 跳过 ${SHELL...} 这类行
         if line.startswith('${') or not line.strip():

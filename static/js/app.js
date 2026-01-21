@@ -3287,7 +3287,7 @@
         // Load template list
         async function loadAtTemplates() {
             try {
-                const resp = await fetchWithTimeout(getApiPath('/api/at_templates'));
+                const resp = await fetchWithTimeout('/api/at_templates');
                 const data = await resp.json();
                 if (data.success) {
                     atTemplates = data.templates || [];
