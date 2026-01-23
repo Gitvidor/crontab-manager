@@ -1208,14 +1208,14 @@
                 restoreOrCollapseAll();
                 filterTasks();
             } else if (tabText === 'Cron History') {
-                loadRaw();
-                loadHistory();
+                await loadRaw();
+                await loadHistory();
             } else if (tabText === 'Cron Logs') {
-                loadCronLogs();
+                await loadCronLogs();
             } else if (tabText === 'At Jobs') {
-                loadAtJobs();
+                await loadAtJobs();
             } else if (tabText === 'Audit Logs') {
-                loadAuditLogs();
+                await loadAuditLogs();
             }
         }
 
