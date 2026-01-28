@@ -9,7 +9,7 @@
 </head>
 <body>
     <div class="header">
-        <h1><a href="./">Crontab Manager</a> <span style="font-size:12px;color:#888;font-weight:normal">DEMO</span></h1>
+        <h1><a href="./">Crontab Manager</a> <span style="font-size:12px;color:#666;font-weight:normal;margin-left:8px">DEMO</span></h1>
         <div class="tabs">
             <button class="tab active" onclick="switchTab('list')">Cron Jobs</button>
             <button class="tab" onclick="switchTab('history')">Cron History</button>
@@ -24,7 +24,7 @@
                 </select>
             </div>
             <div class="connection-status" title="Connection status">
-                <span class="status-dot connected" id="connectionStatus"></span>
+                <span class="status-dot" id="connectionStatus"></span>
             </div>
         </div>
         <div class="user-info" id="userMenu">
@@ -47,7 +47,7 @@
                     Settings
                 </div>
                 <div class="user-dropdown-divider"></div>
-                <a href="https://github.com/Gitvidor/crontab-manager" class="user-dropdown-item" target="_blank">
+                <a href="https://github.com/Gitvidor/crontab-manager" target="_blank" class="user-dropdown-item">
                     <svg viewBox="0 0 24 24" fill="currentColor">
                         <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
                     </svg>
@@ -93,18 +93,22 @@
     <div id="taskList" class="task-list active"></div>
     <div class="pagination" id="taskPagination"></div>
 
-    <!-- At Jobs Panel -->
+    <!-- At Jobs Panel (One-time Tasks) -->
     <div id="atJobsPanel" class="at-jobs-panel">
         <div class="cron-log-header">
             <span class="cron-log-source">At Jobs: <code>One-time scheduled tasks</code></span>
             <button class="refresh-btn" onclick="refreshAtPanel()" title="Refresh">⟳</button>
         </div>
+
+        <!-- Template Quick Selection -->
         <div class="at-template-bar">
             <span class="at-template-label">Template:</span>
             <div class="at-template-list" id="atTemplateList">
                 <span class="template-empty">No templates</span>
             </div>
         </div>
+
+        <!-- Template Edit Form -->
         <div id="templateForm" class="at-job-form template-form" style="display:none">
             <div class="template-form-content">
                 <div class="at-job-form-row">
@@ -140,6 +144,8 @@
             </div>
             <button class="btn-delete-circle template-delete-btn" id="templateDeleteBtn" onclick="deleteEditingTemplate()" style="display:none" title="Delete"></button>
         </div>
+
+        <!-- Create New Task Form -->
         <div class="at-job-form">
             <div class="at-job-form-row">
                 <div class="at-time-group">
@@ -167,6 +173,8 @@
                 <button class="at-create-btn" onclick="createAtJob()">Create</button>
             </div>
         </div>
+
+        <!-- Filter Section -->
         <div class="at-filter-section">
             <div class="at-filter-group">
                 <button class="at-filter-btn" data-filter="all" onclick="setAtFilter('all')">All<span class="filter-count" id="atFilterCountAll"></span></button>
@@ -174,8 +182,12 @@
                 <button class="at-filter-btn" data-filter="executed" onclick="setAtFilter('executed')">Executed<span class="filter-count" id="atFilterCountExecuted"></span></button>
                 <button class="at-filter-btn" data-filter="cancelled" onclick="setAtFilter('cancelled')">Cancelled<span class="filter-count" id="atFilterCountCancelled"></span></button>
             </div>
-            <button class="at-cleanup-btn" onclick="cleanupAtHistory()" title="Clean up history">Clean</button>
+            <button class="at-cleanup-btn" onclick="cleanupAtHistory()" title="Clean up history">
+                Clean
+            </button>
         </div>
+
+        <!-- Unified Task List -->
         <div class="at-job-list-header">
             <span class="at-col-status">Status</span>
             <span class="at-col-command">Command</span>
@@ -195,28 +207,39 @@
             <div class="history-header-btns">
                 <button class="help-toggle-btn" onclick="toggleEditHelp()" id="editHelpBtn" title="Syntax Help">?</button>
                 <button class="history-btn diff-btn" onclick="toggleEditMode()" id="editToggleBtn">Edit</button>
-                <button class="history-btn cancel-edit-btn" onclick="cancelEditMode()" id="cancelEditBtn" style="display: none;">Cancel</button>
+                <button class="history-btn cancel-edit-btn" onclick="cancelEditMode()" id="cancelEditBtn"
+                    style="display: none;">Cancel</button>
             </div>
         </div>
         <div class="edit-help-panel" id="editHelpPanel" style="display: none;">
             <div class="help-content">
-                <div class="help-title">Edit Syntax Help</div>
+                <div class="help-title">📝 Edit 编辑语法</div>
                 <div class="help-example">
-                    <span class="help-desc">1. Create new group</span>
+                    <span class="help-desc">1. 创建新组并添加任务</span>
                     <code></code>
-                    <code>  (empty line)</code>
-                    <code># Group Name</code>
-                    <code># Task Name (optional)</code>
+                    <code>  ←空行</code>
+                    <code># 新组名称</code>
+                    <code># 任务名称（可选）</code>
                     <code>* * * * * /path/to/command</code>
+                    <span class="help-desc">→ 空行 + 注释行 + 任务行</span>
+                </div>
+                <div class="help-example">
+                    <span class="help-desc">2. 在已有任务的任务组内添加任务</span>
+                    <code>... 组内其他任务 ...</code>
+                    <code># 任务名称（可选）</code>
+                    <code>* * * * * /path/to/command</code>
+                    <span class="help-desc">→ 紧跟在组内最后一个任务后添加，无空行</span>
                 </div>
             </div>
         </div>
         <div class="raw-editor-section" id="rawEditorSection">
             <div class="code-editor">
                 <pre class="code-highlight" id="codeHighlight"></pre>
-                <textarea id="rawContent" oninput="updateHighlight()" onscroll="syncHighlightScroll()" readonly></textarea>
+                <textarea id="rawContent" oninput="updateHighlight()" onscroll="syncHighlightScroll()"
+                    readonly></textarea>
             </div>
         </div>
+
         <div class="history-header">
             <span>History Version</span>
         </div>
@@ -228,7 +251,7 @@
 
     <div id="cronLogs" class="cron-logs">
         <div class="cron-log-header">
-            <span class="cron-log-source">Source: <code id="cronLogSource">/var/log/syslog</code></span>
+            <span class="cron-log-source">Source: <code id="cronLogSource">-</code></span>
             <button class="refresh-btn" onclick="loadCronLogs()" title="Refresh">⟳</button>
         </div>
         <input type="text" id="cronSearch" class="audit-search" placeholder="Search logs..." oninput="filterCronLogs()">
@@ -245,13 +268,21 @@
 
     <div id="auditLogs" class="audit-logs">
         <div class="cron-log-header">
-            <span class="cron-log-source">Source: <code id="auditLogSource">audit.log</code></span>
+            <span class="cron-log-source">Source: <code id="auditLogSource">-</code></span>
         </div>
         <input type="text" id="auditSearch" class="audit-search" placeholder="Search logs..." oninput="filterAuditLogs()">
         <div class="log-header">
             <span class="log-col-time">Time</span>
-            <span class="log-col-user">User</span>
-            <span class="log-col-action">Action</span>
+            <span class="log-col-user">
+                User
+                <span class="col-filter" onclick="toggleFilterDropdown('user')"><svg width="10" height="10" viewBox="0 0 16 16" fill="currentColor"><path d="M1 2h14l-5.5 6v5l-3 2v-7L1 2z"/></svg></span>
+                <div class="filter-dropdown" id="userFilterDropdown"></div>
+            </span>
+            <span class="log-col-action">
+                Action
+                <span class="col-filter" onclick="toggleFilterDropdown('action')"><svg width="10" height="10" viewBox="0 0 16 16" fill="currentColor"><path d="M1 2h14l-5.5 6v5l-3 2v-7L1 2z"/></svg></span>
+                <div class="filter-dropdown" id="actionFilterDropdown"></div>
+            </span>
             <span class="log-col-details">Details</span>
         </div>
         <div class="log-list" id="logList">
@@ -260,7 +291,7 @@
         <div class="pagination" id="auditPagination"></div>
     </div>
 
-    <!-- Settings Panel -->
+    <!-- Settings Tab -->
     <div id="settingsPanel" class="settings-panel">
         <div class="settings-section">
             <h3>User Management</h3>
@@ -288,13 +319,14 @@
 
     <div id="message" class="message"></div>
 
+    <!-- Undo 撤销提示条 -->
     <div id="undoToast" class="undo-toast">
         <span class="undo-text">Task deleted</span>
         <button class="undo-btn" onclick="performUndo()">Undo</button>
         <span class="undo-countdown">5s</span>
     </div>
 
-    <!-- Diff Modal -->
+    <!-- 版本对比弹窗 -->
     <div id="diffModal" class="diff-modal">
         <div class="diff-modal-content">
             <div class="diff-modal-header">
@@ -322,18 +354,21 @@
         </div>
     </div>
 
-    <!-- Demo Banner -->
-    <div style="position:fixed;bottom:0;left:0;right:0;background:#1a1a2e;color:#fff;padding:10px 20px;text-align:center;font-size:13px;z-index:9999;border-top:1px solid #333;">
-        This is a static demo with mock data. <a href="https://github.com/Gitvidor/crontab-manager" style="color:#4fc3f7" target="_blank">View on GitHub</a> for full functionality.
+    <!-- Demo 提示条 -->
+    <div style="position:fixed;bottom:0;left:0;right:0;background:linear-gradient(90deg,#1a1a2e,#16213e);color:#fff;padding:8px 20px;text-align:center;font-size:13px;z-index:9999;border-top:1px solid #333;">
+        📌 This is a static demo with mock data. <a href="https://github.com/Gitvidor/crontab-manager" style="color:#4fc3f7" target="_blank">View on GitHub</a> for full functionality.
     </div>
 
+    <!-- 模板变量（Demo 固定为 admin） -->
     <script>
         const USER_ROLE = 'admin';
         const USER_CAN_EDIT = true;
         const USER_CAN_ADMIN = true;
-        const DEMO_MODE = true;
     </script>
-    <script src="js/demo.js"></script>
+    <!-- Mock API 层（必须在 app.js 之前加载） -->
+    <script src="js/mock.js"></script>
+    <!-- 主脚本 -->
+    <script src="js/app.js"></script>
 </body>
 
 </html>
