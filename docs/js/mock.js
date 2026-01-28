@@ -17,35 +17,35 @@
                 id: "g1",
                 title: "系统维护",
                 tasks: [
-                    { id: "t1", name: "清理临时文件", minute: "0", hour: "3", day: "*", month: "*", weekday: "*", command: "/usr/local/bin/cleanup.sh", enabled: true },
-                    { id: "t2", name: "系统日志轮转", minute: "0", hour: "0", day: "*", month: "*", weekday: "0", command: "/usr/sbin/logrotate /etc/logrotate.conf", enabled: true },
-                    { id: "t3", name: "磁盘空间检查", minute: "*/30", hour: "*", day: "*", month: "*", weekday: "*", command: "/scripts/check-disk.sh", enabled: false }
+                    { id: "t1", name: "清理临时文件", schedule: "0 3 * * *", command: "/usr/local/bin/cleanup.sh", enabled: true },
+                    { id: "t2", name: "系统日志轮转", schedule: "0 0 * * 0", command: "/usr/sbin/logrotate /etc/logrotate.conf", enabled: true },
+                    { id: "t3", name: "磁盘空间检查", schedule: "*/30 * * * *", command: "/scripts/check-disk.sh", enabled: false }
                 ]
             },
             {
                 id: "g2",
                 title: "数据备份",
                 tasks: [
-                    { id: "t4", name: "数据库备份", minute: "0", hour: "2", day: "*", month: "*", weekday: "*", command: "/backup/mysql-backup.sh", enabled: true },
-                    { id: "t5", name: "文件备份", minute: "0", hour: "4", day: "*", month: "*", weekday: "*", command: "rsync -avz /data /backup/", enabled: true }
+                    { id: "t4", name: "数据库备份", schedule: "0 2 * * *", command: "/backup/mysql-backup.sh", enabled: true },
+                    { id: "t5", name: "文件备份", schedule: "0 4 * * *", command: "rsync -avz /data /backup/", enabled: true }
                 ]
             },
             {
                 id: "g3",
                 title: "监控任务",
                 tasks: [
-                    { id: "t6", name: "服务健康检查", minute: "*/5", hour: "*", day: "*", month: "*", weekday: "*", command: "/monitor/health-check.sh", enabled: true },
-                    { id: "t7", name: "性能数据采集", minute: "*", hour: "*", day: "*", month: "*", weekday: "*", command: "/monitor/collect-metrics.sh", enabled: true },
-                    { id: "t8", name: "告警通知", minute: "*/10", hour: "*", day: "*", month: "*", weekday: "*", command: "/monitor/send-alerts.py", enabled: true }
+                    { id: "t6", name: "服务健康检查", schedule: "*/5 * * * *", command: "/monitor/health-check.sh", enabled: true },
+                    { id: "t7", name: "性能数据采集", schedule: "* * * * *", command: "/monitor/collect-metrics.sh", enabled: true },
+                    { id: "t8", name: "告警通知", schedule: "*/10 * * * *", command: "/monitor/send-alerts.py", enabled: true }
                 ]
             },
             {
                 id: "g4",
                 title: "应用任务",
                 tasks: [
-                    { id: "t9", name: "缓存预热", minute: "0", hour: "6", day: "*", month: "*", weekday: "*", command: "/app/warm-cache.sh", enabled: true },
-                    { id: "t10", name: "报表生成", minute: "0", hour: "8", day: "*", month: "*", weekday: "1-5", command: "/app/generate-reports.py", enabled: false },
-                    { id: "t11", name: "数据同步", minute: "0", hour: "*/2", day: "*", month: "*", weekday: "*", command: "/app/sync-data.sh", enabled: true }
+                    { id: "t9", name: "缓存预热", schedule: "0 6 * * *", command: "/app/warm-cache.sh", enabled: true },
+                    { id: "t10", name: "报表生成", schedule: "0 8 * * 1-5", command: "/app/generate-reports.py", enabled: false },
+                    { id: "t11", name: "数据同步", schedule: "0 */2 * * *", command: "/app/sync-data.sh", enabled: true }
                 ]
             }
         ],
@@ -144,12 +144,9 @@
                 current_linux_user: 'root'
             };
         }
-        // /api/tasks/{machine}/{user}
+        // /api/tasks/{machine}/{user} - 直接返回 groups 数组
         else if (path.match(/^\/api\/tasks\//)) {
-            result = {
-                groups: deepClone(MOCK_DATA.groups),
-                raw: MOCK_DATA.rawCrontab
-            };
+            result = deepClone(MOCK_DATA.groups);
         }
         // /api/backups/{machine}/{user}
         else if (path.match(/^\/api\/backups\//)) {
