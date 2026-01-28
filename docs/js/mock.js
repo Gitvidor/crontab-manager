@@ -14,38 +14,38 @@
 
         groups: [
             {
-                id: "g1",
+                id: 1,
                 title: "系统维护",
                 tasks: [
-                    { id: "t1", name: "清理临时文件", schedule: "0 3 * * *", command: "/usr/local/bin/cleanup.sh", enabled: true },
-                    { id: "t2", name: "系统日志轮转", schedule: "0 0 * * 0", command: "/usr/sbin/logrotate /etc/logrotate.conf", enabled: true },
-                    { id: "t3", name: "磁盘空间检查", schedule: "*/30 * * * *", command: "/scripts/check-disk.sh", enabled: false }
+                    { id: 1, name: "清理临时文件", schedule: "0 3 * * *", command: "/usr/local/bin/cleanup.sh", enabled: true },
+                    { id: 2, name: "系统日志轮转", schedule: "0 0 * * 0", command: "/usr/sbin/logrotate /etc/logrotate.conf", enabled: true },
+                    { id: 3, name: "磁盘空间检查", schedule: "*/30 * * * *", command: "/scripts/check-disk.sh", enabled: false }
                 ]
             },
             {
-                id: "g2",
+                id: 2,
                 title: "数据备份",
                 tasks: [
-                    { id: "t4", name: "数据库备份", schedule: "0 2 * * *", command: "/backup/mysql-backup.sh", enabled: true },
-                    { id: "t5", name: "文件备份", schedule: "0 4 * * *", command: "rsync -avz /data /backup/", enabled: true }
+                    { id: 4, name: "数据库备份", schedule: "0 2 * * *", command: "/backup/mysql-backup.sh", enabled: true },
+                    { id: 5, name: "文件备份", schedule: "0 4 * * *", command: "rsync -avz /data /backup/", enabled: true }
                 ]
             },
             {
-                id: "g3",
+                id: 3,
                 title: "监控任务",
                 tasks: [
-                    { id: "t6", name: "服务健康检查", schedule: "*/5 * * * *", command: "/monitor/health-check.sh", enabled: true },
-                    { id: "t7", name: "性能数据采集", schedule: "* * * * *", command: "/monitor/collect-metrics.sh", enabled: true },
-                    { id: "t8", name: "告警通知", schedule: "*/10 * * * *", command: "/monitor/send-alerts.py", enabled: true }
+                    { id: 6, name: "服务健康检查", schedule: "*/5 * * * *", command: "/monitor/health-check.sh", enabled: true },
+                    { id: 7, name: "性能数据采集", schedule: "* * * * *", command: "/monitor/collect-metrics.sh", enabled: true },
+                    { id: 8, name: "告警通知", schedule: "*/10 * * * *", command: "/monitor/send-alerts.py", enabled: true }
                 ]
             },
             {
-                id: "g4",
+                id: 4,
                 title: "应用任务",
                 tasks: [
-                    { id: "t9", name: "缓存预热", schedule: "0 6 * * *", command: "/app/warm-cache.sh", enabled: true },
-                    { id: "t10", name: "报表生成", schedule: "0 8 * * 1-5", command: "/app/generate-reports.py", enabled: false },
-                    { id: "t11", name: "数据同步", schedule: "0 */2 * * *", command: "/app/sync-data.sh", enabled: true }
+                    { id: 9, name: "缓存预热", schedule: "0 6 * * *", command: "/app/warm-cache.sh", enabled: true },
+                    { id: 10, name: "报表生成", schedule: "0 8 * * 1-5", command: "/app/generate-reports.py", enabled: false },
+                    { id: 11, name: "数据同步", schedule: "0 */2 * * *", command: "/app/sync-data.sh", enabled: true }
                 ]
             }
         ],
