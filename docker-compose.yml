@@ -1,0 +1,24 @@
+# docker-compose.yml - Crontab Manager 部署配置
+# 使用方法: docker-compose up -d
+
+services:
+  crontab-manager:
+    build: .
+    container_name: crontab-manager
+    restart: unless-stopped
+    ports:
+      - "5100:5100"
+    volumes:
+      # 配置文件挂载（持久化）
+      - ./config:/app/config
+      # 日志目录挂载
+      - ./log:/app/log
+      # SSH 密钥挂载（用于远程机器管理）
+      - ~/.ssh:/root/.ssh:ro
+    environment:
+      # 可选：通过环境变量覆盖配置
+      - SECRET_KEY=${SECRET_KEY:-your-secret-key-change-me}
+      # - CRONTAB_USERS={"admin":{"password":"admin123","role":"admin","machines":["*"]}}
+    # 如需管理宿主机 crontab，取消注释以下配置：
+    # privileged: true
+    # pid: host

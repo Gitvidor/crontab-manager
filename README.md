@@ -2,6 +2,12 @@
 
 可视化管理 Linux Crontab 定时任务的 Web 工具，支持多机器管理。
 
+## 🚀 在线试用
+
+**[👉 点击查看在线演示](https://gitvidor.github.io/crontab-manager/)**
+
+> 静态演示版本，展示界面和交互功能
+
 ## 功能特性
 
 ### Cron Jobs 管理

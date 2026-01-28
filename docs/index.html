@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crontab Manager - Demo</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="header">
+        <h1><a href="./">Crontab Manager</a> <span style="font-size:12px;color:#888;font-weight:normal">DEMO</span></h1>
+        <div class="tabs">
+            <button class="tab active" onclick="switchTab('list')">Cron Jobs</button>
+            <button class="tab" onclick="switchTab('history')">Cron History</button>
+            <button class="tab" onclick="switchTab('cron')">Cron Logs</button>
+            <button class="tab" onclick="switchTab('atjobs')">At Jobs</button>
+            <button class="tab" onclick="switchTab('logs')">Audit Logs</button>
+        </div>
+        <div class="host-selector">
+            <div class="selector-group">
+                <label><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg></label>
+                <select id="machineSelect" onchange="switchMachine(this.value)">
+                </select>
+            </div>
+            <div class="connection-status" title="Connection status">
+                <span class="status-dot connected" id="connectionStatus"></span>
+            </div>
+        </div>
+        <div class="user-info" id="userMenu">
+            <span class="user-name">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                    <circle cx="12" cy="7" r="4" />
+                    <path d="M5.5 21a6.5 6.5 0 0 1 13 0z" />
+                </svg>
+                <strong>admin</strong>
+                <svg class="dropdown-arrow" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M6 9l6 6 6-6"/>
+                </svg>
+            </span>
+            <div class="user-dropdown">
+                <div class="user-dropdown-item" onclick="switchTab('settings')">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="3"/>
+                        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+                    </svg>
+                    Settings
+                </div>
+                <div class="user-dropdown-divider"></div>
+                <a href="https://github.com/Gitvidor/crontab-manager" class="user-dropdown-item" target="_blank">
+                    <svg viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+                    </svg>
+                    GitHub
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div class="collapse-controls">
+        <div class="filter-controls">
+            <button class="filter-btn active" data-filter="all" onclick="setFilter('all')">All<span class="filter-count" id="filterCountAll"></span></button>
+            <button class="filter-btn" data-filter="active" onclick="setFilter('active')">Active<span class="filter-count" id="filterCountActive"></span></button>
+            <button class="filter-btn" data-filter="paused" onclick="setFilter('paused')">Paused<span class="filter-count" id="filterCountPaused"></span></button>
+        </div>
+        <button class="collapse-toggle-btn" id="collapseToggleBtn" onclick="toggleAllGroups()" title="Expand All">
+            <svg class="expand-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                stroke-width="2">
+                <path d="M7 10l5 5 5-5" />
+                <path d="M7 5l5 5 5-5" />
+            </svg>
+            <svg class="collapse-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                stroke-width="2">
+                <path d="M7 14l5-5 5 5" />
+                <path d="M7 19l5-5 5 5" />
+            </svg>
+        </button>
+        <div class="search-wrapper">
+            <input type="text" class="search-box" id="searchBox" placeholder="Search tasks, commands, groups..."
+                oninput="taskCurrentPage=1; filterTasks()">
+            <button class="case-toggle" id="caseToggle" onclick="toggleCaseSensitive()"
+                title="Case Sensitive">Aa</button>
+        </div>
+        <button class="new-group-btn" onclick="showNewGroupForm()"><span class="plus-icon">+</span> New Group</button>
+    </div>
+
+    <div id="newGroupForm" class="new-group-form">
+        <input type="text" id="newGroupTitle" placeholder="Enter group name">
+        <button class="create-btn" onclick="createGroup()">Create</button>
+        <button class="cancel-btn" onclick="hideNewGroupForm()">Cancel</button>
+    </div>
+
+    <div id="taskList" class="task-list active"></div>
+    <div class="pagination" id="taskPagination"></div>
+
+    <!-- At Jobs Panel -->
+    <div id="atJobsPanel" class="at-jobs-panel">
+        <div class="cron-log-header">
+            <span class="cron-log-source">At Jobs: <code>One-time scheduled tasks</code></span>
+            <button class="refresh-btn" onclick="refreshAtPanel()" title="Refresh">⟳</button>
+        </div>
+        <div class="at-template-bar">
+            <span class="at-template-label">Template:</span>
+            <div class="at-template-list" id="atTemplateList">
+                <span class="template-empty">No templates</span>
+            </div>
+        </div>
+        <div id="templateForm" class="at-job-form template-form" style="display:none">
+            <div class="template-form-content">
+                <div class="at-job-form-row">
+                    <div class="at-time-group">
+                        <label>Name:</label>
+                        <input type="text" id="templateName" placeholder="Template name" style="flex:1; min-width:200px">
+                    </div>
+                </div>
+                <div class="at-job-form-row">
+                    <div class="at-time-group">
+                        <label>Time:</label>
+                        <select id="templateTimeMode" onchange="toggleTemplateTimeMode()">
+                            <option value="relative">Relative</option>
+                            <option value="timeonly">Time Today</option>
+                        </select>
+                        <input type="number" id="templateTimeValue" class="tpl-time-relative" min="1" max="999" value="5" style="width:60px">
+                        <select id="templateTimeUnit" class="tpl-time-relative">
+                            <option value="minutes" selected>minutes</option>
+                            <option value="hours">hours</option>
+                            <option value="days">days</option>
+                        </select>
+                        <input type="time" id="templateTimeOnly" class="tpl-time-only" style="display:none">
+                    </div>
+                </div>
+                <div class="at-job-form-row">
+                    <div class="at-command-group">
+                        <label>Command:</label>
+                        <textarea id="templateCommand" placeholder="Enter command"></textarea>
+                    </div>
+                    <button class="at-create-btn" onclick="saveTemplate()">Save</button>
+                    <button class="template-cancel-btn" onclick="hideTemplateForm()">Cancel</button>
+                </div>
+            </div>
+            <button class="btn-delete-circle template-delete-btn" id="templateDeleteBtn" onclick="deleteEditingTemplate()" style="display:none" title="Delete"></button>
+        </div>
+        <div class="at-job-form">
+            <div class="at-job-form-row">
+                <div class="at-time-group">
+                    <label>Execute at:</label>
+                    <select id="atTimeMode" onchange="toggleAtTimeMode()">
+                        <option value="relative">Relative</option>
+                        <option value="timeonly">Time Today</option>
+                        <option value="absolute">Specific Date</option>
+                    </select>
+                    <input type="number" id="atRelativeValue" class="at-time-relative" min="1" max="999" value="5" style="width:60px">
+                    <select id="atRelativeUnit" class="at-time-relative">
+                        <option value="minutes" selected>minutes</option>
+                        <option value="hours">hours</option>
+                        <option value="days">days</option>
+                    </select>
+                    <input type="time" id="atTimeOnly" class="at-time-only" style="display:none">
+                    <input type="datetime-local" id="atDatetime" class="at-time-absolute" style="display:none">
+                </div>
+            </div>
+            <div class="at-job-form-row">
+                <div class="at-command-group">
+                    <label>Command:</label>
+                    <textarea id="atCommand" placeholder="Enter command to execute"></textarea>
+                </div>
+                <button class="at-create-btn" onclick="createAtJob()">Create</button>
+            </div>
+        </div>
+        <div class="at-filter-section">
+            <div class="at-filter-group">
+                <button class="at-filter-btn" data-filter="all" onclick="setAtFilter('all')">All<span class="filter-count" id="atFilterCountAll"></span></button>
+                <button class="at-filter-btn active" data-filter="pending" onclick="setAtFilter('pending')">Pending<span class="filter-count" id="atFilterCountPending"></span></button>
+                <button class="at-filter-btn" data-filter="executed" onclick="setAtFilter('executed')">Executed<span class="filter-count" id="atFilterCountExecuted"></span></button>
+                <button class="at-filter-btn" data-filter="cancelled" onclick="setAtFilter('cancelled')">Cancelled<span class="filter-count" id="atFilterCountCancelled"></span></button>
+            </div>
+            <button class="at-cleanup-btn" onclick="cleanupAtHistory()" title="Clean up history">Clean</button>
+        </div>
+        <div class="at-job-list-header">
+            <span class="at-col-status">Status</span>
+            <span class="at-col-command">Command</span>
+            <span class="at-col-scheduled">Scheduled</span>
+            <span class="at-col-executed">Executed</span>
+            <span class="at-col-actions"></span>
+        </div>
+        <div class="at-job-list" id="atJobList">
+            <div class="log-empty">Loading...</div>
+        </div>
+        <div class="at-job-pagination" id="atJobPagination"></div>
+    </div>
+
+    <div id="historyView" class="history-view">
+        <div class="history-header">
+            <span>Current Version</span>
+            <div class="history-header-btns">
+                <button class="help-toggle-btn" onclick="toggleEditHelp()" id="editHelpBtn" title="Syntax Help">?</button>
+                <button class="history-btn diff-btn" onclick="toggleEditMode()" id="editToggleBtn">Edit</button>
+                <button class="history-btn cancel-edit-btn" onclick="cancelEditMode()" id="cancelEditBtn" style="display: none;">Cancel</button>
+            </div>
+        </div>
+        <div class="edit-help-panel" id="editHelpPanel" style="display: none;">
+            <div class="help-content">
+                <div class="help-title">Edit Syntax Help</div>
+                <div class="help-example">
+                    <span class="help-desc">1. Create new group</span>
+                    <code></code>
+                    <code>  (empty line)</code>
+                    <code># Group Name</code>
+                    <code># Task Name (optional)</code>
+                    <code>* * * * * /path/to/command</code>
+                </div>
+            </div>
+        </div>
+        <div class="raw-editor-section" id="rawEditorSection">
+            <div class="code-editor">
+                <pre class="code-highlight" id="codeHighlight"></pre>
+                <textarea id="rawContent" oninput="updateHighlight()" onscroll="syncHighlightScroll()" readonly></textarea>
+            </div>
+        </div>
+        <div class="history-header">
+            <span>History Version</span>
+        </div>
+        <div class="history-list" id="historyList">
+            <div class="log-empty">Loading...</div>
+        </div>
+        <div class="pagination" id="historyPagination"></div>
+    </div>
+
+    <div id="cronLogs" class="cron-logs">
+        <div class="cron-log-header">
+            <span class="cron-log-source">Source: <code id="cronLogSource">/var/log/syslog</code></span>
+            <button class="refresh-btn" onclick="loadCronLogs()" title="Refresh">⟳</button>
+        </div>
+        <input type="text" id="cronSearch" class="audit-search" placeholder="Search logs..." oninput="filterCronLogs()">
+        <div class="log-header">
+            <span class="cron-col-time">Time</span>
+            <span class="cron-col-host">Host</span>
+            <span class="cron-col-details">Details</span>
+        </div>
+        <div class="cron-log-list" id="cronLogList">
+            <div class="log-empty">Loading...</div>
+        </div>
+        <div class="pagination" id="cronPagination"></div>
+    </div>
+
+    <div id="auditLogs" class="audit-logs">
+        <div class="cron-log-header">
+            <span class="cron-log-source">Source: <code id="auditLogSource">audit.log</code></span>
+        </div>
+        <input type="text" id="auditSearch" class="audit-search" placeholder="Search logs..." oninput="filterAuditLogs()">
+        <div class="log-header">
+            <span class="log-col-time">Time</span>
+            <span class="log-col-user">User</span>
+            <span class="log-col-action">Action</span>
+            <span class="log-col-details">Details</span>
+        </div>
+        <div class="log-list" id="logList">
+            <div class="log-empty">Loading...</div>
+        </div>
+        <div class="pagination" id="auditPagination"></div>
+    </div>
+
+    <!-- Settings Panel -->
+    <div id="settingsPanel" class="settings-panel">
+        <div class="settings-section">
+            <h3>User Management</h3>
+            <div class="user-form">
+                <input type="text" id="newUsername" placeholder="Username">
+                <input type="password" id="newPassword" placeholder="Password">
+                <select id="newRole">
+                    <option value="viewer">Viewer</option>
+                    <option value="editor">Editor</option>
+                    <option value="admin">Admin</option>
+                </select>
+                <button class="add-user-btn" onclick="createUser()">Add User</button>
+            </div>
+            <div class="user-list-header">
+                <span class="user-col-name">Username</span>
+                <span class="user-col-role">Role</span>
+                <span class="user-col-machines">Machines</span>
+                <span class="user-col-actions"></span>
+            </div>
+            <div class="user-list" id="userList">
+                <div class="log-empty">Loading...</div>
+            </div>
+        </div>
+    </div>
+
+    <div id="message" class="message"></div>
+
+    <div id="undoToast" class="undo-toast">
+        <span class="undo-text">Task deleted</span>
+        <button class="undo-btn" onclick="performUndo()">Undo</button>
+        <span class="undo-countdown">5s</span>
+    </div>
+
+    <!-- Diff Modal -->
+    <div id="diffModal" class="diff-modal">
+        <div class="diff-modal-content">
+            <div class="diff-modal-header">
+                <span>Version Diff</span>
+                <button class="diff-close-btn" onclick="closeDiffModal()">&times;</button>
+            </div>
+            <div class="diff-modal-body">
+                <div class="diff-panel">
+                    <div class="diff-panel-header">
+                        <button class="diff-nav-btn" id="diffPrevBtn" onclick="navigateDiff(-1)" title="Previous version">‹</button>
+                        <span>Backup: <span id="diffBackupTime" class="diff-title-slide"></span></span>
+                        <button class="diff-nav-btn" id="diffNextBtn" onclick="navigateDiff(1)" title="Next version">›</button>
+                    </div>
+                    <pre class="diff-content" id="diffBackup"></pre>
+                </div>
+                <div class="diff-panel">
+                    <div class="diff-panel-header">
+                        <span class="diff-nav-placeholder"></span>
+                        <span>Current</span>
+                        <span class="diff-nav-placeholder"></span>
+                    </div>
+                    <pre class="diff-content" id="diffCurrent"></pre>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Demo Banner -->
+    <div style="position:fixed;bottom:0;left:0;right:0;background:#1a1a2e;color:#fff;padding:10px 20px;text-align:center;font-size:13px;z-index:9999;border-top:1px solid #333;">
+        This is a static demo with mock data. <a href="https://github.com/Gitvidor/crontab-manager" style="color:#4fc3f7" target="_blank">View on GitHub</a> for full functionality.
+    </div>
+
+    <script>
+        const USER_ROLE = 'admin';
+        const USER_CAN_EDIT = true;
+        const USER_CAN_ADMIN = true;
+        const DEMO_MODE = true;
+    </script>
+    <script src="js/demo.js"></script>
+</body>
+
+</html>

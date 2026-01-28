@@ -1,0 +1,29 @@
+# .dockerignore - Docker 构建排除文件
+
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__
+*.pyc
+*.pyo
+.pytest_cache
+.venv
+venv
+
+# IDE
+.vscode
+.idea
+
+# 日志和临时文件
+log/
+*.log
+
+# 敏感配置（使用挂载方式）
+config/config.json
+
+# Docker 相关
+Dockerfile
+docker-compose*.yml
+.dockerignore
