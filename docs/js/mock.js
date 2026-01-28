@@ -1,6 +1,7 @@
 // mock.js - Mock API 层，拦截所有 API 调用返回演示数据
-// 必须在 app.js 之前加载
+// 必须在 app.js 之前加载，且立即执行
 
+// 立即覆盖 fetch（在 app.js 保存 nativeFetch 之前）
 (function() {
     'use strict';
 
@@ -125,185 +126,188 @@
         return JSON.parse(JSON.stringify(obj));
     }
 
-    // API 路由处理
-    const API_HANDLERS = {
-        // 机器列表
-        'GET /api/machines': () => ({
-            machines: MOCK_DATA.machines,
-            current: 'local',
-            current_linux_user: 'root'
-        }),
-
-        // 任务列表
-        'GET /api/crontab': () => ({
-            groups: deepClone(MOCK_DATA.groups),
-            raw: MOCK_DATA.rawCrontab
-        }),
-
-        // 切换任务状态
-        'POST /api/toggle': (body) => {
-            const group = MOCK_DATA.groups.find(g => g.id === body.group_id);
-            if (group) {
-                const task = group.tasks.find(t => t.id === body.task_id);
-                if (task) task.enabled = !task.enabled;
-            }
-            return { success: true };
-        },
-
-        // 切换整组状态
-        'POST /api/toggle_group': (body) => {
-            const group = MOCK_DATA.groups.find(g => g.id === body.group_id);
-            if (group) {
-                const enable = body.enable;
-                group.tasks.forEach(t => t.enabled = enable);
-            }
-            return { success: true };
-        },
-
-        // 删除任务
-        'DELETE /api/task': () => ({ success: true }),
-
-        // 编辑任务
-        'POST /api/edit_task': () => ({ success: true }),
-
-        // 创建任务
-        'POST /api/create_task': () => ({ success: true, task_id: 'new-' + Date.now() }),
-
-        // 创建组
-        'POST /api/create_group': () => ({ success: true, group_id: 'new-g-' + Date.now() }),
-
-        // 删除组
-        'DELETE /api/delete_group': () => ({ success: true }),
-
-        // 运行任务
-        'POST /api/run_task': () => ({ success: true, message: 'Task started (demo mode)' }),
-
-        // 历史版本
-        'GET /api/history': () => ({
-            backups: MOCK_DATA.history,
-            current: MOCK_DATA.rawCrontab
-        }),
-
-        // 备份内容
-        'GET /api/backup': () => ({
-            content: MOCK_DATA.rawCrontab.replace('cleanup.sh', 'old-cleanup.sh')
-        }),
-
-        // 回滚
-        'POST /api/rollback': () => ({ success: true }),
-
-        // 保存原始内容
-        'POST /api/save_raw': () => ({ success: true }),
-
-        // At Jobs
-        'GET /api/at/jobs': () => ({
-            jobs: deepClone(MOCK_DATA.atJobs),
-            templates: deepClone(MOCK_DATA.templates)
-        }),
-
-        'POST /api/at/create': () => ({ success: true, job_id: 'new-at-' + Date.now() }),
-
-        'DELETE /api/at/cancel': () => ({ success: true }),
-
-        'POST /api/at/cleanup': () => ({ success: true, deleted: 2 }),
-
-        'POST /api/at/template': () => ({ success: true }),
-
-        'DELETE /api/at/template': () => ({ success: true }),
-
-        // 审计日志
-        'GET /api/logs': () => ({
-            logs: MOCK_DATA.auditLogs,
-            total: MOCK_DATA.auditLogs.length,
-            page: 1,
-            per_page: 50
-        }),
-
-        // Cron 日志
-        'GET /api/cron_logs': () => ({
-            logs: MOCK_DATA.cronLogs,
-            source: '/var/log/syslog',
-            total: MOCK_DATA.cronLogs.length
-        }),
-
-        // 用户管理
-        'GET /api/users': () => ({
-            users: MOCK_DATA.users
-        }),
-
-        'POST /api/users': () => ({ success: true }),
-
-        'DELETE /api/users': () => ({ success: true }),
-
-        // 机器切换
-        'POST /api/switch_machine': () => ({ success: true }),
-
-        // 连接测试
-        'GET /api/test_connection': () => ({ success: true, message: 'Connected' }),
-
-        // 重新排序
-        'POST /api/reorder': () => ({ success: true })
-    };
-
-    // 拦截 fetch
-    const originalFetch = window.fetch;
-    window.fetch = function(url, options = {}) {
+    // Mock fetch 函数
+    function mockFetch(url, options = {}) {
         const method = (options.method || 'GET').toUpperCase();
         const path = url.split('?')[0];
 
-        // 查找匹配的处理器
-        let handler = API_HANDLERS[`${method} ${path}`];
+        console.log('[Mock]', method, path);
 
-        // 尝试模糊匹配（用于带 ID 的路由）
-        if (!handler) {
-            for (const key of Object.keys(API_HANDLERS)) {
-                const [m, p] = key.split(' ');
-                if (m === method && path.startsWith(p.replace(/\/\d+$/, ''))) {
-                    handler = API_HANDLERS[key];
-                    break;
-                }
-            }
+        // 处理各种 API 路径
+        let result = null;
+
+        // /api/machines
+        if (path === '/api/machines') {
+            result = {
+                machines: MOCK_DATA.machines,
+                current: 'local',
+                current_linux_user: 'root'
+            };
+        }
+        // /api/tasks/{machine}/{user}
+        else if (path.match(/^\/api\/tasks\//)) {
+            result = {
+                groups: deepClone(MOCK_DATA.groups),
+                raw: MOCK_DATA.rawCrontab
+            };
+        }
+        // /api/backups/{machine}/{user}
+        else if (path.match(/^\/api\/backups\//)) {
+            result = {
+                backups: MOCK_DATA.history,
+                current: MOCK_DATA.rawCrontab
+            };
+        }
+        // /api/backup/{machine}/{user}/{filename}
+        else if (path.match(/^\/api\/backup\//)) {
+            result = {
+                content: MOCK_DATA.rawCrontab.replace('cleanup.sh', 'old-cleanup.sh')
+            };
+        }
+        // /api/raw/{machine}/{user}
+        else if (path.match(/^\/api\/raw\//)) {
+            result = {
+                content: MOCK_DATA.rawCrontab
+            };
+        }
+        // /api/toggle/{taskId}
+        else if (path.match(/^\/api\/toggle\//)) {
+            result = { success: true };
+        }
+        // /api/toggle_group/{groupId}
+        else if (path.match(/^\/api\/toggle_group\//)) {
+            result = { success: true };
+        }
+        // /api/delete/{taskId}
+        else if (path.match(/^\/api\/delete\//)) {
+            result = { success: true };
+        }
+        // /api/delete_group/{groupId}
+        else if (path.match(/^\/api\/delete_group\//)) {
+            result = { success: true };
+        }
+        // /api/update/{taskId}
+        else if (path.match(/^\/api\/update\//)) {
+            result = { success: true };
+        }
+        // /api/update_task_name/{taskId}
+        else if (path.match(/^\/api\/update_task_name\//)) {
+            result = { success: true };
+        }
+        // /api/update_group_title/{groupId}
+        else if (path.match(/^\/api\/update_group_title\//)) {
+            result = { success: true };
+        }
+        // /api/run/{taskId}
+        else if (path.match(/^\/api\/run\//)) {
+            result = { success: true, message: 'Task started (demo mode)' };
+        }
+        // /api/add_to_group/{groupId}
+        else if (path.match(/^\/api\/add_to_group\//)) {
+            result = { success: true, task_id: 'new-' + Date.now() };
+        }
+        // /api/create_group
+        else if (path === '/api/create_group') {
+            result = { success: true, group_id: 'new-g-' + Date.now() };
+        }
+        // /api/restore/{machine}/{user}/{filename}
+        else if (path.match(/^\/api\/restore\//)) {
+            result = { success: true };
+        }
+        // /api/save
+        else if (path === '/api/save') {
+            result = { success: true };
+        }
+        // /api/audit_logs/{machine}
+        else if (path.match(/^\/api\/audit_logs\//)) {
+            result = {
+                logs: MOCK_DATA.auditLogs,
+                total: MOCK_DATA.auditLogs.length,
+                page: 1,
+                per_page: 50
+            };
+        }
+        // /api/cron_logs/{machine}
+        else if (path.match(/^\/api\/cron_logs\//)) {
+            result = {
+                logs: MOCK_DATA.cronLogs,
+                source: '/var/log/syslog',
+                total: MOCK_DATA.cronLogs.length
+            };
+        }
+        // /api/at/jobs/{machine}/{user}
+        else if (path.match(/^\/api\/at\/jobs\//)) {
+            result = {
+                jobs: deepClone(MOCK_DATA.atJobs),
+                templates: deepClone(MOCK_DATA.templates)
+            };
+        }
+        // /api/at/create
+        else if (path.match(/^\/api\/at\/create/)) {
+            result = { success: true, job_id: 'new-at-' + Date.now() };
+        }
+        // /api/at/cancel
+        else if (path.match(/^\/api\/at\/cancel/)) {
+            result = { success: true };
+        }
+        // /api/at/cleanup
+        else if (path.match(/^\/api\/at\/cleanup/)) {
+            result = { success: true, deleted: 2 };
+        }
+        // /api/at/template
+        else if (path.match(/^\/api\/at\/template/)) {
+            result = { success: true };
+        }
+        // /api/users
+        else if (path === '/api/users') {
+            result = { users: MOCK_DATA.users };
+        }
+        // /api/users/{username}
+        else if (path.match(/^\/api\/users\//)) {
+            result = { success: true };
+        }
+        // /api/machine/{machine}/status
+        else if (path.match(/^\/api\/machine\/.*\/status/)) {
+            result = { success: true, connected: true };
+        }
+        // /api/reorder_groups
+        else if (path === '/api/reorder_groups') {
+            result = { success: true };
+        }
+        // /api/reorder_tasks
+        else if (path === '/api/reorder_tasks') {
+            result = { success: true };
+        }
+        // /api/move_task_to_end
+        else if (path === '/api/move_task_to_end') {
+            result = { success: true };
+        }
+        // 默认响应
+        else {
+            console.log('[Mock] Unhandled:', method, path);
+            result = { success: true };
         }
 
-        if (handler) {
-            // 解析请求体
-            let body = {};
-            if (options.body) {
-                try {
-                    body = JSON.parse(options.body);
-                } catch (e) {
-                    // FormData 或其他格式
-                }
-            }
-
-            // 返回 mock 响应
-            const result = handler(body, path);
-            return Promise.resolve({
-                ok: true,
-                status: 200,
-                json: () => Promise.resolve(result),
-                text: () => Promise.resolve(JSON.stringify(result))
-            });
-        }
-
-        // 未匹配的请求，返回空成功响应
-        console.log('[Mock] Unhandled:', method, path);
+        // 返回 Promise
         return Promise.resolve({
             ok: true,
             status: 200,
-            json: () => Promise.resolve({ success: true }),
-            text: () => Promise.resolve('{}')
+            json: () => Promise.resolve(result),
+            text: () => Promise.resolve(JSON.stringify(result))
         });
-    };
+    }
 
-    // 显示 demo 提示
+    // 立即覆盖 window.fetch
+    window.fetch = mockFetch;
+
+    console.log('[Mock] API mock layer initialized - fetch replaced');
+
+    // 页面加载后显示提示
     window.addEventListener('DOMContentLoaded', function() {
         setTimeout(function() {
             if (typeof showMessage === 'function') {
                 showMessage('Demo mode - changes will not be saved', 'info');
             }
-        }, 1000);
+        }, 1500);
     });
-
-    console.log('[Mock] API mock layer initialized');
 })();
