@@ -50,10 +50,16 @@
             }
         ],
 
-        atJobs: [
-            { id: 1, job_id: "101", command: "echo 'Task completed' | mail -s 'Notification' admin@example.com", scheduled_time: "2024-01-28 15:30:00", status: "pending" },
-            { id: 2, job_id: "102", command: "/scripts/one-time-migration.sh", scheduled_time: "2024-01-28 02:00:00", executed_time: "2024-01-28 02:00:01", status: "executed" },
-            { id: 3, job_id: "103", command: "systemctl restart nginx", scheduled_time: "2024-01-27 23:00:00", status: "cancelled" }
+        // pending at jobs (for /api/at_jobs)
+        atJobsPending: [
+            { job_id: "101", command: "echo 'Task completed' | mail -s 'Notification' admin@example.com", datetime: "2024-01-28 15:30:00", queue: "a" },
+            { job_id: "102", command: "/scripts/send-report.sh", datetime: "2024-01-28 18:00:00", queue: "a" }
+        ],
+        // history at jobs (for /api/at_history)
+        atJobsHistory: [
+            { id: "h1", command: "/scripts/one-time-migration.sh", scheduled_time: "2024-01-28 02:00:00", executed_at: "2024-01-28 02:00:01", status: "executed" },
+            { id: "h2", command: "systemctl restart nginx", scheduled_time: "2024-01-27 23:00:00", executed_at: null, status: "cancelled" },
+            { id: "h3", command: "/backup/full-backup.sh", scheduled_time: "2024-01-27 03:00:00", executed_at: "2024-01-27 03:00:02", status: "executed" }
         ],
 
         templates: [
@@ -69,12 +75,17 @@
             { time: "2024-01-28 14:15:00", user: "admin", action: "login", details: "User logged in", machine: "-", linux_user: "-" }
         ],
 
+        // Cron logs 是字符串数组
         cronLogs: [
-            { time: "Jan 28 14:30:01", host: "localhost", user: "(root)", command: "/monitor/health-check.sh" },
-            { time: "Jan 28 14:25:01", host: "localhost", user: "(root)", command: "/monitor/collect-metrics.sh" },
-            { time: "Jan 28 14:20:01", host: "localhost", user: "(root)", command: "/monitor/collect-metrics.sh" },
-            { time: "Jan 28 14:15:01", host: "localhost", user: "(root)", command: "/monitor/health-check.sh" },
-            { time: "Jan 28 14:10:01", host: "localhost", user: "(root)", command: "/monitor/send-alerts.py" }
+            "Jan 28 14:30:01 localhost CRON[12345]: (root) CMD (/monitor/health-check.sh)",
+            "Jan 28 14:25:01 localhost CRON[12340]: (root) CMD (/monitor/collect-metrics.sh)",
+            "Jan 28 14:20:01 localhost CRON[12335]: (root) CMD (/monitor/collect-metrics.sh)",
+            "Jan 28 14:15:01 localhost CRON[12330]: (root) CMD (/monitor/health-check.sh)",
+            "Jan 28 14:10:01 localhost CRON[12325]: (root) CMD (/monitor/send-alerts.py)",
+            "Jan 28 14:05:01 localhost CRON[12320]: (root) CMD (/backup/mysql-backup.sh)",
+            "Jan 28 14:00:01 localhost CRON[12315]: (root) CMD (/app/sync-data.sh)",
+            "Jan 28 13:55:01 localhost CRON[12310]: (root) CMD (/monitor/health-check.sh)",
+            "Jan 28 13:50:01 localhost CRON[12305]: (root) CMD (/monitor/collect-metrics.sh)"
         ],
 
         history: [
@@ -232,27 +243,43 @@
                 total: MOCK_DATA.cronLogs.length
             };
         }
-        // /api/at/jobs/{machine}/{user}
-        else if (path.match(/^\/api\/at\/jobs\//)) {
+        // /api/at_jobs/{machine}/{user} - pending jobs
+        else if (path.match(/^\/api\/at_jobs\//)) {
             result = {
-                jobs: deepClone(MOCK_DATA.atJobs),
+                success: true,
+                jobs: deepClone(MOCK_DATA.atJobsPending)
+            };
+        }
+        // /api/at_history/{machine}/{user} - history jobs
+        else if (path.match(/^\/api\/at_history\//)) {
+            result = {
+                success: true,
+                history: deepClone(MOCK_DATA.atJobsHistory),
+                total_pages: 1,
+                page: 1
+            };
+        }
+        // /api/at_templates (no machine/user path)
+        else if (path === '/api/at_templates' || path.match(/^\/api\/at_templates\//)) {
+            result = {
+                success: true,
                 templates: deepClone(MOCK_DATA.templates)
             };
         }
         // /api/at/create
-        else if (path.match(/^\/api\/at\/create/)) {
+        else if (path.match(/^\/api\/at\/create/) || path.match(/^\/api\/at_create\//)) {
             result = { success: true, job_id: 'new-at-' + Date.now() };
         }
-        // /api/at/cancel
-        else if (path.match(/^\/api\/at\/cancel/)) {
+        // /api/at/cancel or /api/at_cancel
+        else if (path.match(/^\/api\/at\/cancel/) || path.match(/^\/api\/at_cancel\//)) {
             result = { success: true };
         }
-        // /api/at/cleanup
-        else if (path.match(/^\/api\/at\/cleanup/)) {
+        // /api/at_cleanup
+        else if (path.match(/^\/api\/at_cleanup\//)) {
             result = { success: true, deleted: 2 };
         }
-        // /api/at/template
-        else if (path.match(/^\/api\/at\/template/)) {
+        // /api/at_template (save/delete)
+        else if (path.match(/^\/api\/at_template/)) {
             result = { success: true };
         }
         // /api/users
