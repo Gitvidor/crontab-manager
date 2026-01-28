@@ -96,15 +96,53 @@
         ],
 
         history: [
-            { filename: "crontab_20240128_143000.bak", time: "2024-01-28 14:30:00", size: 1024 },
-            { filename: "crontab_20240128_142500.bak", time: "2024-01-28 14:25:00", size: 980 },
-            { filename: "crontab_20240128_142000.bak", time: "2024-01-28 14:20:00", size: 920 }
+            { filename: "crontab_20240128_143000.bak", timestamp: "20240128_143000", size: 1024 },
+            { filename: "crontab_20240128_142500.bak", timestamp: "20240128_142500", size: 980 },
+            { filename: "crontab_20240128_142000.bak", timestamp: "20240128_142000", size: 920 }
         ]
     };
 
     // ==================== 工具函数 ====================
 
     const clone = obj => JSON.parse(JSON.stringify(obj));
+
+    // ==================== localStorage 持久化 ====================
+
+    const STORAGE_KEY = 'crontab_demo_state';
+
+    // 保存状态到 localStorage
+    function saveState() {
+        try {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+        } catch (e) {
+            console.warn('[Mock] 保存状态失败:', e);
+        }
+    }
+
+    // 从 localStorage 加载状态
+    function loadState() {
+        try {
+            const saved = localStorage.getItem(STORAGE_KEY);
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                Object.assign(state, parsed);
+                console.log('[Mock] 已加载保存的状态');
+                return true;
+            }
+        } catch (e) {
+            console.warn('[Mock] 加载状态失败:', e);
+        }
+        return false;
+    }
+
+    // 重置为默认状态
+    function resetState() {
+        localStorage.removeItem(STORAGE_KEY);
+        location.reload();
+    }
+
+    // 暴露重置函数供 UI 调用
+    window.resetDemoState = resetState;
     const findTask = (taskId) => {
         for (const g of state.groups) {
             const t = g.tasks.find(t => t.id === taskId);
@@ -147,8 +185,9 @@
             return { success: true };
         },
 
-        'POST /api/toggle_group/*': (body) => {
-            const group = state.groups.find(g => g.id === body.group_id);
+        'POST /api/toggle_group/*': (body, path) => {
+            const groupId = parseInt(path.split('/').pop());
+            const group = state.groups.find(g => g.id === groupId);
             if (group) group.tasks.forEach(t => t.enabled = body.enable);
             return { success: true };
         },
@@ -174,7 +213,7 @@
             return { success: true };
         },
 
-        'DELETE /api/delete/*': (body, path) => {
+        'POST /api/delete/*': (body, path) => {
             const taskId = parseInt(path.split('/').pop());
             for (const g of state.groups) {
                 const idx = g.tasks.findIndex(t => t.id === taskId);
@@ -183,7 +222,7 @@
             return { success: true };
         },
 
-        'DELETE /api/delete_group/*': (body, path) => {
+        'POST /api/delete_group/*': (body, path) => {
             const groupId = parseInt(path.split('/').pop());
             const idx = state.groups.findIndex(g => g.id === groupId);
             if (idx >= 0) state.groups.splice(idx, 1);
@@ -228,18 +267,34 @@
         'GET /api/at_jobs/*': () => ({ success: true, jobs: clone(state.atJobsPending) }),
         'GET /api/at_history/*': () => ({ success: true, history: clone(state.atJobsHistory), total_pages: 1, page: 1 }),
 
-        'POST /api/at_create/*': (body) => {
+        // 创建 At Job: POST /api/at_jobs
+        'POST /api/at_jobs/*': (body) => {
             const newId = state.nextId.atJob++;
+            // 计算执行时间（demo 简化处理）
+            const now = new Date();
+            now.setMinutes(now.getMinutes() + 5);
+            const scheduledTime = now.toISOString().slice(0, 19).replace('T', ' ');
             state.atJobsPending.push({
                 job_id: String(newId),
                 command: body.command,
-                datetime: body.datetime,
+                datetime: scheduledTime,
                 queue: 'a'
             });
-            return { success: true, job_id: newId };
+            return { success: true, job_id: newId, scheduled_time: scheduledTime };
         },
 
-        'DELETE /api/at_cancel/*': (body, path) => {
+        // 获取 At Job 详情
+        'GET /api/at_job/*': (body, path) => {
+            const jobId = path.split('/').pop();
+            const job = state.atJobsPending.find(j => j.job_id === jobId);
+            if (job) {
+                return { success: true, command: job.command };
+            }
+            return { success: false, error: 'Job not found' };
+        },
+
+        // 取消 At Job: DELETE /api/at_job/${jobId}
+        'DELETE /api/at_job/*': (body, path) => {
             const jobId = path.split('/').pop();
             const idx = state.atJobsPending.findIndex(j => j.job_id === jobId);
             if (idx >= 0) {
@@ -255,7 +310,8 @@
             return { success: true };
         },
 
-        'POST /api/at_cleanup/*': () => {
+        // 清理历史: DELETE /api/at_history?days=N
+        'DELETE /api/at_history/*': () => {
             const count = state.atJobsHistory.length;
             state.atJobsHistory = [];
             return { success: true, deleted: count };
@@ -275,14 +331,16 @@
             return { success: true, id: newId };
         },
 
-        'PUT /api/at_templates/*': (body, path) => {
+        // 更新模板: PUT /api/at_template/${id}
+        'PUT /api/at_template/*': (body, path) => {
             const id = parseInt(path.split('/').pop());
             const tpl = state.templates.find(t => t.id === id);
             if (tpl) Object.assign(tpl, body);
             return { success: true };
         },
 
-        'DELETE /api/at_templates/*': (body, path) => {
+        // 删除模板: DELETE /api/at_template/${id}
+        'DELETE /api/at_template/*': (body, path) => {
             const id = parseInt(path.split('/').pop());
             const idx = state.templates.findIndex(t => t.id === id);
             if (idx >= 0) state.templates.splice(idx, 1);
@@ -330,8 +388,8 @@
                 const [m, p] = route.split(' ');
                 if (m !== method) continue;
 
-                // 将 * 转换为正则
-                const pattern = new RegExp('^' + p.replace(/\*/g, '[^/]+') + '$');
+                // 将 * 转换为正则（.* 匹配任意字符包括 /）
+                const pattern = new RegExp('^' + p.replace(/\*/g, '.*') + '$');
                 if (pattern.test(path)) {
                     handler = fn;
                     break;
@@ -340,6 +398,11 @@
         }
 
         const result = handler ? handler(body, path) : { success: true };
+
+        // 写操作后保存状态
+        if (method !== 'GET') {
+            saveState();
+        }
 
         console.log('[Mock]', method, path, handler ? '✓' : '(default)');
 
@@ -351,6 +414,9 @@
         });
     }
 
+    // 尝试加载已保存的状态
+    const stateLoaded = loadState();
+
     // 立即替换 fetch
     window.fetch = mockFetch;
 
@@ -358,10 +424,13 @@
     window.addEventListener('DOMContentLoaded', () => {
         setTimeout(() => {
             if (typeof showMessage === 'function') {
-                showMessage('Demo 模式 - 数据刷新后重置', 'info');
+                const msg = stateLoaded
+                    ? 'Demo 模式 - 已加载上次保存的数据'
+                    : 'Demo 模式 - 数据已自动保存到浏览器';
+                showMessage(msg, 'info');
             }
         }, 1000);
     });
 
-    console.log('[Mock] Demo API layer ready');
+    console.log('[Mock] Demo API layer ready' + (stateLoaded ? ' (state restored)' : ''));
 })();
