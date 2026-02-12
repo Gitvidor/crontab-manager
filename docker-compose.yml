@@ -1,5 +1,5 @@
 # docker-compose.yml - Crontab Manager 部署配置
-# 使用方法: docker-compose up -d
+# 使用方法: cp .env.example .env && docker compose up -d
 
 services:
   crontab-manager:
@@ -7,18 +7,43 @@ services:
     container_name: crontab-manager
     restart: unless-stopped
     ports:
-      - "5100:5100"
+      - "${PORT:-5100}:${PORT:-5100}"
+    pid: host
+    cap_add:
+      - KILL
+    security_opt:
+      - apparmor:unconfined
     volumes:
-      # 配置文件挂载（持久化）
-      - ./config:/app/config
-      # 日志目录挂载
-      - ./log:/app/log
+      # 源码挂载（开发模式，代码修改自动生效）
+      - .:/app
+      # 时区同步（与宿主机一致）
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
+      # 宿主机系统日志（读取 cron logs）
+      - /var/log:/var/log:ro
+      # 宿主机 crontab 挂载（管理宿主机定时任务）
+      - /var/spool/cron/crontabs:/var/spool/cron/crontabs
+      # 宿主机 at jobs 挂载
+      - /var/spool/cron/atjobs:/var/spool/cron/atjobs
+      - /var/spool/cron/atspool:/var/spool/cron/atspool
+      # atd PID 文件（at 命令通过此文件通知 atd 有新任务）
+      - /run/atd.pid:/run/atd.pid
+      # 宿主机 /tmp 挂载（at history done 标记文件共享）
+      - /tmp:/tmp
+      # 备份目录挂载（持久化）
+      - ./backups:/app/backups
       # SSH 密钥挂载（用于远程机器管理）
       - ~/.ssh:/root/.ssh:ro
-    environment:
-      # 可选：通过环境变量覆盖配置
-      - SECRET_KEY=${SECRET_KEY:-your-secret-key-change-me}
-      # - CRONTAB_USERS={"admin":{"password":"admin123","role":"admin","machines":["*"]}}
-    # 如需管理宿主机 crontab，取消注释以下配置：
-    # privileged: true
-    # pid: host
+    env_file:
+      - .env
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:${PORT:-5100}/"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

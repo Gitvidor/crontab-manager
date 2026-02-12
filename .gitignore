@@ -11,6 +11,9 @@ backups/
 config/*.json
 !config/*.example.json
 
+# 环境变量文件
+.env
+
 # 编辑器
 .vscode/
 .idea/

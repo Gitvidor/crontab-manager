@@ -7,6 +7,7 @@ FROM python:3.11-slim
 RUN apt-get update && apt-get install -y --no-install-recommends \
     cron \
     at \
+    curl \
     openssh-client \
     && rm -rf /var/lib/apt/lists/*
 
@@ -16,14 +17,21 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt gunicorn
 
+# 复制启动脚本
+COPY entrypoint.sh /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh
+
 # 复制应用代码
 COPY . .
 
 # 创建必要目录
-RUN mkdir -p /app/log /app/config
+RUN mkdir -p /app/log /app/config /app/backups
 
 # 暴露端口
 EXPOSE 5100
 
-# 启动命令
-CMD ["gunicorn", "--bind", "0.0.0.0:5100", "--workers", "2", "--threads", "2", "app:app"]
+# 健康检查
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD curl -f http://localhost:5100/ || exit 1
+
+ENTRYPOINT ["/app/entrypoint.sh"]

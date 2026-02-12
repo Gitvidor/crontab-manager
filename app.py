@@ -1830,9 +1830,9 @@ def create_at_job(machine_id=None, linux_user=None):
         history_id = generate_history_id()
         wrapped_cmd = wrap_command_for_history(command, history_id)
 
-        # 使用 printf 避免命令中的特殊字符问题
+        # cd /tmp 确保 at 记录的工作目录在宿主机上存在（容器内 /app 在宿主机不存在）
         escaped_cmd = wrapped_cmd.replace("'", "'\\''")
-        at_cmd = f"printf '%s\\n' '{escaped_cmd}' | at {time_spec} 2>&1"
+        at_cmd = f"cd /tmp && printf '%s\\n' '{escaped_cmd}' | at {time_spec} 2>&1"
         returncode, stdout, stderr = executor.run_command(at_cmd)
 
         # at 命令的输出在 stderr，格式如:

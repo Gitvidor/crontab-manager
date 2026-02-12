@@ -23,6 +23,13 @@ log/
 # 敏感配置（使用挂载方式）
 config/config.json
 
+# 备份和演示目录
+backups/
+demo/
+
+# 环境变量文件
+.env
+
 # Docker 相关
 Dockerfile
 docker-compose*.yml
