@@ -76,6 +76,13 @@ cp config.example.json config.json
 ```json
 {
     "secret_key": "your-secret-key-change-in-production",
+    "auth": {
+        "enabled": true,
+        "bypass_username": "admin",
+        "sso": {
+            "enabled": false
+        }
+    },
     "users": {
         "admin": "your_password"
     },
@@ -106,7 +113,15 @@ cp config.example.json config.json
 ```bash
 export SECRET_KEY='your-secret-key'
 export CRONTAB_USERS='{"admin": "password"}'
+export CRONTAB_AUTH_ENABLED='0'
+export CRONTAB_AUTH_BYPASS_USERNAME='admin'
 ```
+
+### 临时关闭登录验证
+
+- 配置文件方式：将 `config/config.json` 中 `auth.enabled` 设为 `false`
+- 环境变量方式：设置 `CRONTAB_AUTH_ENABLED=0`
+- 旁路用户：可通过 `auth.bypass_username` 或 `CRONTAB_AUTH_BYPASS_USERNAME` 指定，未指定时自动选择首个 `admin`
 
 ### 目录结构
 
@@ -144,6 +159,7 @@ crontab-manager/
 
 ## 版本历史
 
+- **v0.12.0** - 新增可配置免登录模式，补齐旁路用户保护与管理员降权保护
 - **v0.8.x** - Tab 命名优化，At Jobs 模板功能，界面样式优化
 - **v0.7.x** - At Jobs 一次性任务管理功能
 - **v0.5.0** - 代码结构优化，统一分页逻辑

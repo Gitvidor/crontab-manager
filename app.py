@@ -32,7 +32,11 @@ if os.path.exists(CONFIG_FILE):
     with open(CONFIG_FILE, 'r', encoding='utf-8') as f:
         config = json.load(f)
 else:
-    config = {"secret_key": "change-me", "users": {"admin": "admin123"}}
+    config = {
+        "secret_key": "change-me",
+        "users": {"admin": "admin123"},
+        "auth": {"enabled": True, "bypass_username": "admin", "sso": {"enabled": False}}
+    }
 
 app.secret_key = os.environ.get('SECRET_KEY', config.get('secret_key', 'change-me'))
 _raw_users = json.loads(os.environ.get('CRONTAB_USERS', 'null')) or config.get('users', {})
@@ -51,8 +55,52 @@ for username, user_config in _raw_users.items():
             'machines': user_config.get('machines', ['*'])
         }
 
-# SSO 配置（预留）
-AUTH_CONFIG = config.get('auth', {'type': 'local', 'sso': {'enabled': False}})
+def parse_bool(value):
+    """解析布尔配置，非法值直接报错"""
+    if isinstance(value, bool):
+        return value
+    text = str(value).strip().lower()
+    if text in ('1', 'true', 'yes', 'on'):
+        return True
+    if text in ('0', 'false', 'no', 'off'):
+        return False
+    raise ValueError(f'Invalid boolean value: {value}')
+
+
+# 认证配置
+_raw_auth_config = config.get('auth') or {}
+AUTH_CONFIG = {
+    'type': _raw_auth_config.get('type', 'local'),
+    'enabled': _raw_auth_config.get('enabled', True),
+    'bypass_username': _raw_auth_config.get('bypass_username'),
+    'sso': _raw_auth_config.get('sso', {'enabled': False})
+}
+if 'CRONTAB_AUTH_ENABLED' in os.environ:
+    AUTH_CONFIG['enabled'] = os.environ['CRONTAB_AUTH_ENABLED']
+if os.environ.get('CRONTAB_AUTH_BYPASS_USERNAME'):
+    AUTH_CONFIG['bypass_username'] = os.environ['CRONTAB_AUTH_BYPASS_USERNAME']
+AUTH_ENABLED = parse_bool(AUTH_CONFIG.get('enabled', True))
+
+
+def resolve_auth_bypass_username():
+    """解析免登录模式下使用的用户，优先显式配置，否则回退到首个 admin"""
+    configured_username = AUTH_CONFIG.get('bypass_username')
+    if configured_username:
+        if configured_username not in USERS:
+            raise ValueError(f'Auth bypass user not found: {configured_username}')
+        return configured_username
+
+    for username, user_config in USERS.items():
+        if user_config.get('role') == 'admin':
+            return username
+
+    if USERS:
+        return next(iter(USERS))
+
+    raise ValueError('Authentication is disabled but no users are configured')
+
+
+AUTH_BYPASS_USERNAME = resolve_auth_bypass_username() if not AUTH_ENABLED else None
 
 # ===== 机器配置 =====
 MACHINES = config.get('machines', {
@@ -101,6 +149,23 @@ class User(UserMixin):
         return '*' in self.machines or machine_id in self.machines
 
 
+def build_user(username):
+    """按配置构造用户对象，避免认证入口重复硬编码"""
+    if username not in USERS:
+        return None
+    user_config = USERS[username]
+    return User(
+        username,
+        role=user_config.get('role', 'viewer'),
+        machines=user_config.get('machines', ['*'])
+    )
+
+
+def count_admin_users():
+    """统计当前管理员数量，供用户变更时做保护"""
+    return sum(1 for user_config in USERS.values() if user_config.get('role') == 'admin')
+
+
 def verify_password(stored, provided):
     """验证密码（兼容旧版纯文本和新版哈希）"""
     if stored.startswith('pbkdf2:') or stored.startswith('scrypt:'):
@@ -110,14 +175,22 @@ def verify_password(stored, provided):
 
 @login_manager.user_loader
 def load_user(user_id):
-    if user_id in USERS:
-        user_config = USERS[user_id]
-        return User(
-            user_id,
-            role=user_config.get('role', 'viewer'),
-            machines=user_config.get('machines', ['*'])
-        )
-    return None
+    return build_user(user_id)
+
+
+@login_manager.request_loader
+def load_user_from_request(_request):
+    """免登录模式下，为每个请求注入配置用户"""
+    if AUTH_ENABLED:
+        return None
+    return build_user(AUTH_BYPASS_USERNAME)
+
+
+@login_manager.unauthorized_handler
+def handle_unauthorized():
+    if not AUTH_ENABLED:
+        return redirect('/')
+    return redirect(url_for('login', next=request.url))
 
 
 # ===== 权限装饰器 =====
@@ -584,6 +657,9 @@ def start_crontab_watcher():
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     """登录页面"""
+    if not AUTH_ENABLED:
+        return redirect('/')
+
     if current_user.is_authenticated:
         return redirect('/')
 
@@ -592,12 +668,7 @@ def login():
         username = request.form.get('username', '')
         password = request.form.get('password', '')
         if username in USERS and verify_password(USERS[username]['password'], password):
-            user_config = USERS[username]
-            login_user(User(
-                username,
-                role=user_config.get('role', 'viewer'),
-                machines=user_config.get('machines', ['*'])
-            ))
+            login_user(build_user(username))
             log_action('login')
             next_page = request.args.get('next')
             return redirect(next_page or '/')
@@ -609,6 +680,8 @@ def login():
 @login_required
 def logout():
     """登出"""
+    if not AUTH_ENABLED:
+        return redirect('/')
     log_action('logout')
     logout_user()
     return redirect('/login')
@@ -707,6 +780,7 @@ def update_user(username):
 
     data = request.json
     user_config = USERS[username]
+    next_role = data.get('role', user_config.get('role'))
 
     # 更新密码（如果提供）
     if data.get('password'):
@@ -716,6 +790,13 @@ def update_user(username):
     if 'role' in data:
         if data['role'] not in ('viewer', 'editor', 'admin'):
             return jsonify({'success': False, 'error': 'Invalid role'}), 400
+
+        if user_config.get('role') == 'admin' and data['role'] != 'admin' and count_admin_users() <= 1:
+            return jsonify({'success': False, 'error': 'Cannot demote last admin'}), 400
+
+        if not AUTH_ENABLED and username == AUTH_BYPASS_USERNAME and data['role'] != 'admin':
+            return jsonify({'success': False, 'error': 'Cannot demote auth bypass user while auth is disabled'}), 400
+
         user_config['role'] = data['role']
 
     # 更新机器权限
@@ -723,7 +804,7 @@ def update_user(username):
         user_config['machines'] = data['machines']
 
     save_config()
-    log_action('update_user', {'username': username, 'role': user_config.get('role')})
+    log_action('update_user', {'username': username, 'role': next_role})
     return jsonify({'success': True})
 
 
@@ -739,7 +820,7 @@ def delete_user(username):
         return jsonify({'success': False, 'error': 'Cannot delete yourself'}), 400
 
     # 确保至少保留一个 admin
-    admin_count = sum(1 for u in USERS.values() if u.get('role') == 'admin')
+    admin_count = count_admin_users()
     if USERS[username].get('role') == 'admin' and admin_count <= 1:
         return jsonify({'success': False, 'error': 'Cannot delete last admin'}), 400
 

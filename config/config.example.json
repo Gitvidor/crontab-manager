@@ -1,5 +1,12 @@
 {
     "secret_key": "your-secret-key-change-in-production",
+    "auth": {
+        "enabled": true,
+        "bypass_username": "admin",
+        "sso": {
+            "enabled": false
+        }
+    },
     "users": {
         "admin": {
             "password": "admin123",
