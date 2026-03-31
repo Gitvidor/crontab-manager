@@ -127,17 +127,27 @@ export CRONTAB_AUTH_BYPASS_USERNAME='admin'
 
 ```
 crontab-manager/
-├── app.py              # 主程序
-├── config.json         # 配置文件
-├── templates/
-│   ├── index.html      # 主页面（含 CSS 和 JS）
-│   └── login.html      # 登录页面
-├── script/
-│   ├── start.sh        # 启动脚本
-│   └── stop.sh         # 停止脚本
+├── app.py              # 入口文件（Flask 应用创建与启动）
+├── executor.py         # 执行器抽象层（本地/SSH）
+├── core/               # 核心业务逻辑
+│   ├── config.py       # 配置加载与全局状态
+│   ├── auth.py         # 用户认证与权限控制
+│   ├── crontab.py      # Crontab 解析、验证、保存
+│   ├── at_jobs.py      # At 任务历史与模板管理
+│   ├── response.py     # 统一 API 响应格式
+│   └── watcher.py      # 后台监控线程
+├── routes/             # 路由蓝图
+│   ├── auth.py         # 认证与用户管理路由
+│   ├── crontab.py      # Crontab 任务管理路由
+│   ├── at_jobs.py      # At 任务路由
+│   └── query.py        # 通用查询路由（机器、日志、备份）
+├── tests/              # 单元测试
+│   ├── test_crontab_parse.py  # 解析与验证测试
+│   └── test_response.py       # 响应格式测试
+├── config/             # 配置文件目录
+├── templates/          # Flask 模板
+├── static/             # 前端静态资源
 ├── log/                # 日志目录
-│   ├── app.log         # 应用日志
-│   └── audit.log       # 操作审计日志
 └── backups/            # Crontab 备份目录
 ```
 

@@ -1252,7 +1252,8 @@
 
         async function loadTasks() {
             const resp = await fetchWithTimeout(getApiPath('/api/tasks'));
-            groups = await resp.json();
+            const data = await resp.json();
+            groups = data.groups || data;
             renderTasks();
             updateCronFilterCounts();
         }
